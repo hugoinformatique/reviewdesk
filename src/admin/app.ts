@@ -1,3 +1,5 @@
+import { ApiError, loginErrorMessage } from './errors.js';
+
 type Project = { id: string; name: string; clientLabel: string; origins: string[] };
 type Ticket = {
   id: string;
@@ -42,7 +44,7 @@ async function api(url: string, options: RequestInit = {}) {
     showLogin();
     throw new Error('UNAUTHORIZED');
   }
-  if (!response.ok) throw new Error(`${response.status}`);
+  if (!response.ok) throw new ApiError(response.status);
   return response.status === 204 ? null : response.json();
 }
 
@@ -69,8 +71,8 @@ $('#login-form').addEventListener('submit', async (event) => {
     const session = await api('/api/auth/login', { method: 'POST', body: JSON.stringify(Object.fromEntries(fields)) });
     csrfToken = session.csrfToken;
     await load();
-  } catch {
-    $('output').textContent = 'Identifiants invalides ou trop de tentatives.';
+  } catch (error) {
+    $('output').textContent = loginErrorMessage(error instanceof ApiError ? error.status : 0);
   }
 });
 

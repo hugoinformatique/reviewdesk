@@ -93,7 +93,10 @@ export function assertStrongAdminPassword(password: string): void {
 }
 
 function databaseConfig(env: Env, production: boolean): DatabaseConfig {
-  const url = required(env, 'DATABASE_URL');
+  // Vercel's Supabase integration exposes POSTGRES_URL. Prefer an explicit
+  // DATABASE_URL, then fall back to the managed integration URL.
+  const url = env.DATABASE_URL?.trim() || env.POSTGRES_URL?.trim();
+  if (!url) throw new ConfigError('DATABASE_URL or POSTGRES_URL is required');
   if (url.startsWith('pglite://')) {
     if (production) {
       throw new ConfigError('DATABASE_URL=pglite:// is a local development driver and is refused in production; use postgres://');
