@@ -48,3 +48,24 @@ test('Supabase storage maps a missing object to null without leaking an error bo
   );
   assert.equal(await store.get('absent'), null);
 });
+
+test('Supabase storage deletion is idempotent for its wrapped missing-object response', async () => {
+  let deletes = 0;
+  const fakeFetch = (async () => {
+    deletes += 1;
+    return new Response(JSON.stringify({ statusCode: '404', code: 'NoSuchKey' }), { status: 400 });
+  }) as typeof fetch;
+  const store = createSupabaseStore(
+    {
+      driver: 'supabase',
+      endpoint: 'https://project.supabase.co',
+      serviceRoleKey: 'server-only-key',
+      bucket: 'reviewdesk',
+      keyPrefix: 'objects',
+    },
+    fakeFetch,
+  );
+  await store.delete('already-absent');
+  await store.delete('already-absent');
+  assert.equal(deletes, 2);
+});

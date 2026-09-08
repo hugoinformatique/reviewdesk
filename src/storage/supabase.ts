@@ -64,9 +64,8 @@ export function createSupabaseStore(config: SupabaseStorageConfig, fetchImpl: Fe
     },
     async delete(key) {
       const response = await send('DELETE', key);
-      if (!response.ok && response.status !== 404) {
-        throw new StorageError(`object store rejected DELETE (${response.status})`, response.status);
-      }
+      if (await isMissing(response)) return;
+      if (!response.ok) throw new StorageError(`object store rejected DELETE (${response.status})`, response.status);
       await response.arrayBuffer();
     },
   };

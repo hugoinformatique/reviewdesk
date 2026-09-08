@@ -42,7 +42,7 @@ async function api(url: string, options: RequestInit = {}) {
   const response = await fetch(url, { ...options, headers });
   if (response.status === 401) {
     showLogin();
-    throw new Error('UNAUTHORIZED');
+    throw new ApiError(401);
   }
   if (!response.ok) throw new ApiError(response.status);
   return response.status === 204 ? null : response.json();

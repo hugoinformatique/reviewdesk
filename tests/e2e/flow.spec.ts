@@ -107,3 +107,10 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(widget(page).locator('.target')).toContainText('Envoi impossible');
   await expect(widget(page).getByRole('button', { name: 'Envoyé' })).toHaveCount(0);
 });
+
+test('invalid credentials show the credential error instead of a service outage', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Mot de passe').fill('definitely-not-the-admin-password');
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await expect(page.locator('#login output')).toHaveText('Identifiants invalides.');
+});
