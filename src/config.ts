@@ -14,6 +14,7 @@ export type DatabaseConfig =
   | { driver: 'pglite'; path: string };
 
 export type StorageConfig =
+  | { driver: 'supabase'; endpoint: string; serviceRoleKey: string; bucket: string; keyPrefix: string }
   | {
       driver: 's3';
       bucket: string;
@@ -136,7 +137,18 @@ function storageConfig(env: Env, production: boolean): StorageConfig {
     }
     return { driver: 'filesystem', directory: env.UPLOAD_DIR?.trim() || '.data/uploads' };
   }
-  if (driver !== 's3') throw new ConfigError('STORAGE_DRIVER must be "s3" or "filesystem"');
+  if (driver === 'supabase') {
+    const endpoint = required(env, 'SUPABASE_URL');
+    if (!endpoint.startsWith('https://')) throw new ConfigError('SUPABASE_URL must use https');
+    return {
+      driver,
+      endpoint,
+      serviceRoleKey: required(env, 'SUPABASE_SERVICE_ROLE_KEY'),
+      bucket: env.SUPABASE_STORAGE_BUCKET?.trim() || 'reviewdesk',
+      keyPrefix: (env.SUPABASE_STORAGE_PREFIX?.trim() || 'objects').replace(/^\/+|\/+$/g, ''),
+    };
+  }
+  if (driver !== 's3') throw new ConfigError('STORAGE_DRIVER must be "s3", "supabase" or "filesystem"');
   const endpoint = required(env, 'S3_ENDPOINT');
   if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
     throw new ConfigError('S3_ENDPOINT must be an absolute http(s) URL');

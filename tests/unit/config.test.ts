@@ -82,3 +82,22 @@ test('a weak admin secret is rejected before the server can start', () => {
   assert.doesNotThrow(() => assertStrongAdminPassword('grenat-fougere-litanie-8412'));
   expectConfigError({ ...base, ADMIN_PASSWORD: 'admin' }, /ADMIN_PASSWORD/);
 });
+
+test('Supabase storage is accepted in production without S3 credentials', () => {
+  const env = {
+    ...base,
+    STORAGE_DRIVER: 'supabase',
+    SUPABASE_URL: 'https://project.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-role-value',
+    SUPABASE_STORAGE_BUCKET: 'reviewdesk',
+  };
+  (env as Record<string, string | undefined>).S3_ENDPOINT = undefined;
+  const config = loadConfig(env);
+  assert.deepEqual(config.storage, {
+    driver: 'supabase',
+    endpoint: 'https://project.supabase.co',
+    serviceRoleKey: 'service-role-value',
+    bucket: 'reviewdesk',
+    keyPrefix: 'objects',
+  });
+});
