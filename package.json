@@ -19,7 +19,7 @@
     "test:docker": "bash scripts/with-docker-backends.sh npm test",
     "docker:up": "bash scripts/docker-backends.sh up",
     "docker:down": "bash scripts/docker-backends.sh down",
-    "pretest:e2e": "npm run build:assets && bash scripts/setup-e2e-deps.sh",
+    "pretest:e2e": "rm -rf .data/e2e .data/e2e-uploads && npm run build:assets && bash scripts/setup-e2e-deps.sh",
     "test:e2e": "PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 LD_LIBRARY_PATH=.deps/root/usr/lib/x86_64-linux-gnu playwright test",
     "check": "npm run lint && npm run typecheck && npm run test:docker && npm run build && npm run test:e2e && npm audit --omit=dev"
   },
