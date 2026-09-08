@@ -60,13 +60,16 @@ var ReviewDesk = (() => {
     if (input.orientation === "portrait" || input.orientation === "landscape") out.orientation = input.orientation;
     out.locale = bounded(input.locale, 20);
     out.timezone = bounded(input.timezone, 50);
-    out.browser = coarseBrowser(String(input.userAgent ?? ""));
-    out.os = coarseOs(String(input.platform ?? ""));
+    const browserInput = bounded(input.browser, 16);
+    const osInput = bounded(input.os, 16);
+    out.browser = browserInput && ["Chrome", "Firefox", "Safari", "Edge", "Unknown"].includes(browserInput) ? browserInput : coarseBrowser(String(input.userAgent ?? ""));
+    out.os = osInput && ["macOS", "Windows", "Linux", "iOS", "Android", "Unknown"].includes(osInput) ? osInput : coarseOs(String(input.platform ?? ""));
     if (typeof input.path === "string") out.path = cleanUrl(input.path);
+    const allowedErrors = /* @__PURE__ */ new Set(["widget:ANCHOR_MISSING", "widget:UPLOAD_FAILED", "widget:SEND_FAILED", "network:TIMEOUT"]);
     if (Array.isArray(input.errors)) out.errors = input.errors.slice(0, 10).flatMap((raw) => {
       const e = raw;
       const category = bounded(e.category, 24), code = bounded(e.code, 32);
-      if (!category || !code || !Number.isFinite(e.count)) return [];
+      if (!category || !code || !allowedErrors.has(`${category}:${code}`) || !Number.isFinite(e.count)) return [];
       const rawMessage = bounded(e.message, 120);
       const message = rawMessage && /token|bearer|password|secret|cookie|[A-Za-z0-9_-]{20,}/i.test(rawMessage) ? "[redacted]" : rawMessage;
       return [{ category, code, count: Math.min(100, Math.max(1, Math.floor(Number(e.count)))), ...message ? { message } : {} }];
@@ -167,7 +170,7 @@ var ReviewDesk = (() => {
           if (!up.ok) throw new Error("UPLOAD_FAILED");
           screenshotId = (await up.json()).id;
         }
-        const response = await fetch(`${config.api}/api/feedback`, { method: "POST", headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" }, body: JSON.stringify({ projectId: config.projectId, text: textarea.value, pageUrl: location.href, anchor, diagnostics: check.checked ? diagnostics() : {}, screenshotId }) });
+        const response = await fetch(`${config.api}/api/feedback?projectId=${encodeURIComponent(config.projectId)}`, { method: "POST", headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" }, body: JSON.stringify({ projectId: config.projectId, text: textarea.value, pageUrl: location.href, anchor, diagnostics: check.checked ? diagnostics() : {}, screenshotId }) });
         if (!response.ok) throw new Error("SEND_FAILED");
         textarea.value = "";
         file.value = "";

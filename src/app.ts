@@ -27,8 +27,9 @@ export async function buildApp(options: Options) {
   await app.register(multipart, { limits: { fileSize: 5_000_000, files: 1, fields: 3 } });
   const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
   await app.register(staticPlugin, { root: publicDir, prefix: '/' });
-  app.addHook('onSend', async (_req, reply, payload) => {
+  app.addHook('onSend', async (req, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff').header('Referrer-Policy', 'no-referrer').header('X-Frame-Options', 'DENY').header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (req.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
     return payload;
   });
   const admin = async (req: FastifyRequest, reply: any) => {
@@ -47,7 +48,10 @@ export async function buildApp(options: Options) {
   }
   app.options('/api/*', async (req, reply) => {
     const origin = req.headers.origin;
-    if (!origin) return reply.code(403).send();
+    const projectId = new URL(req.url, 'http://local').searchParams.get('projectId');
+    if (!origin || !projectId || !z.string().uuid().safeParse(projectId).success) return reply.code(403).send();
+    const rows = await db.query<{ origins: string[] }>('SELECT origins FROM projects WHERE id=$1', [projectId]);
+    if (!rows.rows[0]?.origins.includes(origin)) return reply.code(403).send();
     reply.header('Access-Control-Allow-Origin', origin).header('Vary', 'Origin').header('Access-Control-Allow-Headers', 'Authorization, Content-Type').header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     return reply.code(204).send();
   });

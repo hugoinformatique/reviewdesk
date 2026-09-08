@@ -7,7 +7,7 @@ test('cleanUrl removes query, hash and credentials', () => {
 });
 
 test('diagnostics keeps only coarse allowlisted fields', () => {
-  const result = normalizeDiagnostics({ viewport: { width: 390, height: 844 }, dpr: 3, timezone: 'Europe/Paris', locale: 'fr-FR', orientation: 'portrait', platform: 'MacIntel', userAgent: 'full agent secret', cookies: 'no', console: ['private'], errors: [{ category: 'widget', code: 'ANCHOR_MISSING', count: 2, message: 'Bearer abcdefghijklmnopqrstuvwxyz' }] });
+  const result = normalizeDiagnostics({ viewport: { width: 390, height: 844 }, dpr: 3, timezone: 'Europe/Paris', locale: 'fr-FR', orientation: 'portrait', platform: 'MacIntel', userAgent: 'full agent secret', cookies: 'no', console: ['private'], errors: [{ category: 'widget', code: 'ANCHOR_MISSING', count: 2, message: 'Bearer abcdefghijklmnopqrstuvwxyz' }, { category: 'console', code: 'RAW_LOG', count: 1, message: 'private form value' }] });
   assert.equal(result.path, undefined);
   assert.equal('cookies' in result, false);
   assert.equal('console' in result, false);

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --import tsx --test --test-concurrency=1 tests/unit/*.test.ts tests/integration/*.test.ts",
+    "pretest:e2e": "bash scripts/setup-e2e-deps.sh",
     "test:e2e": "PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 LD_LIBRARY_PATH=.deps/root/usr/lib/x86_64-linux-gnu playwright test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e"
   },

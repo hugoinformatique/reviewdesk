@@ -14,6 +14,11 @@ test('real flow persists feedback, scopes project access and updates status', as
   const a = projectA.json();
   const projectB = await app.inject({ method: 'POST', url: '/api/projects', headers: { cookie: authCookie }, payload: { name: 'DEMO Beta', clientLabel: 'DEMO Client B', origins: ['http://site-b.test'] } });
   const b = projectB.json();
+  const blockedPreflight = await app.inject({ method: 'OPTIONS', url: `/api/feedback?projectId=${a.id}`, headers: { origin: 'http://evil.test' } });
+  assert.equal(blockedPreflight.statusCode, 403);
+  const allowedPreflight = await app.inject({ method: 'OPTIONS', url: `/api/feedback?projectId=${a.id}`, headers: { origin: 'http://site-a.test' } });
+  assert.equal(allowedPreflight.statusCode, 204);
+  assert.equal(allowedPreflight.headers['access-control-allow-origin'], 'http://site-a.test');
   const link = await app.inject({ method: 'POST', url: `/api/projects/${a.id}/review-links`, headers: { cookie: authCookie } });
   const token = link.json().token;
   const boundary = 'reviewdesk-test-boundary';
