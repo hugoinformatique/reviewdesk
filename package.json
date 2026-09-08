@@ -1,32 +1,42 @@
 {
   "name": "reviewdesk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "npm run build:widget && esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js && esbuild src/admin/app.ts --bundle --format=iife --outfile=public/admin.js",
+    "migrate": "tsx scripts/migrate.ts",
+    "build": "npm run build:assets && esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",
+    "build:assets": "npm run build:widget && esbuild src/admin/app.ts --bundle --format=iife --outfile=public/admin.js",
     "build:widget": "esbuild src/widget/index.ts --bundle --format=iife --global-name=ReviewDesk --outfile=public/widget.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --import tsx --test --test-concurrency=1 tests/unit/*.test.ts tests/integration/*.test.ts",
-    "pretest:e2e": "bash scripts/setup-e2e-deps.sh",
+    "test:docker": "bash scripts/with-docker-backends.sh npm test",
+    "docker:up": "bash scripts/docker-backends.sh up",
+    "docker:down": "bash scripts/docker-backends.sh down",
+    "pretest:e2e": "npm run build:assets && bash scripts/setup-e2e-deps.sh",
     "test:e2e": "PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 LD_LIBRARY_PATH=.deps/root/usr/lib/x86_64-linux-gnu playwright test",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e"
+    "check": "npm run lint && npm run typecheck && npm run test:docker && npm run build && npm run test:e2e && npm audit --omit=dev"
   },
   "dependencies": {
-    "@electric-sql/pglite": "0.5.8",
     "@fastify/cookie": "11.1.2",
     "@fastify/multipart": "10.1.1",
     "@fastify/static": "10.1.3",
     "fastify": "5.12.3",
+    "pg": "8.16.3",
     "zod": "4.1.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "9.35.0",
-    "@playwright/test": "1.55.0",
+    "@playwright/test": "1.55.1",
     "@types/node": "22.18.1",
+    "@types/pg": "8.15.5",
     "esbuild": "0.25.9",
     "eslint": "9.35.0",
     "globals": "16.3.0",
