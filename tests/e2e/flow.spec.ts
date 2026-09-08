@@ -1,0 +1,41 @@
+import { test, expect } from '@playwright/test';
+
+test('reviewer submits a responsive anchored ticket and admin persists its status', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Mot de passe').fill('e2e-password-long-enough');
+  await page.getByRole('button', { name: 'Se connecter' }).click();
+  await expect(page.getByRole('heading', { name: 'Tous les retours' })).toBeVisible();
+  const setup = await page.evaluate(async () => {
+    const project = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'DEMO Atelier', clientLabel: 'DEMO Client', origins: ['http://127.0.0.1:4311'] }) }).then(r => r.json());
+    const link = await fetch(`/api/projects/${project.id}/review-links`, { method: 'POST' }).then(r => r.json());
+    return { project, link };
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`http://127.0.0.1:4311/demo.html#api=${encodeURIComponent('http://127.0.0.1:4310')}&project=${setup.project.id}&review=${setup.link.token}`);
+  await page.locator('reviewdesk-widget').getByRole('button', { name: 'Commenter' }).click();
+  const box = await page.locator('#hero-cta').boundingBox();
+  if (!box) throw new Error('CTA missing');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.locator('reviewdesk-widget').locator('.target')).toContainText('#hero-cta');
+  await page.screenshot({ path: 'artifacts/widget-mobile.png', fullPage: true });
+  await page.locator('reviewdesk-widget').locator('textarea').fill('Rendre ce bouton plus visible sur mobile');
+  await page.locator('reviewdesk-widget').getByLabel('Joindre les diagnostics').check();
+  const preview = await page.locator('reviewdesk-widget').locator('.diag').textContent();
+  expect(preview).not.toContain('ne-jamais-collecter');
+  expect(preview).not.toContain(setup.link.token);
+  await page.locator('reviewdesk-widget').getByRole('button', { name: 'Envoyer' }).click();
+  await expect(page.locator('reviewdesk-widget').getByRole('button', { name: 'Envoyé' })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('http://127.0.0.1:4310/');
+  await expect(page.getByRole('heading', { name: 'Tous les retours' })).toBeVisible();
+  await page.getByRole('button', { name: 'DEMO Atelier', exact: true }).click();
+  await expect(page.getByText('Rendre ce bouton plus visible sur mobile')).toBeVisible();
+  await page.getByText('Rendre ce bouton plus visible sur mobile').click();
+  await page.screenshot({ path: 'artifacts/admin-desktop.png', fullPage: true });
+  await page.locator('#detail select').selectOption('REVIEW');
+  await page.getByLabel('Réponse interne').fill('Ajustement prêt à valider');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'DEMO Atelier', exact: true }).click();
+  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
+});
