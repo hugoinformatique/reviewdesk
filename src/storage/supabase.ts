@@ -47,7 +47,7 @@ export function createSupabaseStore(config: SupabaseStorageConfig, fetchImpl: Fe
   }
 
   return {
-    description: `supabase ${config.bucket} @ ${new URL(config.endpoint).host}`,
+    description: 'supabase storage',
     async put(key, body, contentType) {
       const response = await send('POST', key, body, contentType);
       if (!response.ok) throw new StorageError(`object store rejected PUT (${response.status})`, response.status);
