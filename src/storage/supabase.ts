@@ -22,8 +22,9 @@ export function createSupabaseStore(config: SupabaseStorageConfig, fetchImpl: Fe
     };
     if (contentType) headers['content-type'] = contentType;
     if (method === 'POST') headers['x-upsert'] = 'true';
+    const url = method === 'GET' ? objectUrl(key).replace('/object/', '/object/authenticated/') : objectUrl(key);
     try {
-      return await fetchImpl(objectUrl(key), {
+      return await fetchImpl(url, {
         method,
         headers,
         body: body ? new Uint8Array(body) : undefined,
@@ -31,6 +32,17 @@ export function createSupabaseStore(config: SupabaseStorageConfig, fetchImpl: Fe
       });
     } catch (cause) {
       throw new StorageError(`object store request failed: ${method} ${key}`, undefined, { cause } as ErrorOptions);
+    }
+  }
+
+  async function isMissing(response: Response): Promise<boolean> {
+    if (response.status === 404) return true;
+    if (response.status !== 400) return false;
+    try {
+      const body = (await response.clone().json()) as { code?: unknown; statusCode?: unknown };
+      return body.code === 'NoSuchKey' && String(body.statusCode) === '404';
+    } catch {
+      return false;
     }
   }
 
@@ -43,7 +55,7 @@ export function createSupabaseStore(config: SupabaseStorageConfig, fetchImpl: Fe
     },
     async get(key): Promise<StoredObject | null> {
       const response = await send('GET', key);
-      if (response.status === 404) return null;
+      if (await isMissing(response)) return null;
       if (!response.ok) throw new StorageError(`object store rejected GET (${response.status})`, response.status);
       return {
         body: Buffer.from(await response.arrayBuffer()),

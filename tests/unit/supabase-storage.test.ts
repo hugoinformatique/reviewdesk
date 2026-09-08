@@ -27,6 +27,7 @@ test('Supabase storage keeps credentials server-side and round-trips objects', a
   assert.deepEqual(object, { body: Buffer.from('image'), contentType: 'image/png' });
   assert.deepEqual(calls.map((call) => call.init.method), ['POST', 'GET', 'DELETE']);
   assert.match(calls[0]!.url, /reviewdesk\/objects\/folder\/a%20b\.png$/);
+  assert.match(calls[1]!.url, /object\/authenticated\/reviewdesk\/objects\/folder/);
   const headers = calls[0]!.init.headers as Record<string, string>;
   assert.equal(headers.authorization, 'Bearer server-only-key');
   assert.equal(headers.apikey, 'server-only-key');
@@ -34,7 +35,7 @@ test('Supabase storage keeps credentials server-side and round-trips objects', a
 });
 
 test('Supabase storage maps a missing object to null without leaking an error body', async () => {
-  const fakeFetch = (async () => new Response('{"message":"sensitive upstream detail"}', { status: 404 })) as typeof fetch;
+  const fakeFetch = (async () => new Response('{"statusCode":"404","code":"NoSuchKey","message":"sensitive upstream detail"}', { status: 400 })) as typeof fetch;
   const store = createSupabaseStore(
     {
       driver: 'supabase',
