@@ -55,6 +55,11 @@
       b.onclick = () => chooseProject(p.id);
       nav.append(b);
     }
+    const client = $("#client");
+    const prior = client.value;
+    client.replaceChildren(new Option("Tous les clients", ""));
+    for (const label of [...new Set(projects.map((p) => p.clientLabel))].sort()) client.append(new Option(label, label));
+    client.value = prior;
   }
   async function chooseProject(id) {
     selectedProject = id;
@@ -68,8 +73,12 @@
   async function loadTickets() {
     const params = new URLSearchParams();
     if (selectedProject) params.set("projectId", selectedProject);
-    const status = $("#status").value;
-    if (status) params.set("status", status);
+    for (const [id, key] of [["status", "status"], ["client", "client"], ["format", "format"]]) {
+      const value = $("#" + id).value;
+      if (value) params.set(key, value);
+    }
+    const page = $("#page-filter").value.trim();
+    if (page) params.set("page", page);
     tickets = (await api("/api/tickets?" + params)).tickets;
     renderTickets();
     $("#count").textContent = `${tickets.length} retour${tickets.length === 1 ? "" : "s"}`;
@@ -159,7 +168,8 @@ ${t.anchor.selector} @ ${Math.round(t.anchor.relative.x * 100)}%, ${Math.round(t
       d.append(a);
     }
   }
-  $("#status").addEventListener("change", loadTickets);
+  for (const id of ["status", "client", "format"]) $("#" + id).addEventListener("change", loadTickets);
+  $("#page-filter").addEventListener("input", loadTickets);
   $("#new-project").addEventListener("click", () => $("#project-dialog").showModal());
   document.querySelectorAll(".close").forEach((b) => b.addEventListener("click", () => b.closest("dialog")?.close()));
   $("#project-form").addEventListener("submit", async (e) => {

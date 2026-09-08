@@ -40,6 +40,15 @@ test('real flow persists feedback, scopes project access and updates status', as
   assert.equal(list.json().tickets[0].pageUrl, 'http://site-a.test/page');
   assert.equal(list.json().tickets[0].text.includes('<img'), true);
   assert.equal(list.json().tickets[0].diagnostics.cookies, undefined);
+  assert.equal(list.json().tickets[0].viewportWidth, 390);
+  const clientFiltered = await app.inject({ method: 'GET', url: `/api/tickets?client=${encodeURIComponent(a.clientLabel)}`, headers: { cookie: authCookie } });
+  assert.equal(clientFiltered.json().tickets.length, 1, 'client filter');
+  const pageFiltered = await app.inject({ method: 'GET', url: '/api/tickets?page=page', headers: { cookie: authCookie } });
+  assert.equal(pageFiltered.json().tickets.length, 1, 'page filter');
+  const mobileFiltered = await app.inject({ method: 'GET', url: '/api/tickets?status=IN_PROGRESS&format=mobile', headers: { cookie: authCookie } });
+  assert.equal(mobileFiltered.json().tickets.length, 1, 'format/status filter');
+  const desktopFiltered = await app.inject({ method: 'GET', url: '/api/tickets?format=desktop', headers: { cookie: authCookie } });
+  assert.equal(desktopFiltered.json().tickets.length, 0);
   await app.inject({ method: 'DELETE', url: `/api/review-links/${link.json().id}`, headers: { cookie: authCookie } });
   const revoked = await app.inject({ method: 'POST', url: '/api/feedback', headers: { authorization: `Bearer ${token}`, origin: 'http://site-a.test' }, payload: { projectId: a.id, text: 'After revoke', pageUrl: 'http://site-a.test/', anchor: { selector: '#hero', relative: { x: .5, y: .5 }, viewport: { width: 390, height: 844 } } } });
   assert.equal(revoked.statusCode, 403);
