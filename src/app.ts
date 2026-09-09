@@ -28,10 +28,33 @@ const uuid = z.string().uuid();
 /** `new URL()` happily accepts javascript: and data:; only the web schemes are pages. */
 const httpUrl = z.string().url().refine((value) => /^https?:\/\//i.test(value), 'not an http(s) URL');
 
+/**
+ * Outgoing notifications are https-only. The URL is admin-supplied and the
+ * server fetches it, so this is a deliberate, narrow SSRF surface: requiring TLS
+ * and refusing loopback / link-local literals rules out the easy cases. A
+ * hostname that resolves to a private address still gets through, which is
+ * acceptable while the only person who can set it is the instance's own admin.
+ */
+const PRIVATE_HOSTS = /^(localhost|127\.|0\.|10\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/i;
+const webhookUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => {
+    if (value === '') return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' && !PRIVATE_HOSTS.test(url.hostname);
+    } catch {
+      return false;
+    }
+  }, 'not a public https URL');
+
 const projectInput = z.object({
   name: z.string().trim().min(2).max(80),
   clientLabel: z.string().trim().min(2).max(80),
   origins: z.array(httpUrl).min(1).max(20),
+  webhookUrl: webhookUrl.optional(),
 });
 const reviewLinkInput = z.object({ label: z.string().trim().max(80).optional() });
 const anchorSchema = z.object({
@@ -51,8 +74,15 @@ const feedbackInput = z.object({
   screenshotId: uuid.optional(),
 });
 const ticketPatch = z
-  .object({ status: z.enum(STATUSES).optional(), response: z.string().max(4_000).optional() })
-  .refine((value) => value.status !== undefined || value.response !== undefined, 'empty patch');
+  .object({
+    status: z.enum(STATUSES).optional(),
+    response: z.string().max(4_000).optional(),
+    replyText: z.string().max(4_000).optional(),
+  })
+  .refine(
+    (value) => value.status !== undefined || value.response !== undefined || value.replyText !== undefined,
+    'empty patch',
+  );
 
 type AdminSession = { tokenHash: string; csrfToken: string };
 type ReviewerGrant = { projectId: string; origin: string; tokenHash: string };
@@ -227,6 +257,41 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   const allowOrigin = (reply: FastifyReply, origin: string) =>
     reply.header('Access-Control-Allow-Origin', origin).header('Vary', 'Origin');
 
+  // --------------------------------------------------------------- webhooks
+
+  /**
+   * Awaited on purpose, with a short timeout. A serverless instance is frozen
+   * the moment it answers, so a detached promise would usually never run; the
+   * reviewer pays a bounded delay instead of the notification silently never
+   * arriving. A failing webhook must never fail the submission it reports, so
+   * everything here is swallowed and logged.
+   */
+  async function notify(req: FastifyRequest, projectId: string, ticket: Record<string, unknown>): Promise<void> {
+    const rows = await db.query<{ webhook_url: string; name: string; client_label: string }>(
+      'SELECT webhook_url, name, client_label FROM projects WHERE id = $1',
+      [projectId],
+    );
+    const project = rows.rows[0];
+    if (!project?.webhook_url) return;
+    try {
+      const response = await fetch(project.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'ReviewDesk' },
+        body: JSON.stringify({
+          event: 'feedback.created',
+          project: { id: projectId, name: project.name, clientLabel: project.client_label },
+          ticket,
+        }),
+        signal: AbortSignal.timeout(config.webhookTimeoutMs),
+        redirect: 'error',
+      });
+      if (!response.ok) req.log.warn({ status: response.status, projectId }, 'webhook rejected');
+    } catch (error) {
+      // The URL is admin-supplied; log the failure, never the response body.
+      req.log.warn({ err: error, projectId }, 'webhook failed');
+    }
+  }
+
   // ----------------------------------------------------------------- routes
 
   app.get('/health', async () => {
@@ -244,7 +309,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     if (!origins || !originAllowed(origins, origin)) return reply.code(403).send();
     allowOrigin(reply, origin)
       .header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-      .header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      .header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
       .header('Access-Control-Max-Age', '600');
     return reply.code(204).send();
   });
@@ -288,36 +353,72 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
   });
 
   app.get('/api/projects', { preHandler: requireAdmin }, async () => {
+    // openCount is what the sidebar badges show. It counts every ticket that is
+    // not DONE, independently of the filters in force, so the badge means the
+    // same thing whatever the operator is currently looking at.
     const rows = await db.query(
-      `SELECT id, name, client_label AS "clientLabel", origins, created_at AS "createdAt"
-       FROM projects ORDER BY created_at`,
+      `SELECT p.id, p.name, p.client_label AS "clientLabel", p.origins, p.webhook_url AS "webhookUrl",
+              p.created_at AS "createdAt",
+              COUNT(t.id) FILTER (WHERE t.status <> 'DONE') AS "openCount"
+       FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
+       GROUP BY p.id
+       ORDER BY p.created_at`,
     );
-    return rows.rows;
+    return rows.rows.map((row) => ({ ...row, openCount: Number((row as { openCount: string }).openCount) }));
   });
 
-  app.post('/api/projects', { preHandler: requireAdminWrite }, async (req, reply) => {
-    const parsed = projectInput.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+  /** Returns the canonical origins, or an error code the caller should send back. */
+  function normaliseOrigins(input: string[]): { origins: string[] } | { error: string } {
     let origins: string[];
     try {
-      origins = parsed.data.origins.map((value) => {
+      origins = input.map((value) => {
         const url = new URL(value);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('scheme');
         return url.origin;
       });
     } catch {
-      return reply.code(400).send({ error: 'INVALID_ORIGIN' });
+      return { error: 'INVALID_ORIGIN' };
     }
-    if (origins.some((origin) => origin === 'null')) return reply.code(400).send({ error: 'INVALID_ORIGIN' });
-    if (new Set(origins).size !== origins.length) return reply.code(400).send({ error: 'DUPLICATE_ORIGIN' });
+    if (origins.some((origin) => origin === 'null')) return { error: 'INVALID_ORIGIN' };
+    if (new Set(origins).size !== origins.length) return { error: 'DUPLICATE_ORIGIN' };
+    return { origins };
+  }
+
+  app.post('/api/projects', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const parsed = projectInput.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const normalised = normaliseOrigins(parsed.data.origins);
+    if ('error' in normalised) return reply.code(400).send({ error: normalised.error });
+    const { origins } = normalised;
     const id = randomUUID();
-    await db.query('INSERT INTO projects(id, name, client_label, origins) VALUES ($1, $2, $3, $4)', [
+    const hook = parsed.data.webhookUrl ?? '';
+    await db.query('INSERT INTO projects(id, name, client_label, origins, webhook_url) VALUES ($1, $2, $3, $4, $5)', [
       id,
       parsed.data.name,
       parsed.data.clientLabel,
       JSON.stringify(origins),
+      hook,
     ]);
-    return reply.code(201).send({ id, name: parsed.data.name, clientLabel: parsed.data.clientLabel, origins });
+    return reply
+      .code(201)
+      .send({ id, name: parsed.data.name, clientLabel: parsed.data.clientLabel, origins, webhookUrl: hook, openCount: 0 });
+  });
+
+  app.patch('/api/projects/:id', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = projectInput.safeParse(req.body);
+    if (!uuid.safeParse(id).success || !parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const normalised = normaliseOrigins(parsed.data.origins);
+    if ('error' in normalised) return reply.code(400).send({ error: normalised.error });
+    const { origins } = normalised;
+    const hook = parsed.data.webhookUrl ?? '';
+    const rows = await db.query<{ id: string }>(
+      `UPDATE projects SET name = $2, client_label = $3, origins = $4, webhook_url = $5
+       WHERE id = $1 RETURNING id`,
+      [id, parsed.data.name, parsed.data.clientLabel, JSON.stringify(origins), hook],
+    );
+    if (!rows.rows.length) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return { id, name: parsed.data.name, clientLabel: parsed.data.clientLabel, origins, webhookUrl: hook };
   });
 
   app.get('/api/projects/:id/review-links', { preHandler: requireAdmin }, async (req, reply) => {
@@ -399,7 +500,36 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
         parsed.data.screenshotId ?? null,
       ],
     );
+    await notify(req, grant.projectId, {
+      id,
+      text: parsed.data.text,
+      pageUrl: cleanUrl(parsed.data.pageUrl),
+      selector: parsed.data.anchor.selector,
+      viewportWidth: parsed.data.anchor.viewport.width,
+      status: 'TODO',
+    });
     return allowOrigin(reply, grant.origin).code(201).send({ id });
+  });
+
+  /**
+   * The reviewer's own view of a project's tickets, authorised by the same
+   * bearer link used to file them. It exposes `replyText` and never `response`:
+   * the internal note must not become visible by adding a read route.
+   */
+  app.get('/api/feedback', async (req, reply) => {
+    const projectId = (req.query as { projectId?: unknown }).projectId;
+    if (typeof projectId !== 'string') return reply.code(403).send({ error: 'FORBIDDEN' });
+    const grant = await authoriseReviewer(req, projectId);
+    if (!grant) return reply.code(403).send({ error: 'FORBIDDEN' });
+    const rows = await db.query(
+      `SELECT id, text, status, reply_text AS "replyText", page_url AS "pageUrl",
+              anchor, created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM tickets WHERE project_id = $1
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [grant.projectId],
+    );
+    return allowOrigin(reply, grant.origin).send({ tickets: rows.rows });
   });
 
   app.post('/api/uploads', async (req, reply) => {
@@ -507,34 +637,68 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     if (format === 'desktop') clauses.push('t.viewport_width >= 768');
 
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-    const rows = await db.query(
+    // `total` is counted before paging so the header can state how many tickets
+    // match, rather than how many happen to be loaded. The previous LIMIT 500
+    // truncated silently once a project crossed it.
+    const totals = await db.query<{ total: string }>(
+      `SELECT COUNT(*) AS total FROM tickets t JOIN projects p ON p.id = t.project_id ${where}`,
+      values,
+    );
+
+    const limit = Math.min(200, Math.max(1, Number(text('limit', 4) ?? 60) || 60));
+    // Keyset rather than OFFSET: a ticket filed while the operator pages must
+    // not shift the window and hide a row.
+    const cursor = text('cursor', 80);
+    if (cursor === null) return reply.code(400).send({ error: 'INVALID_FILTER' });
+    const paged = [...clauses];
+    if (cursor) {
+      const [createdAt, id] = cursor.split('|');
+      if (!createdAt || !id || Number.isNaN(Date.parse(createdAt)) || !uuid.safeParse(id).success) {
+        return reply.code(400).send({ error: 'INVALID_FILTER' });
+      }
+      values.push(createdAt, id);
+      paged.push(`(t.created_at, t.id) < ($${values.length - 1}::timestamptz, $${values.length})`);
+    }
+
+    values.push(limit + 1);
+    const rows = await db.query<{ id: string; createdAt: string }>(
       `SELECT t.id, t.project_id AS "projectId", p.name AS "projectName", p.client_label AS "clientLabel",
-              t.text, t.response, t.status, t.page_url AS "pageUrl", t.anchor,
+              t.text, t.response, t.reply_text AS "replyText", t.status, t.page_url AS "pageUrl", t.anchor,
               t.viewport_width AS "viewportWidth", t.diagnostics, t.screenshot_id AS "screenshotId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt"
        FROM tickets t JOIN projects p ON p.id = t.project_id
-       ${where}
-       ORDER BY t.created_at DESC
-       LIMIT 500`,
+       ${paged.length ? `WHERE ${paged.join(' AND ')}` : ''}
+       ORDER BY t.created_at DESC, t.id DESC
+       LIMIT $${values.length}`,
       values,
     );
-    return { tickets: rows.rows };
+
+    // One row over the limit is fetched purely to know whether more exist.
+    const hasMore = rows.rows.length > limit;
+    const tickets = hasMore ? rows.rows.slice(0, limit) : rows.rows;
+    const last = tickets[tickets.length - 1];
+    return {
+      tickets,
+      total: Number(totals.rows[0]?.total ?? tickets.length),
+      nextCursor: hasMore && last ? `${new Date(last.createdAt).toISOString()}|${last.id}` : null,
+    };
   });
 
   app.patch('/api/tickets/:id', { preHandler: requireAdminWrite }, async (req, reply) => {
     const parsed = ticketPatch.safeParse(req.body);
     const id = (req.params as { id: string }).id;
     if (!parsed.success || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
-    const rows = await db.query<{ status: string; response: string }>(
+    const rows = await db.query<{ status: string; response: string; replyText: string }>(
       `UPDATE tickets
-       SET status = COALESCE($2, status), response = COALESCE($3, response), updated_at = now()
+       SET status = COALESCE($2, status), response = COALESCE($3, response),
+           reply_text = COALESCE($4, reply_text), updated_at = now()
        WHERE id = $1
-       RETURNING status, response`,
-      [id, parsed.data.status ?? null, parsed.data.response ?? null],
+       RETURNING status, response, reply_text AS "replyText"`,
+      [id, parsed.data.status ?? null, parsed.data.response ?? null, parsed.data.replyText ?? null],
     );
     const row = rows.rows[0];
     if (!row) return reply.code(404).send({ error: 'NOT_FOUND' });
-    return { id, status: row.status, response: row.response };
+    return { id, status: row.status, response: row.response, replyText: row.replyText };
   });
 
   app.addHook('onClose', async () => {

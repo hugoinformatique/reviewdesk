@@ -17,9 +17,16 @@ Le handler serverless est `api/index.ts`. Chaque instance chaude réutilise un p
 - liens reviewer révocables, secret stocké uniquement sous forme de SHA-256 ;
 - widget indépendant du framework, desktop et tactile, avec épingle relative à un élément et au viewport ;
 - commentaire, diagnostics strictement opt-in et prévisualisés, capture PNG/JPEG/WebP choisie manuellement ;
-- liste admin avec filtres projet, client, page/site, format et statut ;
-- statuts persistants `À traiter`, `En cours`, `À valider`, `Traité`, réponse admin persistante ;
+- liste admin avec filtres projet, client, page/site, format et statut, pagination par curseur et compteur de retours ouverts par projet ;
+- statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
+- **deux réponses distinctes par retour** : une note interne, jamais exposée, et une réponse que le reviewer relit dans le widget ;
+- **retour au point d'ancrage** : depuis l'admin, un lien rouvre la page de préproduction avec l'épingle reposée sur l'élément concerné. L'ancrage voyage dans le fragment d'URL, que le navigateur n'envoie jamais au serveur du client ;
+- **notification sortante** par projet : un POST JSON à chaque nouveau retour, vers une URL HTTPS publique ;
 - téléchargements privés servis seulement après authentification admin.
+
+Le rejeu d'épingle suppose que le widget est déjà installé sur la page ouverte,
+ce qui est le cas d'une préproduction équipée du snippet ci-dessous. Le lien ne
+contient aucun secret : c'est le snippet de la page qui porte le token.
 
 ## Développement local
 
