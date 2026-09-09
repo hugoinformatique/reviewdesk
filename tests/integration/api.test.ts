@@ -88,7 +88,12 @@ test('a reviewer ticket travels from a foreign origin to the admin list and back
     payload: { status: 'REVIEW', response: 'Ajustement prêt à valider' },
   });
   assert.equal(patched.statusCode, 200);
-  assert.deepEqual(patched.json(), { id: ticketId, status: 'REVIEW', response: 'Ajustement prêt à valider' });
+  assert.deepEqual(patched.json(), {
+    id: ticketId,
+    status: 'REVIEW',
+    response: 'Ajustement prêt à valider',
+    replyText: '',
+  });
 
   // Persistence is what the admin actually relies on: read it back on a fresh request.
   const reread = await app.inject({ method: 'GET', url: `/api/tickets?status=REVIEW`, headers: auth.read });
@@ -101,7 +106,11 @@ test('a reviewer ticket travels from a foreign origin to the admin list and back
     headers: auth.write,
     payload: { response: 'Corrigé' },
   });
-  assert.deepEqual(responseOnly.json(), { id: ticketId, status: 'REVIEW', response: 'Corrigé' }, 'a partial patch keeps the status');
+  assert.deepEqual(
+    responseOnly.json(),
+    { id: ticketId, status: 'REVIEW', response: 'Corrigé', replyText: '' },
+    'a partial patch keeps the status',
+  );
 });
 
 test('admin filters combine project, client, page, format and status', async (t) => {
@@ -216,4 +225,142 @@ test('health reports the backends the instance is actually bound to', async (t) 
   assert.equal(response.json().ok, true);
   assert.equal(response.json().database, 'postgresql');
   assert.equal(JSON.stringify(response.json()).includes('SecretAccessKey'), false);
+});
+
+test('the reviewer read view exposes the public reply and never the internal note', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+  const project = await createProject(app, auth, {
+    name: 'DEMO Atelier',
+    clientLabel: 'DEMO Client A',
+    origins: ['https://preview.client-a.test'],
+  });
+  const link = await createReviewLink(app, auth, project.id);
+  const reviewer = { authorization: `Bearer ${link.token}`, origin: 'https://preview.client-a.test' };
+
+  const submitted = await app.inject({
+    method: 'POST',
+    url: '/api/feedback',
+    headers: reviewer,
+    payload: {
+      projectId: project.id,
+      text: 'Le bouton est trop discret',
+      pageUrl: 'https://preview.client-a.test/collection',
+      anchor,
+    },
+  });
+  assert.equal(submitted.statusCode, 201, submitted.body);
+  const ticketId = submitted.json().id as string;
+
+  await app.inject({
+    method: 'PATCH',
+    url: `/api/tickets/${ticketId}`,
+    headers: auth.write,
+    payload: { status: 'DONE', response: 'facturer la retouche', replyText: 'Corrigé, merci du retour.' },
+  });
+
+  const mine = await app.inject({ method: 'GET', url: `/api/feedback?projectId=${project.id}`, headers: reviewer });
+  assert.equal(mine.statusCode, 200, mine.body);
+  assert.equal(mine.headers['access-control-allow-origin'], 'https://preview.client-a.test');
+  const seen = mine.json().tickets[0];
+  assert.equal(seen.status, 'DONE');
+  assert.equal(seen.replyText, 'Corrigé, merci du retour.');
+  // The whole point of splitting the columns: the internal note stays internal.
+  assert.equal('response' in seen, false, 'the internal note must never reach a reviewer');
+  assert.equal(mine.body.includes('facturer la retouche'), false);
+
+  // The bearer link is the only key; a revoked one loses the read view too.
+  const links = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/review-links`, headers: auth.read });
+  const linkId = links.json().links[0].id as string;
+  await app.inject({
+    method: 'POST',
+    url: `/api/projects/${project.id}/review-links/${linkId}/revoke`,
+    headers: auth.write,
+  });
+  const afterRevoke = await app.inject({
+    method: 'GET',
+    url: `/api/feedback?projectId=${project.id}`,
+    headers: reviewer,
+  });
+  assert.equal(afterRevoke.statusCode, 403, 'revocation covers the read view too');
+});
+
+test('ticket paging reports an honest total and never repeats a row', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+  const project = await createProject(app, auth, {
+    name: 'DEMO Atelier',
+    clientLabel: 'DEMO Client A',
+    origins: ['https://preview.client-a.test'],
+  });
+  const link = await createReviewLink(app, auth, project.id);
+  const reviewer = { authorization: `Bearer ${link.token}`, origin: 'https://preview.client-a.test' };
+
+  for (let index = 0; index < 5; index += 1) {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/feedback',
+      headers: reviewer,
+      payload: {
+        projectId: project.id,
+        text: `retour numéro ${index}`,
+        pageUrl: 'https://preview.client-a.test/collection',
+        anchor,
+      },
+    });
+    assert.equal(created.statusCode, 201, created.body);
+  }
+
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  let total = 0;
+  do {
+    const url: string = `/api/tickets?limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const page = await app.inject({ method: 'GET', url, headers: auth.read });
+    assert.equal(page.statusCode, 200, page.body);
+    // Annotated rather than inferred: `cursor` feeds the next `url`, and letting
+    // TypeScript infer the shape here makes that a circular initialiser.
+    const body = page.json() as { total: number; tickets: { id: string }[]; nextCursor: string | null };
+    total = body.total;
+    seen.push(...body.tickets.map((ticket) => ticket.id));
+    cursor = body.nextCursor;
+  } while (cursor);
+
+  assert.equal(total, 5, 'the total counts every match, not the loaded page');
+  assert.equal(seen.length, 5);
+  assert.equal(new Set(seen).size, 5, 'keyset paging must not repeat a ticket');
+});
+
+test('a webhook URL must be public https, and a project can be edited', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+  const project = await createProject(app, auth, {
+    name: 'DEMO Atelier',
+    clientLabel: 'DEMO Client A',
+    origins: ['https://preview.client-a.test'],
+  });
+
+  for (const rejected of ['http://hooks.example.com/x', 'https://127.0.0.1/x', 'https://localhost/x', 'not-a-url']) {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/projects/${project.id}`,
+      headers: auth.write,
+      payload: { ...project, webhookUrl: rejected },
+    });
+    assert.equal(response.statusCode, 400, `${rejected} must be refused`);
+  }
+
+  const updated = await app.inject({
+    method: 'PATCH',
+    url: `/api/projects/${project.id}`,
+    headers: auth.write,
+    payload: { ...project, name: 'DEMO Atelier v2', webhookUrl: 'https://hooks.example.com/rd' },
+  });
+  assert.equal(updated.statusCode, 200, updated.body);
+
+  const projects = await app.inject({ method: 'GET', url: '/api/projects', headers: auth.read });
+  const stored = projects.json()[0];
+  assert.equal(stored.name, 'DEMO Atelier v2');
+  assert.equal(stored.webhookUrl, 'https://hooks.example.com/rd');
+  assert.equal(stored.openCount, 0);
 });

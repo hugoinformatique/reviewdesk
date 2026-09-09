@@ -1,6 +1,13 @@
 import { ApiError, loginErrorMessage } from './errors.js';
 
-type Project = { id: string; name: string; clientLabel: string; origins: string[] };
+type Project = {
+  id: string;
+  name: string;
+  clientLabel: string;
+  origins: string[];
+  webhookUrl: string;
+  openCount: number;
+};
 type Ticket = {
   id: string;
   projectId: string;
@@ -8,6 +15,7 @@ type Ticket = {
   clientLabel: string;
   text: string;
   response: string;
+  replyText: string;
   status: string;
   pageUrl: string;
   anchor: { selector: string; relative: { x: number; y: number }; viewport: { width: number; height: number } };
@@ -31,6 +39,11 @@ let projects: Project[] = [];
 let tickets: Ticket[] = [];
 let selectedProject = '';
 let selectedTicket = '';
+/** Keyset cursor for the next page; null once the list is exhausted. */
+let nextCursor: string | null = null;
+let totalTickets = 0;
+/** Set while a project dialog is editing rather than creating. */
+let editingProject: Project | null = null;
 /** Bound to the current session by the server; required on every write. */
 let csrfToken = '';
 
@@ -88,6 +101,29 @@ function icon(id: string, className = 'icon') {
   return svg;
 }
 
+/**
+ * Deep-links the reviewer's preview page back to the exact spot. The anchor
+ * rides in the fragment: browsers never send it to the client's server, and it
+ * stays out of their access logs and Referer headers.
+ */
+function anchorUrl(ticket: Ticket): string {
+  const payload = JSON.stringify({ selector: ticket.anchor.selector, relative: ticket.anchor.relative });
+  return `${ticket.pageUrl}#rd-anchor=${encodeURIComponent(payload)}`;
+}
+
+let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+function toast(message: string, tone: 'ok' | 'error' = 'ok') {
+  const host = $<HTMLElement>('#toast');
+  host.className = `toast ${tone}`;
+  host.textContent = message;
+  host.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    host.hidden = true;
+  }, 3200);
+}
+
 function emptyState(iconId: string, title: string, hint: string) {
   const box = document.createElement('div');
   box.className = 'empty-state';
@@ -125,7 +161,7 @@ async function load() {
  * client line is decoration, and tests (plus screen-reader users scanning the
  * nav) want the project's own name, not "Name Client" run together.
  */
-function projectButton(id: string, name: string, secondary: string) {
+function projectButton(id: string, name: string, secondary: string, openCount = 0) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = `project ${selectedProject === id ? 'active' : ''}`;
@@ -133,6 +169,7 @@ function projectButton(id: string, name: string, secondary: string) {
   button.title = secondary ? `${name} — ${secondary}` : name;
 
   const stack = document.createElement('span');
+  stack.className = 'stack';
   stack.setAttribute('aria-hidden', 'true');
   const label = document.createElement('span');
   label.className = 'name';
@@ -146,6 +183,13 @@ function projectButton(id: string, name: string, secondary: string) {
   }
 
   button.append(stack);
+  if (openCount > 0) {
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = String(openCount);
+    button.append(badge);
+  }
   button.onclick = () => chooseProject(id);
   return button;
 }
@@ -153,9 +197,12 @@ function projectButton(id: string, name: string, secondary: string) {
 function renderProjects() {
   const nav = $('#projects');
   nav.replaceChildren();
-  nav.append(projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`));
+  const open = projects.reduce((sum, project) => sum + project.openCount, 0);
+  nav.append(
+    projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`, open),
+  );
   for (const project of projects) {
-    nav.append(projectButton(project.id, project.name, project.clientLabel));
+    nav.append(projectButton(project.id, project.name, project.clientLabel, project.openCount));
   }
   const client = $<HTMLSelectElement>('#client');
   const previous = client.value;
@@ -177,7 +224,7 @@ async function chooseProject(id: string) {
   await loadTickets();
 }
 
-async function loadTickets() {
+function filterParams() {
   const params = new URLSearchParams();
   if (selectedProject) params.set('projectId', selectedProject);
   for (const key of ['status', 'client', 'format'] as const) {
@@ -186,10 +233,47 @@ async function loadTickets() {
   }
   const page = $<HTMLInputElement>('#page-filter').value.trim();
   if (page) params.set('page', page);
-  tickets = (await api(`/api/tickets?${params}`)).tickets;
+  return params;
+}
+
+/** Debounced so typing in the page filter does not fire a request per keystroke. */
+let filterTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleReload() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => void loadTickets(), 180);
+}
+
+async function loadTickets() {
+  const params = filterParams();
+  const payload = await api(`/api/tickets?${params}`);
+  tickets = payload.tickets;
+  nextCursor = payload.nextCursor;
+  totalTickets = payload.total;
   renderTickets();
-  $('#count').textContent = `${tickets.length} retour${tickets.length === 1 ? '' : 's'}`;
+  renderCount();
   if (!selectedTicket) clearDetail();
+}
+
+async function loadMore() {
+  if (!nextCursor) return;
+  const params = filterParams();
+  params.set('cursor', nextCursor);
+  const payload = await api(`/api/tickets?${params}`);
+  tickets = [...tickets, ...payload.tickets];
+  nextCursor = payload.nextCursor;
+  totalTickets = payload.total;
+  renderTickets();
+  renderCount();
+}
+
+function renderCount() {
+  const plural = totalTickets === 1 ? '' : 's';
+  // Say what is loaded as well as what matches: a page that shows 60 of 340
+  // must not read as though 60 were the whole story.
+  $('#count').textContent =
+    tickets.length < totalTickets
+      ? `${tickets.length} affichés sur ${totalTickets} retour${plural}`
+      : `${totalTickets} retour${plural}`;
 }
 
 function renderTickets() {
@@ -228,6 +312,23 @@ function renderTickets() {
     row.append(status, summary, date);
     row.onclick = () => openTicket(ticket.id);
     list.append(row);
+  }
+  if (nextCursor) {
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'quiet load-more';
+    more.textContent = `Charger plus (${totalTickets - tickets.length} restants)`;
+    more.onclick = async () => {
+      more.disabled = true;
+      more.textContent = 'Chargement…';
+      try {
+        await loadMore();
+      } catch {
+        toast('Chargement impossible.', 'error');
+        more.disabled = false;
+      }
+    };
+    list.append(more);
   }
 }
 
@@ -287,6 +388,11 @@ function openTicket(id: string) {
   textarea.value = ticket.response;
   textarea.maxLength = 4000;
 
+  const reply = document.createElement('textarea');
+  reply.value = ticket.replyText;
+  reply.maxLength = 4000;
+  reply.placeholder = 'Ce texte apparaît dans le widget, côté reviewer.';
+
   const save = document.createElement('button');
   save.type = 'button';
   save.className = 'btn btn-primary';
@@ -296,10 +402,16 @@ function openTicket(id: string) {
     try {
       await api(`/api/tickets/${ticket.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: select.value, response: textarea.value }),
+        body: JSON.stringify({ status: select.value, response: textarea.value, replyText: reply.value }),
       });
+      // The sidebar badges count open tickets, so a status change moves them.
+      projects = await api('/api/projects');
+      renderProjects();
       await loadTickets();
       openTicket(ticket.id);
+      toast('Retour enregistré.');
+    } catch {
+      toast('Enregistrement impossible.', 'error');
     } finally {
       save.disabled = false;
     }
@@ -313,12 +425,23 @@ function openTicket(id: string) {
   diagnosticsTitle.className = 'eyebrow';
   diagnosticsTitle.textContent = 'Diagnostics consentis';
 
+  // The whole point of a visual feedback tool: go and look at the spot rather
+  // than decode a CSS selector by hand.
+  const openAnchor = document.createElement('a');
+  openAnchor.className = 'btn btn-ghost anchor-link';
+  openAnchor.href = anchorUrl(ticket);
+  openAnchor.target = '_blank';
+  openAnchor.rel = 'noreferrer';
+  openAnchor.append(icon('i-target'), document.createTextNode('Ouvrir au point d’ancrage'));
+
   detail.append(
     close,
     eyebrow,
     heading,
     meta,
+    openAnchor,
     labelled('Statut', select),
+    labelled('Réponse visible par le reviewer', reply),
     labelled('Réponse interne', textarea),
     save,
     diagnosticsTitle,
@@ -408,9 +531,37 @@ $('#new-link').addEventListener('click', async () => {
 
 // ------------------------------------------------------------------ wiring
 
-for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('change', loadTickets);
-$('#page-filter').addEventListener('input', loadTickets);
-$('#new-project').addEventListener('click', () => $<HTMLDialogElement>('#project-dialog').showModal());
+for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
+$('#page-filter').addEventListener('input', scheduleReload);
+$('#new-project').addEventListener('click', () => openProjectDialog(null));
+
+// -------------------------------------------------------------- keyboard nav
+
+/** Triage is a scanning job, so the list is drivable without leaving the keys. */
+function moveSelection(step: number) {
+  if (!tickets.length) return;
+  const current = tickets.findIndex((ticket) => ticket.id === selectedTicket);
+  const next = current === -1 ? (step > 0 ? 0 : tickets.length - 1) : current + step;
+  const ticket = tickets[Math.max(0, Math.min(tickets.length - 1, next))];
+  if (!ticket) return;
+  openTicket(ticket.id);
+  $(`.ticket.active`)?.scrollIntoView({ block: 'nearest' });
+}
+
+addEventListener('keydown', (event) => {
+  const target = event.target as HTMLElement | null;
+  // Never steal a key from a field, and never from a browser shortcut.
+  const typing = target?.closest('input, textarea, select') !== null;
+  if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+  if ($<HTMLElement>('#app').hidden || document.querySelector('dialog[open]')) return;
+  if (event.key === 'j' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    moveSelection(1);
+  } else if (event.key === 'k' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    moveSelection(-1);
+  }
+});
 
 // ---------------------------------------------------------------- appearance
 
@@ -452,28 +603,57 @@ for (const button of document.querySelectorAll('.close')) {
   button.addEventListener('click', () => button.closest('dialog')?.close());
 }
 
+function openProjectDialog(project: Project | null) {
+  editingProject = project;
+  const form = $<HTMLFormElement>('#project-form');
+  form.reset();
+  form.querySelector('output')!.textContent = '';
+  $('#project-dialog-title').textContent = project ? 'Modifier le projet' : 'Nouveau projet';
+  // Distinct from the detail pane's "Enregistrer" so neither button can be
+  // mistaken for the other, by a person or by a test.
+  $('#project-submit').textContent = project ? 'Mettre à jour' : 'Créer';
+  if (project) {
+    (form.elements.namedItem('name') as HTMLInputElement).value = project.name;
+    (form.elements.namedItem('clientLabel') as HTMLInputElement).value = project.clientLabel;
+    (form.elements.namedItem('origins') as HTMLInputElement).value = project.origins.join('\n');
+    (form.elements.namedItem('webhookUrl') as HTMLInputElement).value = project.webhookUrl;
+  }
+  $<HTMLDialogElement>('#project-dialog').showModal();
+}
+
 $('#project-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget as HTMLFormElement;
   const fields = new FormData(form);
   const output = form.querySelector('output')!;
+  const target = editingProject;
+  const body = JSON.stringify({
+    name: fields.get('name'),
+    clientLabel: fields.get('clientLabel'),
+    origins: String(fields.get('origins')).split(/\s+/).filter(Boolean),
+    webhookUrl: String(fields.get('webhookUrl') ?? '').trim(),
+  });
   try {
-    const created = await api('/api/projects', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: fields.get('name'),
-        clientLabel: fields.get('clientLabel'),
-        origins: String(fields.get('origins')).split(/\s+/).filter(Boolean),
-      }),
+    const saved = await api(target ? `/api/projects/${target.id}` : '/api/projects', {
+      method: target ? 'PATCH' : 'POST',
+      body,
     });
     $<HTMLDialogElement>('#project-dialog').close();
     form.reset();
     output.textContent = '';
+    editingProject = null;
     projects = await api('/api/projects');
-    await chooseProject(created.id);
+    await chooseProject(saved.id);
+    toast(target ? 'Projet mis à jour.' : 'Projet créé.');
   } catch {
-    output.textContent = 'Vérifiez le nom, le client et les origines (http(s) uniquement, une par ligne).';
+    output.textContent =
+      'Vérifiez le nom, le client, les origines (http(s), une par ligne) et le webhook (https public).';
   }
+});
+
+$('#edit-project').addEventListener('click', () => {
+  const project = projects.find((candidate) => candidate.id === selectedProject);
+  if (project) openProjectDialog(project);
 });
 
 $('#logout').addEventListener('click', async () => {

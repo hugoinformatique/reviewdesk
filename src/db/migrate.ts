@@ -91,6 +91,19 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS tickets_page_url ON tickets(page_url);
     `,
   },
+  {
+    id: '005_replies_and_notifications',
+    sql: `
+      -- reply_text is shown to the reviewer; response stays an internal note.
+      -- They are separate columns rather than one field with a flag, so an
+      -- internal note can never be published by flipping a boolean.
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS reply_text text NOT NULL DEFAULT '';
+      ALTER TABLE projects ADD COLUMN IF NOT EXISTS webhook_url text NOT NULL DEFAULT '';
+      -- Keyset pagination orders by (created_at, id); the id breaks ties so no
+      -- ticket can be skipped or repeated across pages.
+      CREATE INDEX IF NOT EXISTS tickets_created ON tickets(created_at DESC, id DESC);
+    `,
+  },
 ];
 
 const BOOTSTRAP_SQL = `

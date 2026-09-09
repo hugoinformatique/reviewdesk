@@ -35,6 +35,13 @@
   <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M15 5l-7 7 7 7"/>
   </symbol>
+  <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>
+  </symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/>
+  </symbol>
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 5v14M5 12h14"/>
   </symbol>
@@ -91,6 +98,9 @@
         <button id="nav-open" class="quiet mobile-only" aria-label="Ouvrir la navigation">
           <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
         </button>
+        <button id="edit-project" class="quiet" aria-label="Réglages du projet">
+          <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+        </button>
         <button id="review-link" class="quiet">
           <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
           Liens reviewer
@@ -129,15 +139,16 @@
 
 <dialog id="project-dialog">
   <form id="project-form">
-    <h2>Nouveau projet</h2>
+    <h2 id="project-dialog-title">Nouveau projet</h2>
     <p class="note">Le projet n’acceptera de retours que depuis les origines listées ici.</p>
     <label>Nom<input name="name" placeholder="DEMO Site vitrine" required></label>
     <label>Client<input name="clientLabel" placeholder="DEMO Client" required></label>
     <label>Origines autorisées<input name="origins" placeholder="http://127.0.0.1:4310" required><small>Une origine par ligne, avec protocole.</small></label>
+    <label>Notification sortante<input name="webhookUrl" placeholder="https://hooks.slack.com/services/…"><small>Optionnel. Un POST JSON à chaque nouveau retour. HTTPS public uniquement.</small></label>
     <output></output>
     <div class="dialog-actions">
       <button type="button" class="quiet close">Annuler</button>
-      <button>Créer</button>
+      <button id="project-submit">Créer</button>
     </div>
   </form>
 </dialog>
@@ -155,6 +166,8 @@
     </div>
   </div>
 </dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="/admin.js"></script>
 </body>
