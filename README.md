@@ -16,8 +16,10 @@ Le handler serverless est `api/index.ts`. Chaque instance chaude réutilise un p
 - projets avec libellé client et liste exacte des origines autorisées ;
 - liens reviewer révocables, secret stocké uniquement sous forme de SHA-256 ;
 - widget indépendant du framework, desktop et tactile, avec épingle relative à un élément et au viewport ;
+- widget en deux onglets : **Écrire** et **Mes retours**. Consulter les réponses ne demande ni de pointer un élément ni d'envoyer quoi que ce soit, et le mode sélection s'annule (Échap ou *Annuler*) ;
 - commentaire, diagnostics strictement opt-in et prévisualisés, capture PNG/JPEG/WebP choisie manuellement ;
 - liste admin avec filtres projet, client, page/site, format et statut, pagination par curseur et compteur de retours ouverts par projet ;
+- admin utilisable de 390 px à un 21:9 de 3440 px : au-delà de 1750 px le détail se scinde en une colonne d'action et un rail de contexte, et la largeur supplémentaire va à la liste et au rail, jamais à la longueur des lignes ;
 - statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
 - **deux réponses distinctes par retour** : une note interne, jamais exposée, et une réponse que le reviewer relit dans le widget ;
 - **retour au point d'ancrage** : depuis l'admin, un lien rouvre la page de préproduction avec l'épingle reposée sur l'élément concerné. L'ancrage voyage dans le fragment d'URL, que le navigateur n'envoie jamais au serveur du client ;

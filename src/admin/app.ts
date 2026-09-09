@@ -419,7 +419,17 @@ function openTicket(id: string) {
 
   const diagnostics = document.createElement('pre');
   diagnostics.className = 'diag';
-  diagnostics.textContent = JSON.stringify(ticket.diagnostics, null, 2);
+  // A reviewer who declined still yields `{os:'Unknown', browser:'Unknown'}`,
+  // which reads like data when it is the absence of it. Say so in words.
+  const informative = Object.values(ticket.diagnostics).some(
+    (value) => value !== 'Unknown' && value !== null && value !== undefined && !(Array.isArray(value) && !value.length),
+  );
+  if (informative) {
+    diagnostics.textContent = JSON.stringify(ticket.diagnostics, null, 2);
+  } else {
+    diagnostics.classList.add('diag-empty');
+    diagnostics.textContent = 'Aucun diagnostic transmis. Le reviewer ne les a pas joints.';
+  }
 
   const diagnosticsTitle = document.createElement('div');
   diagnosticsTitle.className = 'eyebrow';
@@ -434,19 +444,25 @@ function openTicket(id: string) {
   openAnchor.rel = 'noreferrer';
   openAnchor.append(icon('i-target'), document.createTextNode('Ouvrir au point d’ancrage'));
 
-  detail.append(
-    close,
-    eyebrow,
-    heading,
-    meta,
-    openAnchor,
+  // Three regions rather than one flat column: on a wide screen "act" (status
+  // and replies) and "context" (where, diagnostics, capture) sit side by side
+  // instead of stretching one column across a 21:9 display.
+  const head = document.createElement('div');
+  head.className = 'detail-head';
+  head.append(close, eyebrow, heading);
+
+  const main = document.createElement('div');
+  main.className = 'detail-main';
+  main.append(
     labelled('Statut', select),
     labelled('Réponse visible par le reviewer', reply),
     labelled('Réponse interne', textarea),
     save,
-    diagnosticsTitle,
-    diagnostics,
   );
+
+  const side = document.createElement('div');
+  side.className = 'detail-side';
+  side.append(meta, openAnchor, diagnosticsTitle, diagnostics);
 
   if (ticket.screenshotId) {
     const link = document.createElement('a');
@@ -454,8 +470,10 @@ function openTicket(id: string) {
     link.target = '_blank';
     link.rel = 'noreferrer';
     link.append(icon('i-image'), document.createTextNode('Voir la capture privée'));
-    detail.append(link);
+    side.append(link);
   }
+
+  detail.append(head, main, side);
 }
 
 // ------------------------------------------------------------- review links

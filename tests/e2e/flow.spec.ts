@@ -42,6 +42,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   expect(new URL(page.url()).origin).toBe(PREVIEW_ORIGIN);
 
   await widget(page).getByRole('button', { name: 'Commenter' }).click();
+  await widget(page).getByRole('button', { name: 'Pointer' }).click();
   const cta = await page.locator('#hero-cta').boundingBox();
   if (!cta) throw new Error('the demo CTA is missing');
   await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
@@ -99,6 +100,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${PREVIEW_ORIGIN}/demo.html${fragment}`);
   await widget(page).getByRole('button', { name: 'Commenter' }).click();
+  await widget(page).getByRole('button', { name: 'Pointer' }).click();
   const heading = await page.locator('nav .logo').boundingBox();
   if (!heading) throw new Error('the demo header is missing');
   await page.mouse.click(heading.x + heading.width / 2, heading.y + heading.height / 2);
@@ -137,6 +139,7 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
   await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
   await widget(page).getByRole('button', { name: 'Commenter' }).click();
+  await widget(page).getByRole('button', { name: 'Pointer' }).click();
   const cta = (await page.locator('#hero-cta').boundingBox())!;
   await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
   await widget(page).locator('textarea').fill('Le libellé du bouton est ambigu');
@@ -171,10 +174,9 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
 
   // ------------------------------------------------- the reviewer reads back
 
-  // Opening the widget starts in picking mode, so place a point to get the
-  // panel back before switching tabs.
+  // Reading the answer must cost nothing: opening the widget and switching to
+  // the list files no comment and places no pin.
   await widget(page).getByRole('button', { name: 'Commenter' }).click();
-  await page.mouse.click(anchored.x + anchored.width / 2, anchored.y + anchored.height / 2);
   await widget(page).getByRole('button', { name: 'Mes retours' }).click();
   const entry = widget(page).locator('.mine .item').first();
   await expect(entry).toContainText('Le libellé du bouton est ambigu');
