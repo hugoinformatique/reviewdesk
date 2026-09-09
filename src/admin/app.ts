@@ -64,6 +64,41 @@ const formatDate = (value: string) =>
     new Date(value),
   );
 
+const relative = new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' });
+
+/** Scannable age for list rows; the exact timestamp stays in the `title`. */
+function formatAge(value: string) {
+  const seconds = (new Date(value).getTime() - Date.now()) / 1000;
+  const age = Math.abs(seconds);
+  if (age < 60) return 'à l’instant';
+  if (age < 3600) return relative.format(Math.round(seconds / 60), 'minute');
+  if (age < 86_400) return relative.format(Math.round(seconds / 3600), 'hour');
+  if (age < 604_800) return relative.format(Math.round(seconds / 86_400), 'day');
+  return formatDate(value);
+}
+
+/** <use> needs the SVG namespace; createElement would silently render nothing. */
+function icon(id: string, className = 'icon') {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', className);
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#${id}`);
+  svg.append(use);
+  return svg;
+}
+
+function emptyState(iconId: string, title: string, hint: string) {
+  const box = document.createElement('div');
+  box.className = 'empty-state';
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.textContent = hint;
+  box.append(icon(iconId), strong, span);
+  return box;
+}
+
 $('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const fields = new FormData(event.currentTarget as HTMLFormElement);
@@ -85,20 +120,42 @@ async function load() {
   await loadTickets();
 }
 
+/**
+ * The accessible name is pinned to `name` alone via aria-label: the secondary
+ * client line is decoration, and tests (plus screen-reader users scanning the
+ * nav) want the project's own name, not "Name Client" run together.
+ */
+function projectButton(id: string, name: string, secondary: string) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `project ${selectedProject === id ? 'active' : ''}`;
+  button.setAttribute('aria-label', name);
+  button.title = secondary ? `${name} — ${secondary}` : name;
+
+  const stack = document.createElement('span');
+  stack.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.className = 'name';
+  label.textContent = name;
+  stack.append(label);
+  if (secondary) {
+    const client = document.createElement('span');
+    client.className = 'client';
+    client.textContent = secondary;
+    stack.append(client);
+  }
+
+  button.append(stack);
+  button.onclick = () => chooseProject(id);
+  return button;
+}
+
 function renderProjects() {
   const nav = $('#projects');
   nav.replaceChildren();
-  const all = document.createElement('button');
-  all.className = `project ${selectedProject ? '' : 'active'}`;
-  all.textContent = 'Tous les projets';
-  all.onclick = () => chooseProject('');
-  nav.append(all);
+  nav.append(projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`));
   for (const project of projects) {
-    const button = document.createElement('button');
-    button.className = `project ${selectedProject === project.id ? 'active' : ''}`;
-    button.textContent = project.name;
-    button.onclick = () => chooseProject(project.id);
-    nav.append(button);
+    nav.append(projectButton(project.id, project.name, project.clientLabel));
   }
   const client = $<HTMLSelectElement>('#client');
   const previous = client.value;
@@ -115,6 +172,7 @@ async function chooseProject(id: string) {
   const project = projects.find((candidate) => candidate.id === id);
   $('#project-title').textContent = project?.name ?? 'Tous les retours';
   $('#client-label').textContent = (project?.clientLabel ?? 'TOUS LES CLIENTS').toUpperCase();
+  $('#app').classList.remove('nav-open');
   renderProjects();
   await loadTickets();
 }
@@ -131,14 +189,25 @@ async function loadTickets() {
   tickets = (await api(`/api/tickets?${params}`)).tickets;
   renderTickets();
   $('#count').textContent = `${tickets.length} retour${tickets.length === 1 ? '' : 's'}`;
-  if (!selectedTicket) $('#detail').className = 'detail empty';
+  if (!selectedTicket) clearDetail();
 }
 
 function renderTickets() {
   const list = $('#tickets');
   list.replaceChildren();
+  if (!tickets.length) {
+    list.append(
+      emptyState(
+        'i-inbox',
+        'Aucun retour',
+        'Rien ne correspond à ces filtres. Élargissez la recherche, ou partagez un lien reviewer pour recevoir les premiers retours.',
+      ),
+    );
+    return;
+  }
   for (const ticket of tickets) {
     const row = document.createElement('button');
+    row.type = 'button';
     row.className = `ticket ${selectedTicket === ticket.id ? 'active' : ''}`;
     const status = document.createElement('span');
     status.className = `status ${ticket.status}`;
@@ -154,11 +223,20 @@ function renderTickets() {
     summary.append(title, context);
     const date = document.createElement('span');
     date.className = 'date';
-    date.textContent = formatDate(ticket.createdAt);
+    date.textContent = formatAge(ticket.createdAt);
+    date.title = formatDate(ticket.createdAt);
     row.append(status, summary, date);
     row.onclick = () => openTicket(ticket.id);
     list.append(row);
   }
+}
+
+function clearDetail() {
+  const detail = $('#detail');
+  detail.className = 'detail empty';
+  detail.replaceChildren(
+    emptyState('i-image', 'Aucun retour sélectionné', 'Choisissez un retour dans la liste pour voir son ancrage, ses diagnostics et y répondre.'),
+  );
 }
 
 function labelled(text: string, control: HTMLElement): HTMLLabelElement {
@@ -177,11 +255,13 @@ function openTicket(id: string) {
   detail.replaceChildren();
 
   const close = document.createElement('button');
+  close.type = 'button';
   close.className = 'quiet';
-  close.textContent = '← Liste';
+  close.append(icon('i-back'), document.createTextNode('Liste'));
   close.onclick = () => {
-    detail.className = 'detail empty';
     selectedTicket = '';
+    clearDetail();
+    renderTickets();
   };
   const eyebrow = document.createElement('div');
   eyebrow.className = 'eyebrow';
@@ -208,6 +288,8 @@ function openTicket(id: string) {
   textarea.maxLength = 4000;
 
   const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'btn btn-primary';
   save.textContent = 'Enregistrer';
   save.onclick = async () => {
     save.disabled = true;
@@ -227,6 +309,10 @@ function openTicket(id: string) {
   diagnostics.className = 'diag';
   diagnostics.textContent = JSON.stringify(ticket.diagnostics, null, 2);
 
+  const diagnosticsTitle = document.createElement('div');
+  diagnosticsTitle.className = 'eyebrow';
+  diagnosticsTitle.textContent = 'Diagnostics consentis';
+
   detail.append(
     close,
     eyebrow,
@@ -235,7 +321,7 @@ function openTicket(id: string) {
     labelled('Statut', select),
     labelled('Réponse interne', textarea),
     save,
-    labelled('Diagnostics consentis', document.createElement('span')),
+    diagnosticsTitle,
     diagnostics,
   );
 
@@ -244,7 +330,7 @@ function openTicket(id: string) {
     link.href = `/api/uploads/${ticket.screenshotId}`;
     link.target = '_blank';
     link.rel = 'noreferrer';
-    link.textContent = 'Voir la capture privée';
+    link.append(icon('i-image'), document.createTextNode('Voir la capture privée'));
     detail.append(link);
   }
 }
@@ -273,7 +359,8 @@ async function renderReviewLinks() {
     row.append(description);
     if (!link.revokedAt) {
       const revoke = document.createElement('button');
-      revoke.className = 'quiet';
+      revoke.type = 'button';
+      revoke.className = 'btn btn-danger';
       revoke.textContent = 'Révoquer';
       revoke.onclick = async () => {
         revoke.disabled = true;
@@ -324,6 +411,43 @@ $('#new-link').addEventListener('click', async () => {
 for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('change', loadTickets);
 $('#page-filter').addEventListener('input', loadTickets);
 $('#new-project').addEventListener('click', () => $<HTMLDialogElement>('#project-dialog').showModal());
+
+// ---------------------------------------------------------------- appearance
+
+/** Explicit choice wins over the OS; no stored value means "follow the system". */
+function applyTheme(theme: string | null) {
+  if (theme) document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+}
+
+$('#theme').addEventListener('click', () => {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = document.documentElement.dataset.theme ?? (dark ? 'dark' : 'light');
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try {
+    localStorage.setItem('reviewdesk-theme', next);
+  } catch {
+    // Private mode or blocked storage: the choice simply lasts for this page.
+  }
+});
+
+// ------------------------------------------------------------ mobile drawers
+
+const toggleNav = (open: boolean) => $('#app').classList.toggle('nav-open', open);
+$('#nav-open').addEventListener('click', () => toggleNav(true));
+$('#scrim').addEventListener('click', () => toggleNav(false));
+
+addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if ($('#app').classList.contains('nav-open')) return toggleNav(false);
+  // On mobile the detail pane covers the list, so Escape is the way back out.
+  if (selectedTicket && innerWidth <= 900) {
+    selectedTicket = '';
+    clearDetail();
+    renderTickets();
+  }
+});
 for (const button of document.querySelectorAll('.close')) {
   button.addEventListener('click', () => button.closest('dialog')?.close());
 }
