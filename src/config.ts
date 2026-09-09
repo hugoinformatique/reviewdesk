@@ -14,6 +14,7 @@ export type DatabaseConfig =
   | { driver: 'pglite'; path: string };
 
 export type StorageConfig =
+  | { driver: 'supabase'; endpoint: string; serviceRoleKey: string; bucket: string; keyPrefix: string }
   | {
       driver: 's3';
       bucket: string;
@@ -93,7 +94,10 @@ export function assertStrongAdminPassword(password: string): void {
 }
 
 function databaseConfig(env: Env, production: boolean): DatabaseConfig {
-  const url = required(env, 'DATABASE_URL');
+  // Vercel's Supabase integration exposes POSTGRES_URL. Prefer an explicit
+  // DATABASE_URL, then fall back to the managed integration URL.
+  const url = env.DATABASE_URL?.trim() || env.POSTGRES_URL?.trim();
+  if (!url) throw new ConfigError('DATABASE_URL or POSTGRES_URL is required');
   if (url.startsWith('pglite://')) {
     if (production) {
       throw new ConfigError('DATABASE_URL=pglite:// is a local development driver and is refused in production; use postgres://');
@@ -133,7 +137,18 @@ function storageConfig(env: Env, production: boolean): StorageConfig {
     }
     return { driver: 'filesystem', directory: env.UPLOAD_DIR?.trim() || '.data/uploads' };
   }
-  if (driver !== 's3') throw new ConfigError('STORAGE_DRIVER must be "s3" or "filesystem"');
+  if (driver === 'supabase') {
+    const endpoint = required(env, 'SUPABASE_URL');
+    if (!endpoint.startsWith('https://')) throw new ConfigError('SUPABASE_URL must use https');
+    return {
+      driver,
+      endpoint,
+      serviceRoleKey: required(env, 'SUPABASE_SERVICE_ROLE_KEY'),
+      bucket: env.SUPABASE_STORAGE_BUCKET?.trim() || 'reviewdesk',
+      keyPrefix: (env.SUPABASE_STORAGE_PREFIX?.trim() || 'objects').replace(/^\/+|\/+$/g, ''),
+    };
+  }
+  if (driver !== 's3') throw new ConfigError('STORAGE_DRIVER must be "s3", "supabase" or "filesystem"');
   const endpoint = required(env, 'S3_ENDPOINT');
   if (!endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
     throw new ConfigError('S3_ENDPOINT must be an absolute http(s) URL');

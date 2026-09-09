@@ -33,6 +33,14 @@ test('VERCEL=1 is production and hands static files to the CDN', () => {
   assert.equal(config.secureCookies, true);
 });
 
+test('the managed Vercel database URL is a failover, not an override', () => {
+  const integrated = loadConfig({ ...base, DATABASE_URL: undefined, POSTGRES_URL: 'postgres://integration.example.test/reviewdesk' });
+  assert.equal(integrated.database.driver === 'postgres' && integrated.database.url, 'postgres://integration.example.test/reviewdesk');
+
+  const explicit = loadConfig({ ...base, POSTGRES_URL: 'postgres://integration.example.test/reviewdesk' });
+  assert.equal(explicit.database.driver === 'postgres' && explicit.database.url, base.DATABASE_URL);
+});
+
 test('the embedded dev drivers are refused in production', () => {
   expectConfigError({ ...base, NODE_ENV: 'production', DATABASE_URL: 'pglite://.data/reviewdesk' }, /refused in production/);
   expectConfigError({ ...base, VERCEL: '1', DATABASE_URL: 'pglite://memory' }, /refused in production/);
@@ -54,7 +62,7 @@ test('the embedded dev drivers stay available outside production', () => {
 });
 
 test('a missing or malformed backend configuration fails at boot, not at runtime', () => {
-  expectConfigError({ ...base, DATABASE_URL: undefined }, /DATABASE_URL is required/);
+  expectConfigError({ ...base, DATABASE_URL: undefined }, /DATABASE_URL or POSTGRES_URL is required/);
   expectConfigError({ ...base, DATABASE_URL: 'mysql://db.example.test/x' }, /must start with postgres/);
   expectConfigError({ ...base, S3_BUCKET: undefined }, /S3_BUCKET is required/);
   expectConfigError({ ...base, S3_ENDPOINT: 'account.r2.cloudflarestorage.com' }, /absolute http\(s\) URL/);
@@ -73,4 +81,23 @@ test('a weak admin secret is rejected before the server can start', () => {
   }
   assert.doesNotThrow(() => assertStrongAdminPassword('grenat-fougere-litanie-8412'));
   expectConfigError({ ...base, ADMIN_PASSWORD: 'admin' }, /ADMIN_PASSWORD/);
+});
+
+test('Supabase storage is accepted in production without S3 credentials', () => {
+  const env = {
+    ...base,
+    STORAGE_DRIVER: 'supabase',
+    SUPABASE_URL: 'https://project.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-role-value',
+    SUPABASE_STORAGE_BUCKET: 'reviewdesk',
+  };
+  (env as Record<string, string | undefined>).S3_ENDPOINT = undefined;
+  const config = loadConfig(env);
+  assert.deepEqual(config.storage, {
+    driver: 'supabase',
+    endpoint: 'https://project.supabase.co',
+    serviceRoleKey: 'service-role-value',
+    bucket: 'reviewdesk',
+    keyPrefix: 'objects',
+  });
 });

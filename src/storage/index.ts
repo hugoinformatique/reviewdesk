@@ -23,6 +23,10 @@ export async function createObjectStore(config: StorageConfig): Promise<ObjectSt
     const { createS3Store } = await import('./s3.js');
     return createS3Store(config);
   }
+  if (config.driver === 'supabase') {
+    const { createSupabaseStore } = await import('./supabase.js');
+    return createSupabaseStore(config);
+  }
   const { createFilesystemStore } = await import('./filesystem.js');
   return createFilesystemStore(config);
 }

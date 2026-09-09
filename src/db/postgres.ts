@@ -1,6 +1,8 @@
 import pg from 'pg';
+import { parse as parseConnectionString } from 'pg-connection-string';
 import type { DatabaseConfig } from '../config.js';
 import type { Db, Rows } from './index.js';
+import { SUPABASE_ROOT_CA_2021 } from './supabase-ca.js';
 
 type PostgresConfig = Extract<DatabaseConfig, { driver: 'postgres' }>;
 
@@ -30,13 +32,38 @@ function cacheKey(config: PostgresConfig): string {
   return `${config.url}|max=${config.poolMax}|ssl=${config.ssl}|timeout=${config.statementTimeoutMs}`;
 }
 
+type PgSsl = NonNullable<pg.PoolConfig['ssl']>;
+
+/** Keep URL TLS flags from overriding the explicit verified TLS policy. */
+export function postgresTransport(config: PostgresConfig): { connectionString: string; ssl: PgSsl } {
+  if (!config.ssl) return { connectionString: config.url, ssl: false };
+  const sourceUrl = new URL(config.url);
+  if (sourceUrl.searchParams.has('sslmode')) sourceUrl.searchParams.set('sslmode', 'verify-full');
+  const inheritedSsl = parseConnectionString(sourceUrl.toString()).ssl;
+  const inheritedOptions = (typeof inheritedSsl === 'object' && inheritedSsl
+    ? Object.fromEntries(Object.entries(inheritedSsl).filter(([, value]) => value != null))
+    : {}) as Exclude<PgSsl, boolean>;
+  const parsed = new URL(config.url);
+  for (const parameter of ['ssl', 'sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'sslnegotiation']) parsed.searchParams.delete(parameter);
+  const supabase = parsed.hostname.endsWith('.pooler.supabase.com') || parsed.hostname.endsWith('.supabase.co');
+  return {
+    connectionString: parsed.toString(),
+    ssl: {
+      ...inheritedOptions,
+      ...(supabase ? { ca: SUPABASE_ROOT_CA_2021 } : {}),
+      rejectUnauthorized: true,
+    },
+  };
+}
+
 export function getPool(config: PostgresConfig): pg.Pool {
   const cache = poolCache();
   const key = cacheKey(config);
   const existing = cache.get(key);
   if (existing) return existing;
+  const transport = postgresTransport(config);
   const pool = new pg.Pool({
-    connectionString: config.url,
+    connectionString: transport.connectionString,
     max: config.poolMax,
     // Short idle timeout so a scaled-down function does not pin connections,
     // and allowExitOnIdle so `node` can exit without an explicit close.
@@ -44,7 +71,7 @@ export function getPool(config: PostgresConfig): pg.Pool {
     connectionTimeoutMillis: 10_000,
     allowExitOnIdle: true,
     statement_timeout: config.statementTimeoutMs,
-    ssl: config.ssl ? { rejectUnauthorized: true } : false,
+    ssl: transport.ssl,
   });
   // Without a listener, a backend-initiated socket error crashes the process.
   pool.on('error', () => {});
