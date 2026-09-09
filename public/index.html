@@ -1,1 +1,161 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ReviewDesk — Admin</title><link rel="stylesheet" href="/admin.css"></head><body><main id="login" class="login"><form id="login-form"><div class="mark">R</div><h1>ReviewDesk</h1><p>Les retours de préproduction, au même endroit.</p><label>Identifiant<input name="username" value="admin" autocomplete="username"></label><label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label><button>Se connecter</button><output></output></form></main><div id="app" hidden><aside><div class="brand"><span>R</span> ReviewDesk</div><div class="aside-title">Projets</div><nav id="projects"></nav><button id="new-project" class="quiet">＋ Nouveau projet</button></aside><section class="workspace"><header><div><div class="eyebrow" id="client-label">TOUS LES CLIENTS</div><h1 id="project-title">Tous les retours</h1></div><div class="header-actions"><button id="review-link" class="quiet">Liens reviewer</button><button id="logout" class="avatar">A</button></div></header><div class="toolbar"><select id="client"><option value="">Tous les clients</option></select><input id="page-filter" placeholder="Filtrer une page…"><select id="format"><option value="">Tous les formats</option><option value="mobile">Mobile</option><option value="desktop">Desktop</option></select><select id="status"><option value="">Tous les statuts</option><option value="TODO">À traiter</option><option value="IN_PROGRESS">En cours</option><option value="REVIEW">À valider</option><option value="DONE">Traité</option></select><span id="count"></span></div><div class="content"><div id="tickets" class="tickets"></div><div id="detail" class="detail empty">Sélectionnez un retour</div></div></section></div><dialog id="project-dialog"><form id="project-form"><h2>Nouveau projet</h2><label>Nom<input name="name" placeholder="DEMO Site vitrine" required></label><label>Client<input name="clientLabel" placeholder="DEMO Client" required></label><label>Origines autorisées<input name="origins" placeholder="http://127.0.0.1:4310" required><small>Une origine par ligne, avec protocole.</small></label><output></output><div class="dialog-actions"><button type="button" class="quiet close">Annuler</button><button>Créer</button></div></form></dialog><dialog id="link-dialog"><h2>Liens reviewer</h2><p>Un secret n’est affiché qu’une seule fois, à sa création. Il reste dans le fragment de l’URL, jamais dans une query ni dans les logs HTTP.</p><button id="new-link">Générer un nouveau lien</button><textarea id="link-output" readonly placeholder="Le secret du prochain lien généré apparaîtra ici."></textarea><h3>Liens de ce projet</h3><div id="link-list"></div><div class="dialog-actions"><button class="quiet close">Fermer</button></div></dialog><script src="/admin.js"></script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>ReviewDesk — Admin</title>
+<link rel="stylesheet" href="/admin.css">
+<script src="/theme.js"></script>
+</head>
+<body>
+
+<svg hidden aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/>
+  </symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
+  </symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>
+  </symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 7h16M4 12h16M4 17h16"/>
+  </symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 13h5l1.6 3h4.8L16 13h5"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z"/>
+  </symbol>
+  <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4 17 5-5 4.5 4.5L16.5 14 20 17"/>
+  </symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 5l-7 7 7 7"/>
+  </symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 5v14M5 12h14"/>
+  </symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/>
+    <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 1 0 5.7 5.7l1.3-1.3"/>
+  </symbol>
+</svg>
+
+<main id="login" class="login">
+  <form id="login-form">
+    <div class="mark"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg></div>
+    <h1>ReviewDesk</h1>
+    <p>Les retours de préproduction, au même endroit.</p>
+    <label>Identifiant<input name="username" value="admin" autocomplete="username"></label>
+    <label>Mot de passe<input name="password" type="password" autocomplete="current-password" required></label>
+    <button>Se connecter</button>
+    <output></output>
+  </form>
+</main>
+
+<div id="app" hidden>
+  <div class="scrim" id="scrim"></div>
+
+  <aside>
+    <div class="brand">
+      <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg></span>
+      ReviewDesk
+    </div>
+    <div class="aside-title">Projets</div>
+    <nav id="projects"></nav>
+    <div class="aside-foot">
+      <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
+           while the accessible name keeps its historical wording. -->
+      <button id="new-project" class="quiet" aria-label="＋ Nouveau projet">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+        <span aria-hidden="true">Nouveau projet</span>
+      </button>
+      <button id="theme" class="theme-toggle" aria-label="Basculer le thème">
+        <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+        <span>Apparence</span>
+      </button>
+    </div>
+  </aside>
+
+  <section class="workspace">
+    <header>
+      <div>
+        <div class="eyebrow" id="client-label">TOUS LES CLIENTS</div>
+        <h1 id="project-title">Tous les retours</h1>
+      </div>
+      <div class="header-actions">
+        <button id="nav-open" class="quiet mobile-only" aria-label="Ouvrir la navigation">
+          <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+        </button>
+        <button id="review-link" class="quiet">
+          <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+          Liens reviewer
+        </button>
+        <button id="logout" class="avatar" aria-label="Se déconnecter">A</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <select id="client"><option value="">Tous les clients</option></select>
+      <div class="field-search">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="page-filter" placeholder="Filtrer une page…">
+      </div>
+      <select id="format">
+        <option value="">Tous les formats</option>
+        <option value="mobile">Mobile</option>
+        <option value="desktop">Desktop</option>
+      </select>
+      <select id="status">
+        <option value="">Tous les statuts</option>
+        <option value="TODO">À traiter</option>
+        <option value="IN_PROGRESS">En cours</option>
+        <option value="REVIEW">À valider</option>
+        <option value="DONE">Traité</option>
+      </select>
+      <span id="count"></span>
+    </div>
+
+    <div class="content">
+      <div id="tickets" class="tickets"></div>
+      <div id="detail" class="detail empty"></div>
+    </div>
+  </section>
+</div>
+
+<dialog id="project-dialog">
+  <form id="project-form">
+    <h2>Nouveau projet</h2>
+    <p class="note">Le projet n’acceptera de retours que depuis les origines listées ici.</p>
+    <label>Nom<input name="name" placeholder="DEMO Site vitrine" required></label>
+    <label>Client<input name="clientLabel" placeholder="DEMO Client" required></label>
+    <label>Origines autorisées<input name="origins" placeholder="http://127.0.0.1:4310" required><small>Une origine par ligne, avec protocole.</small></label>
+    <output></output>
+    <div class="dialog-actions">
+      <button type="button" class="quiet close">Annuler</button>
+      <button>Créer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="link-dialog">
+  <div class="dialog-body">
+    <h2>Liens reviewer</h2>
+    <p>Un secret n’est affiché qu’une seule fois, à sa création. Il reste dans le fragment de l’URL, jamais dans une query ni dans les logs HTTP.</p>
+    <button id="new-link" class="btn btn-primary">Générer un nouveau lien</button>
+    <textarea id="link-output" readonly placeholder="Le secret du prochain lien généré apparaîtra ici."></textarea>
+    <h3>Liens de ce projet</h3>
+    <div id="link-list"></div>
+    <div class="dialog-actions">
+      <button class="quiet close">Fermer</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="/admin.js"></script>
+</body>
+</html>
