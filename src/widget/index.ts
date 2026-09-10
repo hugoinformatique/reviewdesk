@@ -7,6 +7,8 @@ type Init = {
   /** Wording of the launcher, for sites that already say "avis" or "feedback". */
   label?: string;
   position?: 'bottom-right' | 'bottom-left';
+  /** `auto` reads the host page's own background; `light`/`dark` force it. */
+  theme?: 'auto' | 'light' | 'dark';
   /** Accent colour, so the widget can sit inside the client's own palette. */
   accent?: string;
 };
@@ -48,50 +50,85 @@ function humanLabel(el: Element): string {
   return `${kind} « ${clean.slice(0, 42)}${clean.length > 42 ? '…' : ''} »`;
 }
 
+/**
+ * The widget lives on someone else's site, so it dresses like that site — not
+ * like the reviewer's operating system. A dark panel dropped onto a white page
+ * because macOS is in dark mode is exactly the mismatch that makes an embedded
+ * widget look bolted on. The OS preference is only the last resort, for a page
+ * that declares no background of its own.
+ */
+function pageIsDark(): boolean {
+  for (const el of [document.body, document.documentElement]) {
+    const parsed = el && /rgba?\(([^)]+)\)/.exec(getComputedStyle(el).backgroundColor);
+    if (!parsed) continue;
+    const [r, g, b, a] = parsed[1]!.split(',').map(Number) as [number, number, number, number?];
+    if ((a ?? 1) < 0.5) continue; // see-through: this element is not the ground
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.45;
+  }
+  return matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export function init(config: Init) {
   if (!config.api || !config.projectId || !config.token || document.querySelector('reviewdesk-widget')) return;
   const host=document.createElement('reviewdesk-widget'); const root=host.attachShadow({mode:'open'}); document.documentElement.append(host);
   if (config.position === 'bottom-left') host.setAttribute('data-side', 'left');
+  const theme = config.theme && config.theme !== 'auto' ? config.theme : (pageIsDark() ? 'dark' : 'light');
+  host.setAttribute('data-theme', theme);
   const style=document.createElement('style'); style.textContent=`
+/* The theme comes from the page, not from the operating system: see pageIsDark().
+   A dark slab dropped on a light client site is the single ugliest thing this
+   widget can do, and the OS preference knows nothing about the site it lands on. */
 :host{all:initial;
   /* Glass is a stack, not a colour: a translucent tint, a blurred backdrop, a
      specular top edge and a soft cast shadow. Each one is a token so the whole
      material can be retuned in one place. */
-  --rd-tint:rgba(252,252,253,.80); --rd-tint-2:rgba(255,255,255,.5); --rd-tint-3:rgba(255,255,255,.28);
-  --rd-stroke:rgba(20,20,28,.09); --rd-stroke-2:rgba(20,20,28,.14);
-  --rd-spec:inset 0 1px 0 rgba(255,255,255,.9),inset 0 0 0 1px rgba(255,255,255,.35);
-  --rd-blur:saturate(185%) blur(32px);
-  --rd-text:#141419; --rd-text-2:#55555f; --rd-text-3:#8a8a94;
-  --rd-accent:#4f46e5; --rd-accent-2:#6d5cf5; --rd-accent-hover:#4338ca; --rd-accent-soft:rgba(79,70,229,.11);
-  --rd-pin:#f97316; --rd-danger:#e11d48; --rd-ok:#0d9268; --rd-ring:rgba(79,70,229,.28);
+  --rd-tint:rgba(253,253,254,.86); --rd-tint-2:rgba(255,255,255,.62); --rd-tint-3:rgba(246,246,248,.7);
+  --rd-stroke:rgba(20,20,28,.10); --rd-stroke-2:rgba(20,20,28,.17);
+  --rd-spec:inset 0 1px 0 rgba(255,255,255,.9),inset 0 0 0 1px rgba(255,255,255,.4);
+  --rd-gloss:linear-gradient(158deg,rgba(255,255,255,.55),rgba(255,255,255,.08) 34%,transparent 58%);
+  --rd-inset:inset 0 1px 0 rgba(255,255,255,.7);
+  --rd-blur:saturate(180%) blur(30px);
+  --rd-text:#121217; --rd-text-2:#4c4c57; --rd-text-3:#74747f;
+  --rd-accent:#4f46e5; --rd-accent-2:#6d5cf5; --rd-accent-soft:rgba(79,70,229,.11);
+  --rd-pin:#f97316; --rd-danger:#e11d48; --rd-danger-bg:rgba(225,29,72,.09); --rd-ok:#0d9268;
+  --rd-ring:rgba(79,70,229,.26);
   --rd-lift:0 32px 64px -14px rgba(18,18,27,.30),0 10px 24px -8px rgba(18,18,27,.18),0 1px 2px rgba(18,18,27,.10);
-  --rd-lift-2:0 10px 24px -8px rgba(18,18,27,.22),0 1px 2px rgba(18,18,27,.08);
+  --rd-lift-2:0 8px 20px -8px rgba(18,18,27,.20),0 1px 2px rgba(18,18,27,.07);
   --rd-spring:cubic-bezier(.32,.72,0,1);
   --rd-edge:22px;
   font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--rd-text);
   color-scheme:light;
 }
-@media(prefers-color-scheme:dark){:host{
-  --rd-tint:rgba(24,24,29,.74); --rd-tint-2:rgba(255,255,255,.07); --rd-tint-3:rgba(255,255,255,.04);
-  --rd-stroke:rgba(255,255,255,.10); --rd-stroke-2:rgba(255,255,255,.16);
-  --rd-spec:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 1px rgba(255,255,255,.05);
-  --rd-text:#f5f5f7; --rd-text-2:#a8a8b2; --rd-text-3:#76767f;
-  --rd-accent:#6366f1; --rd-accent-2:#8b7cf8; --rd-accent-hover:#818cf8; --rd-accent-soft:rgba(129,140,248,.16);
-  --rd-pin:#fb923c; --rd-danger:#fb7185; --rd-ok:#34d399; --rd-ring:rgba(129,140,248,.34);
-  --rd-lift:0 32px 64px -14px rgba(0,0,0,.72),0 10px 24px -8px rgba(0,0,0,.5);
-  --rd-lift-2:0 10px 24px -8px rgba(0,0,0,.5);
+:host([data-theme=dark]){
+  /* Opaque enough that the page behind never lightens the text out of contrast:
+     the blur is atmosphere, it is not allowed to become the background. */
+  --rd-tint:rgba(17,17,21,.88); --rd-tint-2:rgba(255,255,255,.075); --rd-tint-3:rgba(255,255,255,.045);
+  --rd-stroke:rgba(255,255,255,.12); --rd-stroke-2:rgba(255,255,255,.2);
+  --rd-spec:inset 0 1px 0 rgba(255,255,255,.14),inset 0 0 0 1px rgba(255,255,255,.04);
+  --rd-gloss:linear-gradient(158deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 34%,transparent 58%);
+  --rd-inset:inset 0 1px 0 rgba(255,255,255,.1);
+  --rd-text:#f7f7f9; --rd-text-2:#bcbcc6; --rd-text-3:#9494a0;
+  --rd-accent:#7c73ff; --rd-accent-2:#9b8dff; --rd-accent-soft:rgba(124,115,255,.18);
+  --rd-pin:#fb923c; --rd-danger:#fb7185; --rd-danger-bg:rgba(251,113,133,.12); --rd-ok:#34d399;
+  --rd-ring:rgba(124,115,255,.36);
+  --rd-lift:0 32px 64px -14px rgba(0,0,0,.7),0 10px 24px -8px rgba(0,0,0,.45);
+  --rd-lift-2:0 8px 20px -8px rgba(0,0,0,.45);
   color-scheme:dark;
-}}
+}
 :host([data-side=left]) .fab,:host([data-side=left]) .panel{right:auto;left:var(--rd-edge)}
 :host([data-side=left]) .panel{transform-origin:bottom left}
 
 /* Glass needs something behind it. Where the browser cannot blur, or where the
    viewer asked for less transparency, the same surfaces go opaque rather than
    turning into unreadable milk. */
-@supports not (backdrop-filter:blur(1px)){:host{--rd-tint:#fbfbfc;--rd-tint-2:#f3f3f5;--rd-tint-3:#f7f7f9}}
-@media(prefers-reduced-transparency:reduce){:host{--rd-tint:#fbfbfc;--rd-tint-2:#f3f3f5;--rd-tint-3:#f7f7f9;--rd-blur:none}}
-@supports not (backdrop-filter:blur(1px)){@media(prefers-color-scheme:dark){:host{--rd-tint:#17171b;--rd-tint-2:#212127;--rd-tint-3:#1c1c21}}}
-@media(prefers-reduced-transparency:reduce) and (prefers-color-scheme:dark){:host{--rd-tint:#17171b;--rd-tint-2:#212127;--rd-tint-3:#1c1c21}}
+@supports not (backdrop-filter:blur(1px)){
+  :host{--rd-tint:#fcfcfd;--rd-tint-2:#f4f4f6;--rd-tint-3:#f7f7f9}
+  :host([data-theme=dark]){--rd-tint:#15151a;--rd-tint-2:#212127;--rd-tint-3:#1c1c21}
+}
+@media(prefers-reduced-transparency:reduce){
+  :host{--rd-tint:#fcfcfd;--rd-tint-2:#f4f4f6;--rd-tint-3:#f7f7f9;--rd-blur:none}
+  :host([data-theme=dark]){--rd-tint:#15151a;--rd-tint-2:#212127;--rd-tint-3:#1c1c21}
+}
 
 /* ------------------------------------------------------------------ launcher */
 .fab{position:fixed;right:var(--rd-edge);bottom:var(--rd-edge);z-index:2147483646;display:inline-flex;align-items:center;gap:9px;
@@ -109,23 +146,22 @@ export function init(config: Init) {
 .fab:active{transform:translateY(0) scale(.975);transition-duration:.1s}
 .fab:has(+.panel:not(.hidden)),.fab.away{display:none}
 .fab svg{width:17px;height:17px;flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.22))}
-.fab .badge{min-width:19px;height:19px;border-radius:999px;background:rgba(255,255,255,.95);color:var(--rd-accent);
+.fab .badge{min-width:19px;height:19px;border-radius:999px;background:#fff;color:var(--rd-accent);
   font:700 11px/19px inherit;text-align:center;padding:0 5px;box-sizing:border-box;
   box-shadow:0 1px 2px rgba(0,0,0,.18)}
 .fab .badge.hidden{display:none}
 
 /* --------------------------------------------------------------------- panel */
-.panel{position:fixed;right:var(--rd-edge);bottom:var(--rd-edge);z-index:2147483647;width:min(396px,calc(100vw - 24px));
+.panel{position:fixed;right:var(--rd-edge);bottom:var(--rd-edge);z-index:2147483647;width:min(392px,calc(100vw - 24px));
   max-height:calc(100dvh - 44px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;
   background:var(--rd-tint);-webkit-backdrop-filter:var(--rd-blur);backdrop-filter:var(--rd-blur);
-  border:1px solid var(--rd-stroke);border-radius:26px;
+  border:1px solid var(--rd-stroke);border-radius:24px;
   box-shadow:var(--rd-lift),var(--rd-spec);
   transform-origin:bottom right;animation:rd-in .34s var(--rd-spring)}
 /* The rim light rides the top and left edges only, the way a real bevel catches
-   a room's light — a border on all four sides reads as a box, not as glass. */
+   a room's light — an even border on four sides reads as a box, not as glass. */
 .panel::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:0;
-  background:linear-gradient(158deg,rgba(255,255,255,.5),rgba(255,255,255,.06) 34%,transparent 58%)}
-@media(prefers-color-scheme:dark){.panel::before{background:linear-gradient(158deg,rgba(255,255,255,.13),rgba(255,255,255,.02) 34%,transparent 58%)}}
+  background:var(--rd-gloss)}
 @keyframes rd-in{from{opacity:0;transform:translateY(14px) scale(.94)}}
 .hidden{display:none!important}
 .head,.tabs,.body{position:relative;z-index:1}
@@ -139,20 +175,19 @@ export function init(config: Init) {
 .title{font-weight:640;font-size:15px;letter-spacing:-.014em;line-height:1.2}
 .sub{font-size:11.5px;color:var(--rd-text-3);line-height:1.3;margin-top:1px}
 .head .grow{flex:1;min-width:0}
-.close{flex:none;border:1px solid transparent;background:transparent;color:var(--rd-text-3);width:31px;height:31px;
-  border-radius:10px;font:400 18px/1 inherit;display:grid;place-items:center;
+.close{flex:none;border:1px solid var(--rd-stroke);background:var(--rd-tint-3);color:var(--rd-text-2);
+  width:30px;height:30px;border-radius:10px;font:400 16px/1 inherit;display:grid;place-items:center;
   transition:background .2s var(--rd-spring),color .2s,border-color .2s}
-.close:hover{background:var(--rd-tint-2);border-color:var(--rd-stroke);color:var(--rd-text)}
+.close:hover{background:var(--rd-tint-2);border-color:var(--rd-stroke-2);color:var(--rd-text)}
 
 /* A segmented control moves; it does not repaint. The pill slides so the eye
    follows the selection instead of re-finding it. */
 .tabs{position:relative;display:flex;gap:2px;padding:3px;margin:0 18px 15px;border-radius:13px;
-  background:var(--rd-tint-3);border:1px solid var(--rd-stroke);box-shadow:inset 0 1px 2px rgba(20,20,28,.05)}
+  background:var(--rd-tint-3);border:1px solid var(--rd-stroke)}
 .tabs .ind{position:absolute;top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);border-radius:10px;
-  background:var(--rd-tint-2);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  border:1px solid var(--rd-stroke);box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.7);
+  background:var(--rd-tint-2);border:1px solid var(--rd-stroke);
+  box-shadow:var(--rd-lift-2),var(--rd-inset);
   transition:transform .38s var(--rd-spring)}
-@media(prefers-color-scheme:dark){.tabs .ind{box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.12)}}
 .tabs.on-mine .ind{transform:translateX(100%)}
 .tab{position:relative;z-index:1;flex:1;border:0;background:transparent;color:var(--rd-text-2);padding:8px;
   border-radius:10px;font:600 12.5px inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;
@@ -166,8 +201,8 @@ export function init(config: Init) {
 /* --------------------------------------------------------------------- steps */
 .steps{list-style:none;margin:0;padding:0;display:grid;gap:15px}
 .step{display:grid;grid-template-columns:23px minmax(0,1fr);gap:11px;align-items:start}
-.num{width:23px;height:23px;border-radius:999px;background:var(--rd-tint-2);border:1px solid var(--rd-stroke);
-  color:var(--rd-text-3);font:700 11px/21px inherit;text-align:center;margin-top:1px;box-sizing:border-box;
+.num{width:23px;height:23px;border-radius:999px;background:var(--rd-tint-2);border:1px solid var(--rd-stroke-2);
+  color:var(--rd-text-2);font:700 11px/21px inherit;text-align:center;margin-top:1px;box-sizing:border-box;
   transition:background .3s var(--rd-spring),color .3s,box-shadow .3s var(--rd-spring)}
 .step.done .num{background:linear-gradient(155deg,var(--rd-accent-2),var(--rd-accent));color:#fff;border-color:transparent;
   box-shadow:0 4px 10px -2px var(--rd-ring),inset 0 1px 0 rgba(255,255,255,.4)}
@@ -176,7 +211,7 @@ export function init(config: Init) {
 
 .target{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;
   border:1.5px dashed var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
-  border-radius:14px;padding:12px 13px;font:500 13px inherit;cursor:pointer;
+  border-radius:13px;padding:12px 13px;font:500 13px inherit;cursor:pointer;
   transition:border-color .24s var(--rd-spring),background .24s,color .24s,box-shadow .24s var(--rd-spring),transform .24s var(--rd-spring)}
 .target:hover{border-color:var(--rd-accent);color:var(--rd-text);background:var(--rd-accent-soft);
   box-shadow:0 0 0 4px var(--rd-accent-soft)}
@@ -185,30 +220,27 @@ export function init(config: Init) {
 .target .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .target .act{flex:none;font:600 11.5px inherit;color:var(--rd-accent)}
 .target.set{border-style:solid;border-color:var(--rd-stroke);background:var(--rd-tint-2);color:var(--rd-text);
-  font-weight:600;box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.6)}
-@media(prefers-color-scheme:dark){.target.set{box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.1)}}
+  font-weight:600;box-shadow:var(--rd-lift-2),var(--rd-inset)}
 .target.set svg{color:var(--rd-pin)}
 
 textarea{all:unset;display:block;box-sizing:border-box;width:100%;min-height:100px;border:1px solid var(--rd-stroke-2);
-  border-radius:14px;padding:12px 13px;background:var(--rd-tint-2);color:var(--rd-text);
-  font:13.5px/1.55 inherit;white-space:pre-wrap;box-shadow:inset 0 1px 2px rgba(20,20,28,.05);
+  border-radius:13px;padding:12px 13px;background:var(--rd-tint-2);color:var(--rd-text);
+  font:13.5px/1.55 inherit;white-space:pre-wrap;
   transition:border-color .2s,box-shadow .2s,background .2s}
-textarea:focus{border-color:var(--rd-accent);background:var(--rd-tint-2);
-  box-shadow:0 0 0 4px var(--rd-ring),inset 0 1px 2px rgba(20,20,28,.04)}
-textarea::placeholder{color:var(--rd-text-3)}
+textarea:focus{border-color:var(--rd-accent);box-shadow:0 0 0 4px var(--rd-ring)}
+textarea::placeholder{color:var(--rd-text-3);opacity:1}
 
 /* -------------------------------------------------------------------- extras */
 .extras{margin-top:16px;border-top:1px solid var(--rd-stroke);padding-top:14px;display:grid;gap:10px}
 .attach{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);
   color:var(--rd-text-2);border-radius:11px;padding:9px 13px;font:600 12.5px inherit;cursor:pointer;justify-self:start;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.6);transition:background .22s var(--rd-spring),color .22s,transform .22s var(--rd-spring),box-shadow .22s}
-@media(prefers-color-scheme:dark){.attach{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}}
-.attach:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.6);transform:translateY(-1px)}
+  box-shadow:var(--rd-inset);transition:color .22s,transform .22s var(--rd-spring),box-shadow .22s}
+.attach:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),var(--rd-inset);transform:translateY(-1px)}
 .attach svg{width:15px;height:15px}
 .attach-hint{font-size:11.5px;color:var(--rd-text-3);margin-top:-4px;line-height:1.45}
 input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .shot{display:flex;align-items:center;gap:11px;border:1px solid var(--rd-stroke);background:var(--rd-tint-2);
-  border-radius:13px;padding:9px 11px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+  border-radius:12px;padding:9px 11px;box-shadow:var(--rd-inset)}
 .shot img{width:40px;height:40px;object-fit:cover;border-radius:9px;flex:none;background:var(--rd-tint-3);
   box-shadow:0 2px 6px rgba(18,18,27,.18)}
 .shot .name{flex:1;min-width:0;font-size:12px;color:var(--rd-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -221,11 +253,11 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .seediag{border:0;background:transparent;color:var(--rd-accent);font:600 11.5px inherit;padding:0;justify-self:start;
   text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
 .diag{background:var(--rd-tint-3);border:1px solid var(--rd-stroke);color:var(--rd-text-2);padding:10px 11px;
-  border-radius:12px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;
-  max-height:132px;overflow:auto;margin:0;box-shadow:inset 0 1px 2px rgba(20,20,28,.05)}
+  border-radius:11px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;
+  max-height:132px;overflow:auto;margin:0}
 
 /* ------------------------------------------------------------------- actions */
-button{font:600 13px inherit;cursor:pointer;border-radius:12px;
+button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   transition:background .22s var(--rd-spring),border-color .22s,color .22s,transform .22s var(--rd-spring),box-shadow .22s var(--rd-spring)}
 .actions{display:flex;gap:9px;align-items:center;margin-top:16px;padding-top:15px;border-top:1px solid var(--rd-stroke)}
 .primary{position:relative;border:0;color:#fff;padding:11px 17px;margin-left:auto;isolation:isolate;
@@ -238,15 +270,14 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 .primary:active{transform:translateY(0) scale(.985);transition-duration:.1s}
 .primary:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
 .secondary{border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);color:var(--rd-text-2);padding:11px 14px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
-@media(prefers-color-scheme:dark){.secondary{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}}
-.secondary:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.55)}
+  box-shadow:var(--rd-inset)}
+.secondary:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),var(--rd-inset)}
 .kbd{font-size:11px;color:var(--rd-text-3);margin-right:auto}
 :host *:focus-visible{outline:2px solid var(--rd-accent);outline-offset:2px}
 
-.msg{margin-top:13px;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.45;
-  color:var(--rd-danger);background:rgba(225,29,72,.08);border:1px solid rgba(225,29,72,.22);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.3);animation:rd-in .28s var(--rd-spring)}
+.msg{margin-top:13px;border-radius:11px;padding:10px 12px;font-size:12.5px;line-height:1.45;
+  color:var(--rd-danger);background:var(--rd-danger-bg);border:1px solid currentColor;
+  animation:rd-in .28s var(--rd-spring)}
 
 /* --------------------------------------------------------------------- sent */
 .sent{text-align:center;padding:26px 6px 6px}
@@ -263,9 +294,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 
 /* ----------------------------------------------------------------- my replies */
 .mine{display:grid;gap:10px;max-height:340px;overflow:auto}
-.mine .item{border:1px solid var(--rd-stroke);border-radius:15px;padding:12px 13px;background:var(--rd-tint-2);
-  box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.5)}
-@media(prefers-color-scheme:dark){.mine .item{box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.07)}}
+.mine .item{border:1px solid var(--rd-stroke);border-radius:14px;padding:12px 13px;background:var(--rd-tint-2);
+  box-shadow:var(--rd-lift-2),var(--rd-inset)}
 .mine .item p{margin:0;font-size:12.5px;line-height:1.5;overflow-wrap:anywhere}
 .mine .item .st{display:inline-flex;align-items:center;gap:6px;font:600 10.5px inherit;letter-spacing:.05em;
   text-transform:uppercase;color:var(--rd-text-3);margin-bottom:6px}
@@ -275,7 +305,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 .mine .item.REVIEW .st{color:#8b5cf6}
 .mine .item.IN_PROGRESS .st{color:#3b82f6}
 .mine .item.TODO .st{color:var(--rd-pin)}
-.mine .item .reply{margin-top:10px;padding:10px 11px;border-radius:11px;background:var(--rd-tint-3);
+.mine .item .reply{margin-top:10px;padding:10px 11px;border-radius:10px;background:var(--rd-tint-3);
   border:1px solid var(--rd-stroke);font-size:12px;color:var(--rd-text-2);line-height:1.5}
 .mine .item .reply strong{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
   color:var(--rd-accent);margin-bottom:4px}
@@ -283,7 +313,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 
 /* ---------------------------------------------------------------------- pins */
 .pin{position:fixed;z-index:2147483645;width:28px;height:28px;border-radius:50%;
-  background:linear-gradient(155deg,#fb923c,var(--rd-pin) 70%);color:#fff;display:grid;place-items:center;
+  background:linear-gradient(155deg,#fb923c,#f97316 70%);color:#fff;display:grid;place-items:center;
   transform:translate(-50%,-50%);font:800 12px/1 inherit;pointer-events:none;
   box-shadow:0 6px 18px rgba(249,115,22,.45),0 1px 3px rgba(0,0,0,.3),
     inset 0 1px 0 rgba(255,255,255,.5),0 0 0 2.5px rgba(255,255,255,.92)}
@@ -296,14 +326,14 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
   box-shadow:0 6px 18px var(--rd-ring),0 1px 3px rgba(0,0,0,.3),
     inset 0 1px 0 rgba(255,255,255,.45),0 0 0 2.5px rgba(255,255,255,.92)}
 .pin.replay::before{border-color:var(--rd-accent)}
-.pin.missing{background:linear-gradient(155deg,#fb7185,var(--rd-danger) 70%);
+.pin.missing{background:linear-gradient(155deg,#fb7185,#e11d48 70%);
   box-shadow:0 6px 18px rgba(225,29,72,.4),0 0 0 2.5px rgba(255,255,255,.92)}
 .pin.missing::before{display:none}
 
 /* -------------------------------------------------------------- pick overlay */
 .pick{position:fixed;inset:0;z-index:2147483644;cursor:crosshair;background:rgba(79,70,229,.04)}
-/* The highlight is a lens, not a box: it lifts the element out of the dimmed
-   page, so the reviewer sees what they are about to designate before clicking. */
+/* The highlight is a lens, not a box: the targeted element keeps its own colours
+   and the rest of the page dims, so nothing is washed out by a white veil. */
 .hl{position:fixed;z-index:2147483643;pointer-events:none;border-radius:9px;
   border:1.5px solid rgba(255,255,255,.9);
   box-shadow:0 0 0 9999px rgba(12,12,18,.26),0 0 0 1.5px var(--rd-accent),
@@ -316,13 +346,13 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 .pickbar{position:fixed;left:50%;top:22px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;
   max-width:min(560px,calc(100vw - 32px));color:#fff;font:600 12.5px/1.3 inherit;
   padding:9px 9px 9px 17px;border-radius:999px;pointer-events:none;
-  background:rgba(18,18,24,.62);-webkit-backdrop-filter:var(--rd-blur);backdrop-filter:var(--rd-blur);
+  background:rgba(16,16,22,.8);-webkit-backdrop-filter:var(--rd-blur);backdrop-filter:var(--rd-blur);
   border:1px solid rgba(255,255,255,.14);
   box-shadow:0 20px 40px -12px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.22);
   animation:rd-bar .34s var(--rd-spring)}
 @keyframes rd-bar{from{opacity:0;transform:translate(-50%,-12px) scale(.96)}}
 .pickbar>span:first-child{flex:none;white-space:nowrap}
-.pickbar .what{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.7;font-weight:500}
+.pickbar .what{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.72;font-weight:500}
 .pickbar .what:empty{display:none}
 .pickcancel{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.14);
   color:inherit;padding:7px 13px;border-radius:999px;font:600 12px inherit;flex:none;
@@ -331,7 +361,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:12px;
 
 @media(max-width:520px){
   :host{--rd-edge:12px}
-  .panel{right:12px;left:12px;bottom:12px;width:auto;max-height:calc(100dvh - 24px);border-radius:24px;
+  .panel{right:12px;left:12px;bottom:12px;width:auto;max-height:calc(100dvh - 24px);border-radius:22px;
     transform-origin:bottom center}
   .fab{padding:13px 18px 13px 15px}
   textarea{min-height:90px}
@@ -740,6 +770,7 @@ if (script?.dataset.project && script.dataset.token) {
     projectId: script.dataset.project!,
     token: script.dataset.token!,
     label: script.dataset.label,
+    theme: script.dataset.theme === 'dark' || script.dataset.theme === 'light' ? script.dataset.theme : 'auto',
     position: script.dataset.position === 'bottom-left' ? 'bottom-left' : 'bottom-right',
     accent: script.dataset.accent,
   });

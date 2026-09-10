@@ -15,6 +15,27 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [1.1.0] — 2026-09-10
+
+### Ajouté
+
+- **Le thème vient de la page, plus du système d'exploitation.** Le widget lit
+  la couleur de fond réelle du site hôte et s'habille en clair ou en sombre en
+  conséquence. Un reviewer sous macOS en mode sombre ne reçoit plus une dalle
+  grise posée sur une page blanche. La préférence système ne sert que de dernier
+  recours, pour une page qui ne déclare aucun fond.
+- Option `data-theme` / `theme` (`auto` par défaut, `light`, `dark`) pour forcer
+  le thème quand la détection ne convient pas.
+
+### Corrigé
+
+- **Contraste** : les textes secondaires devenaient illisibles, le fond flouté
+  de la page éclaircissant la surface par en dessous. Les teintes sont plus
+  opaques (0,86–0,88 au lieu de 0,66–0,80), les gris de texte remontés, le
+  placeholder et la croix de fermeture rendus visibles. Le flou reste une
+  atmosphère : il n'a plus le droit de servir de fond.
+- La bordure de la zone d'erreur ne disparaissait plus dans le fond en thème sombre.
+
 ## [1.0.0] — 2026-09-10
 
 Refonte visuelle complète du widget : le matériau remplace les aplats.
@@ -131,7 +152,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.0.0
 [0.3.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.3.0
 [0.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.2.0
