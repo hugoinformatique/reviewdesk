@@ -41,25 +41,25 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.goto(`${PREVIEW_ORIGIN}/demo.html${fragment}`);
   expect(new URL(page.url()).origin).toBe(PREVIEW_ORIGIN);
 
-  await widget(page).getByRole('button', { name: 'Commenter' }).click();
-  await widget(page).getByRole('button', { name: 'Pointer' }).click();
+  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await widget(page).locator('.target').click();
   const cta = await page.locator('#hero-cta').boundingBox();
   if (!cta) throw new Error('the demo CTA is missing');
   await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
-  await expect(widget(page).locator('.target')).toContainText('#hero-cta');
+  await expect(widget(page).locator('.target')).toContainText('Découvrir la collection');
   await expect(widget(page).locator('.pin')).toBeVisible();
   await page.screenshot({ path: 'artifacts/widget-mobile.png', fullPage: true });
 
   await widget(page).locator('textarea').fill('Rendre ce bouton plus visible sur mobile');
-  await widget(page).getByLabel('Joindre les diagnostics').check();
+  await widget(page).locator('.diagcheck').check();
   const preview = (await widget(page).locator('.diag').textContent()) ?? '';
   expect(preview).not.toContain('ne-jamais-collecter');
   expect(preview).not.toContain(token);
   expect(preview).not.toContain('review=');
   expect(preview).toContain('Europe/');
 
-  await widget(page).getByRole('button', { name: 'Envoyer' }).click();
-  await expect(widget(page).getByRole('button', { name: 'Envoyé' })).toBeVisible();
+  await widget(page).getByRole('button', { name: 'Envoyer mon retour' }).click();
+  await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
 
   // ------------------------------------------------------ admin, triage
 
@@ -99,15 +99,15 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${PREVIEW_ORIGIN}/demo.html${fragment}`);
-  await widget(page).getByRole('button', { name: 'Commenter' }).click();
-  await widget(page).getByRole('button', { name: 'Pointer' }).click();
+  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await widget(page).locator('.target').click();
   const heading = await page.locator('nav .logo').boundingBox();
   if (!heading) throw new Error('the demo header is missing');
   await page.mouse.click(heading.x + heading.width / 2, heading.y + heading.height / 2);
   await widget(page).locator('textarea').fill('Ce retour ne doit pas passer');
-  await widget(page).getByRole('button', { name: 'Envoyer' }).click();
-  await expect(widget(page).locator('.target')).toContainText('Envoi impossible');
-  await expect(widget(page).getByRole('button', { name: 'Envoyé' })).toHaveCount(0);
+  await widget(page).getByRole('button', { name: 'Envoyer mon retour' }).click();
+  await expect(widget(page).locator('.msg')).toContainText('Envoi impossible');
+  await expect(widget(page).locator('.view-sent')).toBeHidden();
 });
 
 test('invalid credentials show the credential error instead of a service outage', async ({ page }) => {
@@ -138,13 +138,13 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
 
   const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
   await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
-  await widget(page).getByRole('button', { name: 'Commenter' }).click();
-  await widget(page).getByRole('button', { name: 'Pointer' }).click();
+  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await widget(page).locator('.target').click();
   const cta = (await page.locator('#hero-cta').boundingBox())!;
   await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
   await widget(page).locator('textarea').fill('Le libellé du bouton est ambigu');
-  await widget(page).getByRole('button', { name: 'Envoyer' }).click();
-  await expect(widget(page).getByRole('button', { name: 'Envoyé' })).toBeVisible();
+  await widget(page).getByRole('button', { name: 'Envoyer mon retour' }).click();
+  await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
 
   // ------------------------------------------- the admin answers the reviewer
 
@@ -176,8 +176,8 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
 
   // Reading the answer must cost nothing: opening the widget and switching to
   // the list files no comment and places no pin.
-  await widget(page).getByRole('button', { name: 'Commenter' }).click();
-  await widget(page).getByRole('button', { name: 'Mes retours' }).click();
+  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await widget(page).locator('.tab-mine').click();
   const entry = widget(page).locator('.mine .item').first();
   await expect(entry).toContainText('Le libellé du bouton est ambigu');
   await expect(entry).toContainText('Traité');
