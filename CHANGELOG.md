@@ -3,11 +3,47 @@
 Toutes les évolutions notables de ReviewDesk sont consignées ici.
 
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/) et le
-versionnage suit [SemVer](https://semver.org/lang/fr/). Tant que la version
-majeure est `0`, une version mineure peut contenir une rupture : elle est alors
-signalée sous **Rupture**.
+versionnage suit cette règle :
+
+| Chiffre | Quand | Exemple |
+| --- | --- | --- |
+| **majeur** `X`.0.0 | grosse fonctionnalité, refonte | refonte de l'UI reviewer |
+| **mineur** 1.`X`.0 | petite amélioration | un libellé plus clair, une option |
+| **correctif** 1.0.`X` | correction de bug | une épingle mal repositionnée |
+
+Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
+
+## [1.0.0] — 2026-09-10
+
+Refonte visuelle complète du widget : le matériau remplace les aplats.
+
+### Ajouté
+
+- **Design « liquid glass »** : surfaces translucides à backdrop-filter
+  (blur + saturation), arête spéculaire sur les bords hauts, ombres portées
+  multi-couches. Le panneau, le lanceur, la barre de pointage et les cartes sont
+  des matériaux superposés, plus des rectangles peints.
+- Indicateur glissant sur le sélecteur d'onglets : la pastille se déplace au
+  lieu de se repeindre, l'œil suit la sélection.
+- Reliefs d'état : la pastille d'étape s'allume en dégradé quand l'étape est
+  faite, le bouton principal a son propre reflet, l'épingle a une lentille.
+- Animations ressort (`cubic-bezier(.32,.72,0,1)`) à l'ouverture, au survol et
+  à l'appui ; le panneau s'ouvre depuis le coin du lanceur.
+- Repli automatique en surfaces opaques quand le navigateur ne sait pas flouter
+  (`@supports`) ou quand le visiteur demande moins de transparence
+  (`prefers-reduced-transparency`) — le verre ne doit jamais coûter la lisibilité.
+
+### Modifié
+
+- **Rupture (visuel)** : palette, rayons, ombres et épaisseurs revus de bout en
+  bout. Un site hôte qui surchargeait des styles du widget n'a rien à changer —
+  le Shadow DOM isole toujours tout — mais l'apparence n'est plus la même.
+- La surbrillance de pointage n'applique plus de voile blanc sur l'élément visé :
+  celui-ci garde ses couleurs, c'est le reste de la page qui s'assombrit.
+- Accent passé à un dégradé violet-indigo ; l'épingle reste orange pour rester
+  distincte de l'accent.
 
 ## [0.3.0] — 2026-09-10
 
@@ -95,7 +131,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v0.3.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.0.0
 [0.3.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.3.0
 [0.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.1.0
