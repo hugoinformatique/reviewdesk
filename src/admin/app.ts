@@ -538,9 +538,9 @@ $('#new-link').addEventListener('click', async () => {
     const origin = projects.find((project) => project.id === selectedProject)!.origins[0];
     $<HTMLTextAreaElement>('#link-output').value =
       `URL reviewer DEMO : ${origin}/${link.fragment}\n\n` +
-      `Installation dans la preview :\n` +
-      `<script src="${location.origin}/widget.js"></script>\n` +
-      `<script>ReviewDesk.init({api:'${location.origin}',projectId:'${selectedProject}',token:'${link.token}'})</script>`;
+      `Installation dans la preview — une seule ligne à coller avant </body> :\n` +
+      `<script src="${location.origin}/widget.js" data-api="${location.origin}" ` +
+      `data-project="${selectedProject}" data-token="${link.token}"></script>`;
     await renderReviewLinks();
   } finally {
     button.disabled = false;

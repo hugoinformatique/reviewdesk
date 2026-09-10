@@ -13,3 +13,6 @@ uploads/
 public/widget.js
 public/admin.js
 .vercel
+
+# transient drops from the local tooling
+.orca/
