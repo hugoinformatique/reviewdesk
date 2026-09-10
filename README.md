@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-1.0.0-4f46e5)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.1.0-4f46e5)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -69,6 +69,8 @@ au même endroit.
 - interface « liquid glass » : surfaces translucides, arêtes spéculaires, ressorts
   à l'ouverture — avec repli opaque si le navigateur ne floute pas ou si le
   visiteur demande moins de transparence ;
+- thème pris **sur la page hôte**, pas sur le système du reviewer : le widget
+  s'habille comme le site sur lequel il est posé ;
 - widget en Shadow DOM : aucun CSS du site hôte ne le déforme, et il ne déforme rien ;
 - desktop, tactile, clavier (`Échap` ferme, `⌘/Ctrl + ↵` envoie), thème clair/sombre automatique.
 
@@ -363,7 +365,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **1.0.0**.
+Keep a Changelog. Version courante : **1.1.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
