@@ -21,6 +21,11 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
   - **Étape 1 (Plateforme)** : sélection visuelle de la méthode d'intégration (HTML / Script direct, Next.js / React, CMS / No-Code, ou Lien direct sans code), génération sécurisée de jeton d'accès et historique des liens.
   - **Étape 2 (Intégration & Personnalisation)** : options interactives (positionnement du lanceur, thème visuel, libellé de bouton) avec génération dynamique de snippet de code et bouton de copie.
   - **Étape 3 (Vérification)** : accès direct pour tester sur l'origine de préproduction ou la démo locale, et détection en direct de la première connexion du widget.
+- **Cartes de plateformes premium dans l'assistant widget** : intégration des véritables logos de marque (HTML5, React / Next.js, Webflow, Lien direct) en SVG vectoriels, badges de qualification (« Recommandé », « Universel », « No-Code », « Zéro code ») et mise en page responsive soignée.
+- **Suppression complète de projet (`DELETE /api/projects/:id`)** :
+  - Suppression en cascade sécurisée de tous les retours, commentaires, jetons agents et liens reviewers rattachés.
+  - Nettoyage des captures et fichiers stockés dans le bucket d'objets (S3 / Supabase).
+  - Zone de suppression avec confirmation explicite intégrée dans le dialogue de réglages du projet.
 - **Aides à la création de projet** : puces d'ajout rapide d'origines autorisées (`localhost:3000`, `localhost:5173`, origine actuelle) et aides contextuelles.
 - **Écran d'accueil guidé pour projet vierge** : carte d'onboarding dans la liste des retours invitant à installer le widget ou tester le flux.
 - Détection immédiate de l'installation par ping automatique de l'état des réponses au montage du widget.

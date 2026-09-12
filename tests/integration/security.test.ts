@@ -17,6 +17,7 @@ test('every admin route fails closed without a session', async (t) => {
   const routes: [string, string][] = [
     ['GET', '/api/projects'],
     ['POST', '/api/projects'],
+    ['DELETE', `/api/projects/${randomUUID()}`],
     ['GET', '/api/auth/session'],
     ['POST', '/api/auth/logout'],
     ['GET', '/api/tickets'],

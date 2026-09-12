@@ -445,6 +445,26 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     return { id, name: parsed.data.name, clientLabel: parsed.data.clientLabel, origins, webhookUrl: hook };
   });
 
+  app.delete('/api/projects/:id', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const uploads = await db.query<{ storage_key: string }>(
+      'SELECT storage_key FROM uploads WHERE project_id = $1',
+      [id],
+    );
+    for (const u of uploads.rows) {
+      if (u.storage_key) {
+        await store.delete(u.storage_key).catch(() => {});
+      }
+    }
+    const rows = await db.query<{ id: string }>(
+      'DELETE FROM projects WHERE id = $1 RETURNING id',
+      [id],
+    );
+    if (!rows.rows.length) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return reply.code(204).send();
+  });
+
   app.get('/api/projects/:id/review-links', { preHandler: requireAdmin }, async (req, reply) => {
     const projectId = (req.params as { id: string }).id;
     if (!uuid.safeParse(projectId).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
