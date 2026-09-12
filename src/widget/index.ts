@@ -198,111 +198,88 @@ export function init(config: Init) {
   background:var(--rd-accent);font:700 10.5px/17px inherit;text-align:center;padding:0 4px;box-sizing:border-box}
 .tab .badge.hidden{display:none}
 
-/* --------------------------------------------------------------------- steps */
-.steps{list-style:none;margin:0;padding:0;display:grid;gap:15px}
-.step{display:grid;grid-template-columns:23px minmax(0,1fr);gap:11px;align-items:start}
-.num{width:23px;height:23px;border-radius:999px;background:var(--rd-tint-2);border:1px solid var(--rd-stroke-2);
-  color:var(--rd-text-2);font:700 11px/21px inherit;text-align:center;margin-top:1px;box-sizing:border-box;
-  transition:background .3s var(--rd-spring),color .3s,box-shadow .3s var(--rd-spring)}
-.step.done .num{background:var(--rd-accent);color:var(--rd-accent-contrast);border-color:transparent;
-  box-shadow:0 4px 10px -2px var(--rd-ring),inset 0 1px 0 rgba(255,255,255,.3)}
-.step-label{font:600 12.5px inherit;letter-spacing:-.008em;margin-bottom:7px;display:block}
-.step-label .opt{font-weight:500;color:var(--rd-text-3)}
-
-.target{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;text-align:left;
-  border:1.5px dashed var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
-  border-radius:13px;padding:12px 13px;font:500 13px inherit;cursor:pointer;
-  transition:border-color .24s var(--rd-spring),background .24s,color .24s,box-shadow .24s var(--rd-spring),transform .24s var(--rd-spring)}
-.target:hover{border-color:var(--rd-accent);color:var(--rd-text);background:var(--rd-accent-soft);
-  box-shadow:0 0 0 4px var(--rd-accent-soft)}
+/* ------------------------------------------------------------------ composer */
+.target-row{display:flex;gap:6px;align-items:center;margin-bottom:10px}
+.target{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;text-align:left;
+  border:1px dashed var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
+  border-radius:11px;padding:8px 11px;font:500 12.5px inherit;cursor:pointer;min-width:0;
+  transition:all .2s var(--rd-spring)}
+.target:hover{border-color:var(--rd-accent);color:var(--rd-text);background:var(--rd-accent-soft)}
 .target:active{transform:scale(.99)}
-.target svg{width:17px;height:17px;flex:none;color:var(--rd-text-2)}
+.target svg{width:15px;height:15px;flex:none;color:var(--rd-text-2)}
 .target .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.target .act{flex:none;font:600 11.5px inherit;color:var(--rd-text)}
-.target.set{border-style:solid;border-color:var(--rd-stroke);background:var(--rd-tint-2);color:var(--rd-text);
-  font-weight:600;box-shadow:var(--rd-lift-2),var(--rd-inset)}
+.target .act{flex:none;font:600 11px inherit;color:var(--rd-text-3)}
+.target.set{border-style:solid;border-color:var(--rd-stroke);background:var(--rd-tint-2);color:var(--rd-text);font-weight:600}
 .target.set svg{color:var(--rd-accent)}
-.target-row{display:flex;gap:8px;align-items:center}
-.target-row .target{flex:1;min-width:0}
-.target-locate{flex:none;width:42px;height:42px;display:grid;place-items:center;border:1.5px solid var(--rd-stroke-2);
-  border-radius:13px;background:var(--rd-tint-3);color:var(--rd-text);cursor:pointer;
-  transition:border-color .24s var(--rd-spring),background .24s,transform .24s var(--rd-spring)}
-.target-locate:hover{background:var(--rd-accent-soft);border-color:var(--rd-accent);transform:scale(1.04)}
-.target-locate svg{width:18px;height:18px}
-.target-cancel{flex:none;height:42px;padding:0 12px;display:inline-flex;align-items:center;gap:4px;
-  border:1.5px solid var(--rd-stroke-2);border-radius:13px;background:var(--rd-tint-3);
-  color:var(--rd-text-2);font:600 12px inherit;cursor:pointer;
-  transition:border-color .2s,color .2s,background .2s,transform .2s var(--rd-spring)}
-.target-cancel:hover{border-color:var(--rd-danger);color:var(--rd-danger);background:var(--rd-danger-bg);transform:scale(1.02)}
+.target-locate{flex:none;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--rd-stroke-2);
+  border-radius:10px;background:var(--rd-tint-3);color:var(--rd-text);cursor:pointer;transition:all .18s ease}
+.target-locate:hover{background:var(--rd-accent-soft);border-color:var(--rd-accent)}
+.target-locate svg{width:15px;height:15px}
+.target-cancel{flex:none;height:34px;padding:0 9px;display:inline-flex;align-items:center;gap:3px;
+  border:1px solid var(--rd-stroke-2);border-radius:10px;background:var(--rd-tint-3);
+  color:var(--rd-text-2);font:600 11.5px inherit;cursor:pointer;transition:all .18s ease}
+.target-cancel:hover{border-color:var(--rd-danger);color:var(--rd-danger);background:var(--rd-danger-bg)}
 
-.category-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.category-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
 .category-chips .chip{border:1px solid var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
-  padding:6px 10px;border-radius:9px;font:500 12px inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
-  transition:all .18s var(--rd-spring)}
-.category-chips .chip kbd{font:700 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
-  padding:1px 4px;border-radius:4px;border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);color:var(--rd-text-3)}
+  padding:6px 2px;border-radius:9px;font:500 11.5px inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap;
+  transition:all .16s var(--rd-spring)}
 .category-chips .chip:hover{color:var(--rd-text);background:var(--rd-tint-2);border-color:var(--rd-stroke)}
 .category-chips .chip.selected{background:var(--rd-accent);color:var(--rd-accent-contrast);border-color:var(--rd-accent);font-weight:600}
-.category-chips .chip.selected kbd{background:rgba(128,128,128,.3);color:inherit;border-color:currentColor}
-.composer-tip{display:flex;align-items:center;gap:8px;background:var(--rd-tint-2);border:1px solid var(--rd-stroke);
-  border-radius:11px;padding:8px 11px;font-size:11.5px;color:var(--rd-text-2);line-height:1.45;margin-bottom:14px}
 
-textarea{all:unset;display:block;box-sizing:border-box;width:100%;min-height:100px;border:1px solid var(--rd-stroke-2);
-  border-radius:13px;padding:12px 13px;background:var(--rd-tint-2);color:var(--rd-text);
-  font:13.5px/1.55 inherit;white-space:pre-wrap;
-  transition:border-color .2s,box-shadow .2s,background .2s}
-textarea:focus{border-color:var(--rd-accent);box-shadow:0 0 0 4px var(--rd-ring)}
+.input-wrap{border:1px solid var(--rd-stroke-2);border-radius:13px;background:var(--rd-tint-2);
+  transition:border-color .2s,box-shadow .2s;overflow:hidden}
+.input-wrap:focus-within{border-color:var(--rd-accent);box-shadow:0 0 0 3px var(--rd-ring)}
+textarea{all:unset;display:block;box-sizing:border-box;width:100%;min-height:86px;
+  padding:10px 12px 6px;color:var(--rd-text);font:13px/1.5 inherit;white-space:pre-wrap}
 textarea::placeholder{color:var(--rd-text-3);opacity:1}
 
-/* -------------------------------------------------------------------- extras */
-.extras{margin-top:16px;border-top:1px solid var(--rd-stroke);padding-top:14px;display:grid;gap:10px}
-.attach{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);
-  color:var(--rd-text-2);border-radius:11px;padding:9px 13px;font:600 12.5px inherit;cursor:pointer;justify-self:start;
-  box-shadow:var(--rd-inset);transition:color .22s,transform .22s var(--rd-spring),box-shadow .22s}
-.attach:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),var(--rd-inset);transform:translateY(-1px)}
-.attach svg{width:15px;height:15px}
-.attach-hint{font-size:11.5px;color:var(--rd-text-3);margin-top:-4px;line-height:1.45}
+.composer-toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px 7px;
+  border-top:1px solid var(--rd-stroke);background:var(--rd-tint-3)}
+.attach{display:inline-flex;align-items:center;gap:5px;color:var(--rd-text-2);
+  font:600 11.5px inherit;cursor:pointer;padding:3px 6px;border-radius:6px;
+  transition:color .18s,background .18s}
+.attach:hover{color:var(--rd-text);background:var(--rd-accent-soft)}
+.attach svg{width:14px;height:14px}
 input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.shot{display:flex;align-items:center;gap:11px;border:1px solid var(--rd-stroke);background:var(--rd-tint-2);
-  border-radius:12px;padding:9px 11px;box-shadow:var(--rd-inset)}
-.shot img{width:40px;height:40px;object-fit:cover;border-radius:9px;flex:none;background:var(--rd-tint-3);
-  box-shadow:0 2px 6px rgba(18,18,27,.18)}
-.shot .name{flex:1;min-width:0;font-size:12px;color:var(--rd-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.shot .drop{flex:none;border:0;background:transparent;color:var(--rd-text-3);font:600 12px inherit;padding:5px 8px;border-radius:8px}
-.shot .drop:hover{color:var(--rd-danger);background:var(--rd-tint-3)}
-
-.privacy{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:var(--rd-text-2);line-height:1.45;cursor:pointer}
-.privacy input[type=checkbox]{margin:1px 0 0;accent-color:var(--rd-accent);width:15px;height:15px;flex:none}
-.privacy .why{display:block;font-size:11.5px;color:var(--rd-text-3);margin-top:2px}
-.seediag{border:0;background:transparent;color:var(--rd-text);font:600 11.5px inherit;padding:0;justify-self:start;
-  text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
-.diag{background:var(--rd-tint-3);border:1px solid var(--rd-stroke);color:var(--rd-text-2);padding:10px 11px;
-  border-radius:11px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;
-  max-height:132px;overflow:auto;margin:0}
+.privacy{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--rd-text-3);
+  cursor:pointer;padding:3px 5px;border-radius:6px;transition:color .18s}
+.privacy:hover{color:var(--rd-text)}
+.privacy input[type=checkbox]{margin:0;accent-color:var(--rd-accent);width:13px;height:13px}
+.seediag{border:0;background:transparent;color:var(--rd-text-3);font:500 11px inherit;
+  cursor:pointer;text-decoration:underline;padding:2px 4px}
+.seediag:hover{color:var(--rd-text)}
+.shot{display:inline-flex;align-items:center;gap:5px;background:var(--rd-tint-2);
+  border:1px solid var(--rd-stroke);border-radius:6px;padding:2px 6px;margin-left:auto;max-width:140px}
+.shot img{width:16px;height:16px;object-fit:cover;border-radius:3px;flex:none}
+.shot .name{font-size:10.5px;color:var(--rd-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shot .drop{border:0;background:transparent;color:var(--rd-text-3);cursor:pointer;padding:0 2px;font:700 11px inherit}
+.shot .drop:hover{color:var(--rd-danger)}
+.diag{background:var(--rd-tint-3);border:1px solid var(--rd-stroke);color:var(--rd-text-2);padding:8px 10px;
+  border-radius:9px;font:10.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;
+  max-height:100px;overflow:auto;margin:6px 0 0}
 
 /* ------------------------------------------------------------------- actions */
-button{font:600 13px inherit;cursor:pointer;border-radius:11px;
-  transition:background .22s var(--rd-spring),border-color .22s,color .22s,transform .22s var(--rd-spring),box-shadow .22s var(--rd-spring)}
-.actions{display:flex;gap:9px;align-items:center;margin-top:16px;padding-top:15px;border-top:1px solid var(--rd-stroke)}
-.primary{position:relative;border:1px solid var(--rd-stroke);color:var(--rd-accent-contrast);padding:11px 18px;margin-left:auto;isolation:isolate;
-  background:var(--rd-accent);box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.25);
+button{font:600 13px inherit;cursor:pointer;border-radius:10px;
+  transition:background .2s var(--rd-spring),border-color .2s,color .2s,transform .2s var(--rd-spring),box-shadow .2s var(--rd-spring)}
+.actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px}
+.quick-hints{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--rd-text-3)}
+.quick-hints kbd{background:var(--rd-tint-3);border:1px solid var(--rd-stroke-2);border-radius:4px;
+  padding:1px 4px;font:700 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--rd-text-2)}
+.primary{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--rd-stroke);
+  color:var(--rd-accent-contrast);padding:9px 15px;margin-left:auto;border-radius:10px;
+  background:var(--rd-accent);box-shadow:var(--rd-lift-2);font:600 12.5px inherit;
   transition:filter .2s,transform .2s var(--rd-spring),box-shadow .2s}
-.primary::before{display:none}
 .primary:hover{filter:contrast(1.15) brightness(1.08);transform:translateY(-1px);
-  box-shadow:var(--rd-lift-2),0 0 0 5px var(--rd-accent-soft)}
-.primary:active{transform:translateY(0) scale(.985);transition-duration:.1s}
+  box-shadow:var(--rd-lift-2),0 0 0 4px var(--rd-accent-soft)}
+.primary:active{transform:translateY(0) scale(.985)}
 .primary:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
-.secondary{border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);color:var(--rd-text-2);padding:11px 14px;
-  box-shadow:var(--rd-inset)}
+.send-kbd{font:700 9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 4px;
+  border-radius:4px;background:rgba(128,128,128,.25);border:1px solid currentColor;opacity:.85}
+.secondary{border:1px solid var(--rd-stroke-2);background:var(--rd-tint-2);color:var(--rd-text-2);padding:9px 13px;
+  box-shadow:var(--rd-inset);font-size:12.5px}
 .secondary:hover{color:var(--rd-text);box-shadow:var(--rd-lift-2),var(--rd-inset)}
-.kbd{font-size:11px;color:var(--rd-text-3);margin-right:auto}
-:host *:focus-visible{outline:2px solid var(--rd-accent);outline-offset:2px}
-
-.shortcuts-bar{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:14px;padding:8px 10px;
-  background:var(--rd-tint-3);border:1px solid var(--rd-stroke);border-radius:10px;font-size:11px;color:var(--rd-text-3)}
-.sc-item{display:inline-flex;align-items:center;gap:4px}
-.sc-item kbd{background:var(--rd-tint-2);border:1px solid var(--rd-stroke-2);border-radius:4px;padding:1px 4px;
-  font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--rd-text-2);box-shadow:0 1px 1px rgba(0,0,0,.06)}
 
 .msg{margin-top:13px;border-radius:11px;padding:10px 12px;font-size:12.5px;line-height:1.45;
   color:var(--rd-danger);background:var(--rd-danger-bg);border:1px solid currentColor;
@@ -429,8 +406,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   textarea{min-height:90px}
   .primary,.secondary{min-height:46px}
   .primary{flex:1}
-  .kbd{display:none}
-  .shortcuts-bar{display:none}
+  .quick-hints{display:none}
   .pickbar{left:12px;right:12px;transform:none;max-width:none}
   @keyframes rd-bar{from{opacity:0;transform:translateY(-12px)}}
 }
@@ -460,7 +436,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   panel.innerHTML=`
 <header class="head">
   <span class="mark">${PIN_SVG}</span>
-  <div class="grow"><div class="title">Vos retours</div><div class="sub">Sur cette page, en deux étapes.</div></div>
+  <div class="grow"><div class="title">Faire un retour</div><div class="sub">Sur cette page web</div></div>
   <button type="button" class="close" aria-label="Fermer">✕</button>
 </header>
 <div class="tabs">
@@ -470,53 +446,34 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
 </div>
 <div class="body">
   <div class="view-compose">
-    <div class="composer-tip">
-      <span>💡 Pointez un élément pour situer votre retour, ou écrivez directement ci-dessous.</span>
+    <div class="target-row step-target">
+      <button type="button" class="target">${TARGET_SVG}<span class="lbl">Cliquez ici pour pointer un élément</span><span class="act"></span></button>
+      <button type="button" class="target-locate hidden" title="Voir l’élément sur la page" aria-label="Voir l’élément sur la page">${TARGET_SVG}</button>
+      <button type="button" class="target-cancel hidden" title="Retirer l’épingle (Échap)" aria-label="Retirer l’épingle">✕ Retirer</button>
     </div>
-    <ol class="steps">
-      <li class="step step-target">
-        <span class="num">1</span>
-        <div>
-          <span class="step-label">Montrez l’endroit concerné</span>
-          <div class="target-row">
-            <button type="button" class="target">${TARGET_SVG}<span class="lbl">Cliquez ici, puis l’endroit sur la page</span><span class="act"></span></button>
-            <button type="button" class="target-locate hidden" title="Voir l’élément sur la page" aria-label="Voir l’élément sur la page">${TARGET_SVG}</button>
-            <button type="button" class="target-cancel hidden" title="Retirer l’épingle (Échap)" aria-label="Retirer l’épingle">✕ Retirer</button>
-          </div>
-        </div>
-      </li>
-      <li class="step step-text">
-        <span class="num">2</span>
-        <div>
-          <span class="step-label">Dites ce qui ne va pas</span>
-          <div class="category-chips">
-            <button type="button" class="chip" data-prefix="[Bug] ">🐛 Bug <kbd>1</kbd></button>
-            <button type="button" class="chip" data-prefix="[Visuel] ">🎨 Visuel <kbd>2</kbd></button>
-            <button type="button" class="chip" data-prefix="[Contenu] ">✍️ Contenu <kbd>3</kbd></button>
-            <button type="button" class="chip" data-prefix="[Idée] ">💡 Idée <kbd>4</kbd></button>
-          </div>
-          <textarea maxlength="4000" placeholder="Ex. : ce bouton est trop discret sur mobile, on ne le voit pas."></textarea>
-        </div>
-      </li>
-    </ol>
-    <div class="extras">
-      <label class="attach">${IMAGE_SVG}<span class="attach-label">Ajouter une capture</span><input class="file-input" type="file" accept="image/png,image/jpeg,image/webp"></label>
-      <div class="attach-hint">Facultatif — PNG, JPEG ou WebP, 4 Mo max. Vous pouvez aussi coller une image.</div>
-      <div class="shot hidden"><img alt=""><span class="name"></span><button type="button" class="drop">Retirer</button></div>
-      <label class="privacy"><input type="checkbox" class="diagcheck"><span>Joindre mes infos techniques<span class="why">Taille d’écran, navigateur, page. Aucune donnée personnelle, aucune saisie.</span></span></label>
-      <button type="button" class="seediag hidden">Voir ce qui sera envoyé</button>
+    <div class="category-chips">
+      <button type="button" class="chip" data-prefix="[Bug] ">🐛 Bug</button>
+      <button type="button" class="chip" data-prefix="[Visuel] ">🎨 Visuel</button>
+      <button type="button" class="chip" data-prefix="[Contenu] ">✍️ Contenu</button>
+      <button type="button" class="chip" data-prefix="[Idée] ">💡 Idée</button>
+    </div>
+    <div class="input-wrap step-text">
+      <textarea maxlength="4000" placeholder="Décrivez votre retour ici..."></textarea>
+      <div class="composer-toolbar">
+        <label class="attach" title="Ajouter une capture d’écran">${IMAGE_SVG}<span>Capture</span><input class="file-input" type="file" accept="image/png,image/jpeg,image/webp"></label>
+        <label class="privacy" title="Taille d’écran, navigateur, page (sans donnée personnelle)"><input type="checkbox" class="diagcheck"><span>Infos tech</span></label>
+        <button type="button" class="seediag hidden">Voir</button>
+        <div class="shot hidden"><img alt=""><span class="name"></span><button type="button" class="drop" title="Retirer la capture">✕</button></div>
+      </div>
       <pre class="diag hidden"></pre>
     </div>
     <div class="msg hidden" role="alert"></div>
     <div class="actions">
-      <span class="kbd">⌘ + ↵ pour envoyer</span>
-      <button type="button" class="primary send">Envoyer mon retour</button>
-    </div>
-    <div class="shortcuts-bar">
-      <span class="sc-item"><kbd>P</kbd> Pointer</span>
-      <span class="sc-item"><kbd>1-4</kbd> Tags</span>
-      <span class="sc-item"><kbd>Échap</kbd> Annuler</span>
-      <span class="sc-item"><kbd>⌘↵</kbd> Envoyer</span>
+      <div class="quick-hints">
+        <span><kbd>P</kbd> pointer</span>
+        <span><kbd>Échap</kbd> annuler</span>
+      </div>
+      <button type="button" class="primary send"><span>Envoyer mon retour</span><kbd class="send-kbd" aria-hidden="true">⌘↵</kbd></button>
     </div>
   </div>
   <div class="view-sent hidden">
@@ -611,26 +568,26 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   check.addEventListener('change',()=>{
     seediag.classList.toggle('hidden',!check.checked);
     diag.classList.add('hidden');
-    seediag.textContent='Voir ce qui sera envoyé';
+    seediag.textContent='Voir';
     refreshDiag();
   });
   seediag.addEventListener('click',()=>{
     const shown=diag.classList.toggle('hidden');
-    seediag.textContent=shown?'Voir ce qui sera envoyé':'Masquer les données';
+    seediag.textContent=shown?'Voir':'Masquer';
     if(!shown)refreshDiag();
   });
 
   const showError=(text:string)=>{msg.textContent=text;msg.classList.remove('hidden');};
   const clearError=()=>{msg.textContent='';msg.classList.add('hidden');};
 
-  /** Keeps step 1 honest about whether a point is already set. */
+  /** Keeps target button honest about whether a point is already set. */
   function syncAnchorUi(){
     const set=Boolean(anchor);
     targetBtn.classList.toggle('set',set);
     targetLocate.classList.toggle('hidden',!set);
     targetCancel.classList.toggle('hidden',!set);
     stepTarget.classList.toggle('done',set);
-    targetLabel.textContent=set?anchor.label:'Cliquez ici, puis l’endroit sur la page';
+    targetLabel.textContent=set?anchor.label:'Cliquez ici pour pointer un élément';
     targetBtn.title=set?`${anchor.selector} — Cliquer pour changer`:'';
     targetAct.textContent=set?'Changer':'';
   }
@@ -837,8 +794,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   // --------------------------------------------------------------- sending
 
   sendBtn.addEventListener('click',async()=>{
-    if(!anchor){showError('Montrez d’abord l’endroit concerné (étape 1).');return;}
-    if(textarea.value.trim().length<2){showError('Décrivez en une phrase ce qui ne va pas (étape 2).');textarea.focus();return;}
+    if(!anchor){showError('Veuillez d’abord sélectionner un élément sur la page.');return;}
+    if(textarea.value.trim().length<2){showError('Veuillez décrire votre retour en quelques mots.');textarea.focus();return;}
     clearError();
     sendBtn.disabled=true;sendBtn.textContent='Envoi…';
     try{
@@ -861,7 +818,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
     }catch{
       showError('Envoi impossible. Vérifiez votre connexion ou la validité de votre lien, puis réessayez.');
     }finally{
-      sendBtn.disabled=false;sendBtn.textContent='Envoyer mon retour';
+      sendBtn.disabled=false;
+      sendBtn.innerHTML='<span>Envoyer mon retour</span><kbd class="send-kbd" aria-hidden="true">⌘↵</kbd>';
     }
   });
 

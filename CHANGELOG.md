@@ -17,6 +17,12 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Simplification radicale du compositeur de retours client** :
+  - Suppression des étapes numérotées artificielles (« 1 Montrez... », « 2 Dites... ») et du bandeau d'astuce jaune pour une interface aérée, fluide et épurée.
+  - Ligne de cible interactive unifiée regroupant le libellé de l'élément pointé, la localisation et le retrait en un clic.
+  - Puces de catégorie (`Bug`, `Visuel`, `Contenu`, `Idée`) ordonnées sur une seule grille épurée à 4 colonnes.
+  - Barre d'outils compacte intégrée au conteneur de saisie : ajout de capture d'écran, accord pour informations techniques et aperçu sans verbiage superflu.
+  - Pied de formulaire épuré : badge de raccourci clavier `<kbd>⌘↵</kbd>` incrusté dans le bouton d'action principal et rappels discrets (`P pointer`, `Échap annuler`).
 - **Direction Artistique Monochrome Noir & Blanc pour l'interface client** :
   - Refonte visuelle complète du widget client avec des tokens noir et blanc purs (`#09090b` et `#ffffff`), surfaces dépolies en verre dépoli translucide, suppression des teintes indigo/orange pour une esthétique sobre, élégante et premium (style Linear/Vercel).
   - Pastille d'épingle `.pin` ultra-contrastée avec bague inversée, effet de survol dynamique et bague de rémanence.
