@@ -15,6 +15,33 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [7.0.0] — 2026-09-12
+
+Le produit a une identité, et les outils tiers ont leur vrai visage.
+
+### Ajouté
+
+- **Une marque.** Une bulle de dialogue dont le seul contenu visible est le point
+  dont on parle — le retour, et l'endroit exact auquel il appartient. Un seul
+  tracé, lisible de 16 px à une tuile d'application, partagé par le favicon
+  (`public/favicon.svg`), l'administration et le lanceur du widget.
+- **Un logotype** : `Review` en graisse normale, `Desk` en demi-gras, dans la
+  barre de navigation comme sur l'écran de connexion.
+- **Un favicon** — l'onglet ne montre plus l'icône générique du navigateur.
+- **Écran de connexion retravaillé** : champ de points en fond, clairière
+  radiale sous la carte, marque, logotype et la promesse du produit en une ligne.
+- **Les vrais logos** des outils dans le parcours de connexion : Claude, OpenAI,
+  Cursor, VS Code, tous en SVG inline (la CSP interdit toute image distante), et
+  une prise de courant pour « Autre outil ». Claude et VS Code gardent leurs
+  couleurs ; Cursor et OpenAI, monochromes par nature, suivent le thème.
+- Une section **Identité** dans le README : ce que veut dire la marque, la règle
+  typographique, la règle de couleur et les deux exceptions assumées.
+
+### Modifié
+
+- **Rupture (visuel)** : l'ancienne épingle générique disparaît de la marque, de
+  l'administration et du widget.
+
 ## [6.0.0] — 2026-09-12
 
 Connecter un agent n'est plus une affaire de fichier de configuration.
@@ -333,7 +360,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v6.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v7.0.0...HEAD
+[7.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v7.0.0
 [6.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v6.0.0
 [5.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v5.0.0
 [4.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v4.0.0

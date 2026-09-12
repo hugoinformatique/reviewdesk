@@ -131,6 +131,10 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.getByRole('heading', { name: 'Connecter un agent IA' })).toBeVisible();
 
   // Step 1: the client decides which configuration gets written.
+  // Each tool is announced by its own logo, inlined: a missing symbol renders
+  // nothing at all, so the count is the regression guard.
+  await expect(page.locator('#agent-picker .agent-card')).toHaveCount(6);
+  await expect(page.locator('#agent-picker .logo')).toHaveCount(6);
   await page.getByRole('radio', { name: 'Claude Code' }).click();
   await page.getByRole('button', { name: 'Continuer' }).click();
 

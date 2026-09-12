@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-6.0.0-09090b)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-7.0.0-09090b)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -30,6 +30,7 @@ capture d'écran annotée par mail.
 - [Le parcours du reviewer](#le-parcours-du-reviewer)
 - [L'administration](#ladministration)
 - [Brancher un agent IA (MCP)](#brancher-un-agent-ia-mcp)
+- [Identité](#identité)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Déploiement sur Vercel](#déploiement-sur-vercel)
@@ -334,12 +335,42 @@ Elle s'authentifie par en-tête uniquement : pas de cookie, donc pas de surface
 CSRF, et aucune origine n'est autorisée en CORS — un navigateur tiers ne peut pas
 l'appeler à la place de l'agent.
 
+## Identité
+
+**La marque.** Une bulle de dialogue dont le seul contenu visible est le point
+dont on parle : le retour, et l'endroit exact auquel il appartient. Un seul
+tracé, une seule silhouette, lisible de 16 px à une tuile d'application. Elle
+vit dans `public/favicon.svg`, dans le symbole `#i-brand` de l'administration et
+dans le lanceur du widget — trois fichiers, un même chemin.
+
+**Le logotype.** `Review` en graisse normale, `Desk` en demi-gras : le contraste
+de graisse porte l'accent, ce qui laisse le symbole rester une forme pleine sans
+que les deux se disputent l'attention.
+
+**La typographie.** Geist et Geist Mono, auto-hébergées (SIL OFL 1.1). Chiffres
+tabulaires partout, interlettrage qui se resserre à mesure que le corps grandit.
+
+**La couleur.** Il n'y en a pas. Une rampe de gris, du blanc au noir, et le
+noir comme couleur d'action — un bouton principal est de l'encre, et s'inverse
+en thème sombre. Deux exceptions, chacune justifiée : le rouge des erreurs et
+des actions destructrices, et les logos des outils dans le parcours de
+connexion — un logo redessiné en gris cesse d'être le logo de cette marque.
+
+**Le widget fait exception, exprès.** Côté client, il prend les couleurs de la
+page qui l'accueille : ce n'est pas notre outil qui se montre, c'est le site du
+client qui reçoit un commentaire. Seule la marque reste la nôtre.
+
+Les logos des outils tiers proviennent de [svgl.app](https://svgl.app) et
+appartiennent à leurs propriétaires respectifs ; ils sont employés ici pour
+désigner l'outil que la configuration vise, rien d'autre.
+
 ## Architecture
 
 ```text
 public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
 public/admin.js    interface d'administration (build de src/admin/app.ts)
 public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
+public/favicon.svg marque du produit
 src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF
 src/mcp/server.ts  serveur MCP stdio (build de dist/mcp.js), adaptateur de l'API agent
 src/db/            PostgreSQL (prod) ou PGlite (dev), migrations idempotentes
@@ -529,7 +560,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **6.0.0**.
+Keep a Changelog. Version courante : **7.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
