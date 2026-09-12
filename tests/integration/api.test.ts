@@ -364,3 +364,63 @@ test('a webhook URL must be public https, and a project can be edited', async (t
   assert.equal(stored.webhookUrl, 'https://hooks.example.com/rd');
   assert.equal(stored.openCount, 0);
 });
+
+test('a project can be deleted, cascading its links and tickets', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+
+  const project = await createProject(app, auth, {
+    name: 'DEMO To Delete',
+    clientLabel: 'DEMO Client D',
+    origins: ['https://preview.delete.test'],
+  });
+  const link = await createReviewLink(app, auth, project.id);
+
+  // Submit a ticket on this project
+  const ticketRes = await app.inject({
+    method: 'POST',
+    url: '/api/feedback',
+    headers: { origin: 'https://preview.delete.test', authorization: `Bearer ${link.token}` },
+    payload: {
+      projectId: project.id,
+      text: 'Bouton mal centré',
+      pageUrl: 'https://preview.delete.test/page',
+      anchor,
+      viewportWidth: 1024,
+      diagnostics: {},
+    },
+  });
+  assert.equal(ticketRes.statusCode, 201);
+
+  // Deleting with invalid UUID is rejected
+  const invalidUuid = await app.inject({
+    method: 'DELETE',
+    url: '/api/projects/not-a-uuid',
+    headers: auth.write,
+  });
+  assert.equal(invalidUuid.statusCode, 400);
+
+  // Deleting nonexistent project returns 404
+  const notFound = await app.inject({
+    method: 'DELETE',
+    url: `/api/projects/${randomUUID()}`,
+    headers: auth.write,
+  });
+  assert.equal(notFound.statusCode, 404);
+
+  // Delete the real project
+  const deleted = await app.inject({
+    method: 'DELETE',
+    url: `/api/projects/${project.id}`,
+    headers: auth.write,
+  });
+  assert.equal(deleted.statusCode, 204);
+
+  // Project is gone from GET /api/projects
+  const projects = await app.inject({ method: 'GET', url: '/api/projects', headers: auth.read });
+  assert.ok(!projects.json().some((p: { id: string }) => p.id === project.id));
+
+  // Review links for that project are gone
+  const links = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/review-links`, headers: auth.read });
+  assert.equal(links.json().links.length, 0);
+});

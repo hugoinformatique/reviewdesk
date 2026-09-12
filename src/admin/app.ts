@@ -1202,7 +1202,9 @@ type WidgetPlatform = {
   id: string;
   name: string;
   hint: string;
-  iconName: string;
+  badge: string;
+  badgeHighlight?: boolean;
+  mark: string;
   where: string;
   generate: (ctx: {
     origin: string;
@@ -1220,7 +1222,8 @@ const WIDGET_PLATFORMS: WidgetPlatform[] = [
     id: 'html',
     name: 'HTML / Statique',
     hint: 'Balise <script>',
-    iconName: 'i-code',
+    badge: 'Universel',
+    mark: 'i-html5',
     where: 'À coller juste avant la fermeture de </body> sur vos pages de test.',
     generate: ({ origin, projectId, token, position, theme, label }) => {
       const attrs = [
@@ -1239,7 +1242,9 @@ const WIDGET_PLATFORMS: WidgetPlatform[] = [
     id: 'nextjs',
     name: 'Next.js & React',
     hint: 'app/layout.tsx',
-    iconName: 'i-code',
+    badge: 'Recommandé',
+    badgeHighlight: true,
+    mark: 'i-react',
     where: 'Dans app/layout.tsx (Next.js App Router) ou pages/_app.tsx. Hors production uniquement.',
     generate: ({ origin, projectId, token, position, theme, label }) => {
       const extra = [];
@@ -1274,7 +1279,8 @@ const WIDGET_PLATFORMS: WidgetPlatform[] = [
     id: 'cms',
     name: 'Webflow / WordPress',
     hint: 'Custom Code / Footer',
-    iconName: 'i-layout',
+    badge: 'No-Code',
+    mark: 'i-webflow',
     where: 'Dans les réglages de votre CMS > Code personnalisé (Footer / avant </body>).',
     generate: ({ origin, projectId, token, position, theme, label }) => {
       const attrs = [
@@ -1293,7 +1299,8 @@ const WIDGET_PLATFORMS: WidgetPlatform[] = [
     id: 'direct',
     name: 'Lien direct (sans code)',
     hint: 'Zéro code dans le site',
-    iconName: 'i-link',
+    badge: 'Zéro code',
+    mark: 'i-share-direct',
     where: 'Partagez cette URL au client. Le token voyage dans le fragment d’URL sans toucher au code du site.',
     generate: ({ previewOrigin, projectId, token }) =>
       `${previewOrigin}/#project=${projectId}&review=${token}`,
@@ -1337,9 +1344,17 @@ function renderPlatformPicker() {
     card.type = 'button';
     card.setAttribute('role', 'radio');
     card.setAttribute('aria-checked', String(currentPlatform.id === platform.id));
+
+    const head = el('div', 'platform-card-head');
     const glyph = el('span', 'platform-glyph');
-    glyph.append(icon(platform.iconName));
-    card.append(glyph, el('strong', '', platform.name), el('span', 'platform-hint', platform.hint));
+    const logoSvg = icon(platform.mark);
+    logoSvg.classList.add('logo');
+    glyph.append(logoSvg);
+
+    const badge = el('span', `platform-badge ${platform.badgeHighlight ? 'highlight' : ''}`, platform.badge);
+    head.append(glyph, badge);
+
+    card.append(head, el('strong', '', platform.name), el('span', 'platform-hint', platform.hint));
     card.onclick = () => {
       currentPlatform = platform;
       renderPlatformPicker();
@@ -2112,6 +2127,14 @@ function openProjectDialog(project: Project | null) {
   // Distinct from the detail pane's "Enregistrer" so neither button can be
   // mistaken for the other, by a person or by a test.
   $('#project-submit').textContent = project ? 'Mettre à jour' : 'Créer';
+
+  const deleteZone = $<HTMLElement>('#project-delete-zone');
+  const deletePrompt = $<HTMLElement>('#project-delete-prompt');
+  const deleteConfirmBox = $<HTMLElement>('#project-delete-confirm-box');
+  deleteZone.hidden = !project;
+  deletePrompt.hidden = false;
+  deleteConfirmBox.hidden = true;
+
   if (project) {
     (form.elements.namedItem('name') as HTMLInputElement).value = project.name;
     (form.elements.namedItem('clientLabel') as HTMLInputElement).value = project.clientLabel;
@@ -2120,6 +2143,44 @@ function openProjectDialog(project: Project | null) {
   }
   $<HTMLDialogElement>('#project-dialog').showModal();
 }
+
+$('#project-delete-btn').addEventListener('click', () => {
+  $<HTMLElement>('#project-delete-prompt').hidden = true;
+  $<HTMLElement>('#project-delete-confirm-box').hidden = false;
+});
+
+$('#project-delete-cancel').addEventListener('click', () => {
+  $<HTMLElement>('#project-delete-confirm-box').hidden = true;
+  $<HTMLElement>('#project-delete-prompt').hidden = false;
+});
+
+$('#project-delete-confirm').addEventListener('click', async () => {
+  if (!editingProject) return;
+  const target = editingProject;
+  const button = $<HTMLButtonElement>('#project-delete-confirm');
+  button.disabled = true;
+  try {
+    await api(`/api/projects/${target.id}`, { method: 'DELETE' });
+    $<HTMLDialogElement>('#project-dialog').close();
+    editingProject = null;
+    toast(`Projet « ${target.name} » supprimé.`);
+    projects = await api('/api/projects');
+    if (selectedProject === target.id) {
+      selectedProject = projects[0]?.id ?? '';
+    }
+    await renderProjects();
+    if (selectedProject) {
+      await chooseProject(selectedProject);
+    } else {
+      await renderTickets();
+    }
+    await refreshOnboarding();
+  } catch {
+    toast('Échec de la suppression du projet.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
 
 $('#project-form').addEventListener('submit', async (event) => {
   event.preventDefault();

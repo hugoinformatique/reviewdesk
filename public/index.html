@@ -88,6 +88,23 @@
   <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
   </symbol>
+  <!-- Platform logos for the widget onboarding wizard -->
+  <symbol id="i-html5" viewBox="0 0 24 24">
+    <path fill="#E34F26" d="m3 2 1.8 17.5L12 22l7.2-2.5L21 2H3zm14.8 4.2-.3 3.6h-7.7l.3 3.2h7.1l-.7 7-5.2 1.5-5.2-1.5-.4-4.5h2.5l.2 2.3 2.9.8 2.9-.8.3-3.6H6.6L5.9 6.2h11.9z"/>
+  </symbol>
+  <symbol id="i-react" viewBox="0 0 24 24" fill="none">
+    <ellipse cx="12" cy="12" rx="10" ry="3.8" stroke="#00D8FF" stroke-width="1.5"/>
+    <ellipse cx="12" cy="12" rx="10" ry="3.8" stroke="#00D8FF" stroke-width="1.5" transform="rotate(60 12 12)"/>
+    <ellipse cx="12" cy="12" rx="10" ry="3.8" stroke="#00D8FF" stroke-width="1.5" transform="rotate(120 12 12)"/>
+    <circle cx="12" cy="12" r="2" fill="#00D8FF"/>
+  </symbol>
+  <symbol id="i-webflow" viewBox="0 0 24 24" fill="#146EF5">
+    <path d="M19.16 7.42h-3.32l-2.02 5.8-2.06-5.8H7.78L4.84 16.58h3.33l1.53-4.7 1.8 4.7h2.8l2.02-5.46 2.02 5.46h3.32L19.16 7.42Z"/>
+  </symbol>
+  <symbol id="i-share-direct" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </symbol>
 </svg>
 
 <main id="login" class="login">
@@ -219,6 +236,20 @@
     </div>
     <label>Notification sortante<input name="webhookUrl" placeholder="https://hooks.slack.com/services/…"><small>Optionnel. Un POST JSON à chaque nouveau retour. HTTPS public uniquement.</small></label>
     <output></output>
+    <div class="project-delete-zone" id="project-delete-zone" hidden>
+      <div class="project-delete-prompt" id="project-delete-prompt">
+        <button type="button" id="project-delete-btn" class="btn btn-danger-ghost">
+          Supprimer ce projet…
+        </button>
+      </div>
+      <div class="project-delete-confirm-box" id="project-delete-confirm-box" hidden>
+        <p class="delete-warning">Êtes-vous sûr ? Tous les retours, captures et liens de ce projet seront définitivement supprimés.</p>
+        <div class="delete-confirm-actions">
+          <button type="button" id="project-delete-cancel" class="btn btn-ghost">Annuler</button>
+          <button type="button" id="project-delete-confirm" class="btn btn-danger">Confirmer la suppression</button>
+        </div>
+      </div>
+    </div>
     <div class="dialog-actions">
       <button type="button" class="quiet close">Annuler</button>
       <button id="project-submit">Créer</button>
