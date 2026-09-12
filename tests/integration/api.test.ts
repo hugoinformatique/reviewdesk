@@ -424,3 +424,85 @@ test('a project can be deleted, cascading its links and tickets', async (t) => {
   const links = await app.inject({ method: 'GET', url: `/api/projects/${project.id}/review-links`, headers: auth.read });
   assert.equal(links.json().links.length, 0);
 });
+
+test('a reviewer can validate and reopen tickets in review status', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+
+  const project = await createProject(app, auth, {
+    name: 'DEMO Workflow',
+    clientLabel: 'DEMO Client Review',
+    origins: ['https://preview.review.test'],
+  });
+  const link = await createReviewLink(app, auth, project.id);
+  const reviewer = { authorization: `Bearer ${link.token}`, origin: 'https://preview.review.test' };
+
+  // 1. Submit ticket
+  const submitted = await app.inject({
+    method: 'POST',
+    url: '/api/feedback',
+    headers: reviewer,
+    payload: {
+      projectId: project.id,
+      text: 'Bouton de paiement mal aligné',
+      pageUrl: 'https://preview.review.test/checkout',
+      anchor,
+    },
+  });
+  assert.equal(submitted.statusCode, 201);
+  const ticketId = submitted.json().id as string;
+
+  // 2. Admin works on it and puts it in REVIEW
+  await app.inject({
+    method: 'PATCH',
+    url: `/api/tickets/${ticketId}`,
+    headers: auth.write,
+    payload: { status: 'REVIEW', replyText: 'Alignement corrigé sur mobile et desktop.' },
+  });
+
+  // Check CORS preflight for resolve endpoint
+  const preflight = await app.inject({
+    method: 'OPTIONS',
+    url: `/api/feedback/${ticketId}/resolve?projectId=${project.id}`,
+    headers: { origin: 'https://preview.review.test' },
+  });
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(preflight.headers['access-control-allow-origin'], 'https://preview.review.test');
+
+  // 3. Reviewer validates the correction
+  const resolved = await app.inject({
+    method: 'POST',
+    url: `/api/feedback/${ticketId}/resolve?projectId=${project.id}`,
+    headers: reviewer,
+    payload: { comment: 'Parfait, le bouton est bien aligné !' },
+  });
+  assert.equal(resolved.statusCode, 200);
+  assert.equal(resolved.json().status, 'DONE');
+  assert.equal(resolved.headers['access-control-allow-origin'], 'https://preview.review.test');
+
+  // Check ticket in admin
+  const checkedDone = await app.inject({ method: 'GET', url: `/api/tickets?projectId=${project.id}`, headers: auth.read });
+  assert.equal(checkedDone.json().tickets[0].status, 'DONE');
+
+  // 4. Reviewer reopens if need adjustment
+  const reopened = await app.inject({
+    method: 'POST',
+    url: `/api/feedback/${ticketId}/reopen?projectId=${project.id}`,
+    headers: reviewer,
+    payload: { comment: 'Finalement il y a un léger décalage sur Safari.' },
+  });
+  assert.equal(reopened.statusCode, 200);
+  assert.equal(reopened.json().status, 'TODO');
+  assert.equal(reopened.headers['access-control-allow-origin'], 'https://preview.review.test');
+
+  const checkedTodo = await app.inject({ method: 'GET', url: `/api/tickets?projectId=${project.id}`, headers: auth.read });
+  assert.equal(checkedTodo.json().tickets[0].status, 'TODO');
+
+  // Unauthorized access (missing or invalid token/origin) is forbidden
+  const unauthorized = await app.inject({
+    method: 'POST',
+    url: `/api/feedback/${ticketId}/resolve?projectId=${project.id}`,
+    headers: { origin: 'https://evil.test' },
+  });
+  assert.equal(unauthorized.statusCode, 403);
+});

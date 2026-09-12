@@ -17,6 +17,17 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Boucle de validation complète pour le client reviewer** :
+  - Actions interactives dans « Mes retours » pour les retours en attente (`À valider`) :
+    - Bouton `[✓ Valider la correction]` : clôture immédiatement le retour (`DONE`), enregistre la validation client dans le journal de travail et émet l'événement webhook `feedback.resolved`.
+    - Bouton `[↺ Demander un ajustement]` : champ de réponse intégré pour expliciter les retouches nécessaires, remettant le ticket à traiter (`TODO`) avec l'événement `feedback.reopened`.
+  - Localisation visuelle interactive (`Localiser`) avec halo lumineux animé (`.halo-flash`) permettant au client de revoir instantanément l'élément ciblé sur la page depuis « Mes retours ».
+  - Bouton de localisation et flash lumineux sur l'élément sélectionné dès l'étape 1 de la composition.
+  - Puces de catégories rapides dans l'étape 2 (`[🐛 Bug]`, `[🎨 Visuel]`, `[✍️ Contenu]`, `[💡 Idée]`) pour qualifier et structurer les retours en un clic.
+  - Bandeau d'astuce d'onboarding guidant le client dès la première utilisation du widget.
+- **Accès rapide et onboarding admin renforcé** :
+  - Bouton « Copier le lien » en 1 clic directement dans la barre de navigation pour copier l'URL directe du reviewer sans ouvrir le dialogue.
+  - Guide d'onboarding en 3 étapes progressives sur l'espace vierge d'un projet (1. Intégration ou lien direct, 2. Test de l'expérience, 3. Automatisation avec agent IA).
 - **Assistant d'onboarding projet & installation widget en 3 étapes** :
   - **Étape 1 (Plateforme)** : sélection visuelle de la méthode d'intégration (HTML / Script direct, Next.js / React, CMS / No-Code, ou Lien direct sans code), génération sécurisée de jeton d'accès et historique des liens.
   - **Étape 2 (Intégration & Personnalisation)** : options interactives (positionnement du lanceur, thème visuel, libellé de bouton) avec génération dynamique de snippet de code et bouton de copie.

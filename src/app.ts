@@ -302,7 +302,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'ReviewDesk' },
         body: JSON.stringify({
-          event: 'feedback.created',
+          event: (ticket.event as string) || 'feedback.created',
           project: { id: projectId, name: project.name, clientLabel: project.client_label },
           ticket,
         }),
@@ -514,6 +514,63 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     },
   );
 
+  // ------------------------------------------------------- ticket work log
+
+  const COMMENT_COLUMNS = `id, author, author_label AS "authorLabel", body, visibility,
+                           status_from AS "statusFrom", status_to AS "statusTo", created_at AS "createdAt"`;
+
+  async function loadComments(ticketId: string) {
+    const rows = await db.query(
+      `SELECT ${COMMENT_COLUMNS} FROM ticket_comments WHERE ticket_id = $1 ORDER BY created_at, id`,
+      [ticketId],
+    );
+    return rows.rows;
+  }
+
+  /**
+   * Appends one entry to a ticket's work log. A comment marked `reviewer` is
+   * also written to `tickets.reply_text`, which is the single field the widget
+   * reads: publishing an answer stays one deliberate act, and an internal
+   * comment can never become visible after the fact.
+   */
+  async function addComment(input: {
+    ticketId: string;
+    author: 'admin' | 'agent';
+    authorLabel: string;
+    body: string;
+    visibility: 'internal' | 'reviewer';
+    statusFrom?: string | null;
+    statusTo?: string | null;
+  }) {
+    const id = randomUUID();
+    const rows = await db.query(
+      `INSERT INTO ticket_comments(id, ticket_id, author, author_label, body, visibility, status_from, status_to)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${COMMENT_COLUMNS}`,
+      [
+        id,
+        input.ticketId,
+        input.author,
+        input.authorLabel,
+        input.body,
+        input.visibility,
+        input.statusFrom ?? null,
+        input.statusTo ?? null,
+      ],
+    );
+    if (input.visibility === 'reviewer') {
+      await db.query('UPDATE tickets SET reply_text = $2, updated_at = now() WHERE id = $1', [
+        input.ticketId,
+        input.body,
+      ]);
+    }
+    return rows.rows[0];
+  }
+
+  const reviewerFeedbackActionInput = z.object({
+    comment: z.string().max(2000).optional(),
+  });
+
   app.post('/api/feedback', async (req, reply) => {
     const parsed = feedbackInput.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
@@ -574,6 +631,98 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       [grant.projectId],
     );
     return allowOrigin(reply, grant.origin).send({ tickets: rows.rows });
+  });
+
+  app.post('/api/feedback/:id/resolve', async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const projectId = (req.query as { projectId?: unknown }).projectId;
+    if (typeof projectId !== 'string' || !uuid.safeParse(projectId).success) {
+      return reply.code(403).send({ error: 'FORBIDDEN' });
+    }
+    const grant = await authoriseReviewer(req, projectId);
+    if (!grant) return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (await overLimit(`feedback:${grant.tokenHash}`, config.submissionsPerMinute)) {
+      return allowOrigin(reply, grant.origin).code(429).send({ error: 'RATE_LIMITED' });
+    }
+    const parsed = reviewerFeedbackActionInput.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return allowOrigin(reply, grant.origin).code(400).send({ error: 'INVALID_INPUT' });
+    }
+    const ticketRows = await db.query<{ id: string; status: string; page_url: string; text: string }>(
+      'SELECT id, status, page_url, text FROM tickets WHERE id = $1 AND project_id = $2',
+      [id, grant.projectId],
+    );
+    const ticket = ticketRows.rows[0];
+    if (!ticket) return allowOrigin(reply, grant.origin).code(404).send({ error: 'NOT_FOUND' });
+
+    await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, 'DONE']);
+    const commentBody = parsed.data.comment?.trim() || 'Validation confirmée par le client.';
+    const comment = await addComment({
+      ticketId: id,
+      author: 'admin',
+      authorLabel: 'Client (Reviewer)',
+      body: commentBody,
+      visibility: 'reviewer',
+      statusFrom: ticket.status,
+      statusTo: 'DONE',
+    });
+
+    await notify(req, grant.projectId, {
+      id,
+      text: ticket.text,
+      pageUrl: ticket.page_url,
+      status: 'DONE',
+      event: 'feedback.resolved',
+    });
+
+    return allowOrigin(reply, grant.origin).code(200).send({ id, status: 'DONE', comment });
+  });
+
+  app.post('/api/feedback/:id/reopen', async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const projectId = (req.query as { projectId?: unknown }).projectId;
+    if (typeof projectId !== 'string' || !uuid.safeParse(projectId).success) {
+      return reply.code(403).send({ error: 'FORBIDDEN' });
+    }
+    const grant = await authoriseReviewer(req, projectId);
+    if (!grant) return reply.code(403).send({ error: 'FORBIDDEN' });
+    if (await overLimit(`feedback:${grant.tokenHash}`, config.submissionsPerMinute)) {
+      return allowOrigin(reply, grant.origin).code(429).send({ error: 'RATE_LIMITED' });
+    }
+    const parsed = reviewerFeedbackActionInput.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return allowOrigin(reply, grant.origin).code(400).send({ error: 'INVALID_INPUT' });
+    }
+    const ticketRows = await db.query<{ id: string; status: string; page_url: string; text: string }>(
+      'SELECT id, status, page_url, text FROM tickets WHERE id = $1 AND project_id = $2',
+      [id, grant.projectId],
+    );
+    const ticket = ticketRows.rows[0];
+    if (!ticket) return allowOrigin(reply, grant.origin).code(404).send({ error: 'NOT_FOUND' });
+
+    await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, 'TODO']);
+    const commentBody = parsed.data.comment?.trim() || 'Ajustement demandé par le client.';
+    const comment = await addComment({
+      ticketId: id,
+      author: 'admin',
+      authorLabel: 'Client (Reviewer)',
+      body: commentBody,
+      visibility: 'reviewer',
+      statusFrom: ticket.status,
+      statusTo: 'TODO',
+    });
+
+    await notify(req, grant.projectId, {
+      id,
+      text: ticket.text,
+      pageUrl: ticket.page_url,
+      status: 'TODO',
+      event: 'feedback.reopened',
+    });
+
+    return allowOrigin(reply, grant.origin).code(200).send({ id, status: 'TODO', comment });
   });
 
   app.post('/api/uploads', async (req, reply) => {
@@ -914,59 +1063,6 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       activity: activity.rows,
     };
   });
-
-  // ------------------------------------------------------- ticket work log
-
-  const COMMENT_COLUMNS = `id, author, author_label AS "authorLabel", body, visibility,
-                           status_from AS "statusFrom", status_to AS "statusTo", created_at AS "createdAt"`;
-
-  async function loadComments(ticketId: string) {
-    const rows = await db.query(
-      `SELECT ${COMMENT_COLUMNS} FROM ticket_comments WHERE ticket_id = $1 ORDER BY created_at, id`,
-      [ticketId],
-    );
-    return rows.rows;
-  }
-
-  /**
-   * Appends one entry to a ticket's work log. A comment marked `reviewer` is
-   * also written to `tickets.reply_text`, which is the single field the widget
-   * reads: publishing an answer stays one deliberate act, and an internal
-   * comment can never become visible after the fact.
-   */
-  async function addComment(input: {
-    ticketId: string;
-    author: 'admin' | 'agent';
-    authorLabel: string;
-    body: string;
-    visibility: 'internal' | 'reviewer';
-    statusFrom?: string | null;
-    statusTo?: string | null;
-  }) {
-    const id = randomUUID();
-    const rows = await db.query(
-      `INSERT INTO ticket_comments(id, ticket_id, author, author_label, body, visibility, status_from, status_to)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING ${COMMENT_COLUMNS}`,
-      [
-        id,
-        input.ticketId,
-        input.author,
-        input.authorLabel,
-        input.body,
-        input.visibility,
-        input.statusFrom ?? null,
-        input.statusTo ?? null,
-      ],
-    );
-    if (input.visibility === 'reviewer') {
-      await db.query('UPDATE tickets SET reply_text = $2, updated_at = now() WHERE id = $1', [
-        input.ticketId,
-        input.body,
-      ]);
-    }
-    return rows.rows[0];
-  }
 
   /** The ticket as an operator or an agent reads it, or null when out of scope. */
   async function loadTicket(id: string, restrictProjectId: string | null) {

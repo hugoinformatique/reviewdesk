@@ -222,6 +222,21 @@ export function init(config: Init) {
 .target.set{border-style:solid;border-color:var(--rd-stroke);background:var(--rd-tint-2);color:var(--rd-text);
   font-weight:600;box-shadow:var(--rd-lift-2),var(--rd-inset)}
 .target.set svg{color:var(--rd-pin)}
+.target-row{display:flex;gap:8px;align-items:center}
+.target-row .target{flex:1}
+.target-locate{flex:none;width:42px;height:42px;display:grid;place-items:center;border:1.5px solid var(--rd-stroke-2);
+  border-radius:13px;background:var(--rd-tint-3);color:var(--rd-accent);cursor:pointer;
+  transition:border-color .24s var(--rd-spring),background .24s,transform .24s var(--rd-spring)}
+.target-locate:hover{background:var(--rd-accent-soft);border-color:var(--rd-accent);transform:scale(1.04)}
+.target-locate svg{width:18px;height:18px}
+.category-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.category-chips .chip{border:1px solid var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
+  padding:5px 9px;border-radius:8px;font:500 11.5px inherit;cursor:pointer;
+  transition:all .18s var(--rd-spring)}
+.category-chips .chip:hover{color:var(--rd-text);background:var(--rd-tint-2);border-color:var(--rd-stroke)}
+.category-chips .chip.selected{background:var(--rd-accent-soft);color:var(--rd-accent);border-color:var(--rd-accent);font-weight:600}
+.composer-tip{display:flex;align-items:center;gap:8px;background:var(--rd-accent-soft);border:1px solid var(--rd-ring);
+  border-radius:11px;padding:8px 11px;font-size:11.5px;color:var(--rd-text-2);line-height:1.45;margin-bottom:14px}
 
 textarea{all:unset;display:block;box-sizing:border-box;width:100%;min-height:100px;border:1px solid var(--rd-stroke-2);
   border-radius:13px;padding:12px 13px;background:var(--rd-tint-2);color:var(--rd-text);
@@ -305,6 +320,39 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
 .mine .item.REVIEW .st{color:#8b5cf6}
 .mine .item.IN_PROGRESS .st{color:#3b82f6}
 .mine .item.TODO .st{color:var(--rd-pin)}
+.mine .item .item-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.mine .item .locate-ticket{border:0;background:var(--rd-tint-3);color:var(--rd-accent);font:600 11px inherit;
+  padding:3px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+  border:1px solid var(--rd-stroke);transition:all .18s ease}
+.mine .item .locate-ticket:hover{background:var(--rd-accent-soft);border-color:var(--rd-accent)}
+.mine .item .locate-ticket svg{width:13px;height:13px}
+.review-actions{display:flex;gap:7px;margin-top:10px;padding-top:8px;border-top:1px dashed var(--rd-stroke)}
+.btn-validate{flex:1;border:0;color:#fff;background:linear-gradient(155deg,#059669,var(--rd-ok) 70%);
+  padding:7px 10px;border-radius:9px;font:600 12px inherit;cursor:pointer;
+  box-shadow:var(--rd-lift-2),inset 0 1px 0 rgba(255,255,255,.35);transition:all .2s ease}
+.btn-validate:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn-reopen{flex:1;border:1px solid var(--rd-stroke-2);background:var(--rd-tint-3);color:var(--rd-text-2);
+  padding:7px 10px;border-radius:9px;font:600 12px inherit;cursor:pointer;transition:all .2s ease}
+.btn-reopen:hover{color:var(--rd-text);background:var(--rd-tint-2);border-color:var(--rd-stroke)}
+.reopen-box{margin-top:9px;display:grid;gap:7px}
+.reopen-input{all:unset;display:block;box-sizing:border-box;width:100%;min-height:56px;border:1px solid var(--rd-stroke-2);
+  border-radius:9px;padding:8px 10px;background:var(--rd-tint-3);color:var(--rd-text);font:12px/1.4 inherit}
+.reopen-input:focus{border-color:var(--rd-accent);box-shadow:0 0 0 3px var(--rd-ring)}
+.reopen-actions{display:flex;justify-content:flex-end;gap:6px}
+.reopen-cancel{border:1px solid var(--rd-stroke-2);background:transparent;color:var(--rd-text-3);
+  padding:5px 9px;border-radius:7px;font:500 11.5px inherit;cursor:pointer}
+.reopen-cancel:hover{color:var(--rd-text);background:var(--rd-tint-3)}
+.reopen-submit{border:0;background:var(--rd-accent);color:#fff;padding:5px 11px;border-radius:7px;
+  font:600 11.5px inherit;cursor:pointer}
+.reopen-submit:hover{filter:brightness(1.08)}
+.action-notice{margin-top:8px;padding:6px 9px;border-radius:8px;font-size:11.5px;font-weight:500;
+  display:flex;align-items:center;gap:6px}
+.action-notice.done{background:rgba(13,146,104,.1);color:var(--rd-ok);border:1px solid currentColor}
+.action-notice.reopened{background:rgba(249,115,22,.1);color:var(--rd-pin);border:1px solid currentColor}
+.halo-flash{position:fixed;z-index:2147483643;pointer-events:none;border-radius:9px;
+  border:2px solid var(--rd-accent);box-shadow:0 0 0 4px var(--rd-accent-soft),0 0 20px var(--rd-accent);
+  animation:rd-halo 1.5s cubic-bezier(.32,.72,0,1) forwards}
+@keyframes rd-halo{0%{opacity:0;transform:scale(.96)}20%{opacity:1;transform:scale(1.02)}45%{transform:scale(1)}80%{opacity:1}100%{opacity:0}}
 .mine .item .reply{margin-top:10px;padding:10px 11px;border-radius:10px;background:var(--rd-tint-3);
   border:1px solid var(--rd-stroke);font-size:12px;color:var(--rd-text-2);line-height:1.5}
 .mine .item .reply strong{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
@@ -406,18 +454,30 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
 </div>
 <div class="body">
   <div class="view-compose">
+    <div class="composer-tip">
+      <span>💡 Pointez un élément pour situer votre retour, ou écrivez directement ci-dessous.</span>
+    </div>
     <ol class="steps">
       <li class="step step-target">
         <span class="num">1</span>
         <div>
           <span class="step-label">Montrez l’endroit concerné</span>
-          <button type="button" class="target">${TARGET_SVG}<span class="lbl">Cliquez ici, puis l’endroit sur la page</span><span class="act"></span></button>
+          <div class="target-row">
+            <button type="button" class="target">${TARGET_SVG}<span class="lbl">Cliquez ici, puis l’endroit sur la page</span><span class="act"></span></button>
+            <button type="button" class="target-locate hidden" title="Voir l’élément sur la page" aria-label="Voir l’élément sur la page">${TARGET_SVG}</button>
+          </div>
         </div>
       </li>
       <li class="step step-text">
         <span class="num">2</span>
         <div>
           <span class="step-label">Dites ce qui ne va pas</span>
+          <div class="category-chips">
+            <button type="button" class="chip" data-prefix="[Bug] ">🐛 Bug</button>
+            <button type="button" class="chip" data-prefix="[Visuel] ">🎨 Visuel</button>
+            <button type="button" class="chip" data-prefix="[Contenu] ">✍️ Contenu</button>
+            <button type="button" class="chip" data-prefix="[Idée] ">💡 Idée</button>
+          </div>
           <textarea maxlength="4000" placeholder="Ex. : ce bouton est trop discret sur mobile, on ne le voit pas."></textarea>
         </div>
       </li>
@@ -453,10 +513,12 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
 
   let anchor:any=null,pin:HTMLElement|null=null;
   const targetBtn=panel.querySelector('.target') as HTMLButtonElement;
+  const targetLocate=panel.querySelector('.target-locate') as HTMLButtonElement;
   const targetLabel=panel.querySelector('.target .lbl') as HTMLElement;
   const targetAct=panel.querySelector('.target .act') as HTMLElement;
   const stepTarget=panel.querySelector('.step-target') as HTMLElement;
   const textarea=panel.querySelector('textarea') as HTMLTextAreaElement;
+  const chips=panel.querySelectorAll<HTMLButtonElement>('.category-chips .chip');
   const check=panel.querySelector('.diagcheck') as HTMLInputElement;
   const seediag=panel.querySelector('.seediag') as HTMLButtonElement;
   const diag=panel.querySelector('.diag') as HTMLElement;
@@ -466,6 +528,57 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   const shotName=panel.querySelector('.shot .name') as HTMLElement;
   const msg=panel.querySelector('.msg') as HTMLElement;
   const sendBtn=panel.querySelector('.send') as HTMLButtonElement;
+
+  function flashElement(selector: string){
+    try{
+      const el=document.querySelector(selector);
+      if(!el)return;
+      el.scrollIntoView({behavior:'smooth',block:'center'});
+      const halo=document.createElement('div');
+      halo.className='halo-flash';
+      root.append(halo);
+      const updateHalo=()=>{
+        const r=el.getBoundingClientRect();
+        halo.style.left=r.left+'px';
+        halo.style.top=r.top+'px';
+        halo.style.width=r.width+'px';
+        halo.style.height=r.height+'px';
+      };
+      updateHalo();
+      const interval=setInterval(updateHalo,50);
+      setTimeout(()=>{clearInterval(interval);halo.remove();},1500);
+    }catch{/* element unlocatable or invalid selector */}
+  }
+
+  targetLocate.addEventListener('click',()=>{
+    if(anchor?.selector)flashElement(anchor.selector);
+  });
+
+  const PREFIXES=['[Bug] ','[Visuel] ','[Contenu] ','[Idée] '];
+  chips.forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      const prefix=chip.dataset.prefix!;
+      const isSelected=chip.classList.contains('selected');
+      chips.forEach(c=>c.classList.remove('selected'));
+      let val=textarea.value;
+      for(const p of PREFIXES){
+        if(val.startsWith(p)){val=val.slice(p.length);break;}
+      }
+      if(!isSelected){
+        chip.classList.add('selected');
+        val=prefix+val;
+      }
+      textarea.value=val;
+      (panel.querySelector('.step-text') as HTMLElement).classList.toggle('done',textarea.value.trim().length>1);
+      textarea.focus();
+    });
+  });
+  const syncChipsFromText=()=>{
+    const val=textarea.value;
+    chips.forEach(chip=>{
+      chip.classList.toggle('selected',val.startsWith(chip.dataset.prefix!));
+    });
+  };
 
   const diagnostics=()=>normalizeDiagnostics({viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,orientation:innerWidth>=innerHeight?'landscape':'portrait',locale:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,userAgent:navigator.userAgent,platform:navigator.platform,path:location.href,errors:anchor?[]:[{category:'widget',code:'ANCHOR_MISSING',count:1}]});
 
@@ -490,6 +603,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   function syncAnchorUi(){
     const set=Boolean(anchor);
     targetBtn.classList.toggle('set',set);
+    targetLocate.classList.toggle('hidden',!set);
     stepTarget.classList.toggle('done',set);
     targetLabel.textContent=set?anchor.label:'Cliquez ici, puis l’endroit sur la page';
     targetBtn.title=set?anchor.selector:'';
@@ -612,6 +726,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
     if(ev.key==='Enter'&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();sendBtn.click();}
   });
   textarea.addEventListener('input',()=>{
+    syncChipsFromText();
     (panel.querySelector('.step-text') as HTMLElement).classList.toggle('done',textarea.value.trim().length>1);
     clearError();
   });
@@ -636,7 +751,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
       const {selector,relative,viewport}=anchor;
       const response=await fetch(`${config.api}/api/feedback?projectId=${encodeURIComponent(config.projectId)}`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'},body:JSON.stringify({projectId:config.projectId,text:textarea.value,pageUrl:location.href,anchor:{selector,relative,viewport},diagnostics:check.checked?diagnostics():{},screenshotId})});
       if(!response.ok)throw new Error('SEND_FAILED');
-      textarea.value='';setShot(null);
+      textarea.value='';setShot(null);chips.forEach(c=>c.classList.remove('selected'));
       pin?.remove();pin=null;anchor=null;syncAnchorUi();
       (panel.querySelector('.step-text') as HTMLElement).classList.remove('done');
       showView('sent');
@@ -650,7 +765,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
   // ------------------------------------------------------------------- tickets
 
   const STATUS:Record<string,string>={TODO:'À traiter',IN_PROGRESS:'En cours',REVIEW:'À valider',DONE:'Traité'};
-  type Ticket={id:string;text:string;status:string;replyText:string};
+  type Ticket={id:string;text:string;status:string;replyText:string;anchor?:{selector:string}};
 
   const listTickets=async():Promise<Ticket[]>=>{
     const response=await fetch(`${config.api}/api/feedback?projectId=${encodeURIComponent(config.projectId)}`,
@@ -689,17 +804,100 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
       }
       for(const ticket of tickets){
         const item=document.createElement('div');item.className=`item ${ticket.status}`;
+        const itemHead=document.createElement('div');itemHead.className='item-head';
         const status=document.createElement('div');status.className='st';
         status.textContent=STATUS[ticket.status]??ticket.status;
+        itemHead.append(status);
+        if(ticket.anchor?.selector){
+          const locateBtn=document.createElement('button');locateBtn.type='button';locateBtn.className='locate-ticket';
+          locateBtn.innerHTML=`${TARGET_SVG}<span>Localiser</span>`;
+          locateBtn.title='Voir l’emplacement sur la page';
+          locateBtn.addEventListener('click',()=>flashElement(ticket.anchor!.selector));
+          itemHead.append(locateBtn);
+        }
         const text=document.createElement('p');
         // textContent throughout: this is the reviewer's own text coming back.
         text.textContent=ticket.text;
-        item.append(status,text);
+        item.append(itemHead,text);
         if(ticket.replyText){
           const reply=document.createElement('div');reply.className='reply';
           const label=document.createElement('strong');label.textContent='Réponse de l’équipe';
           const body=document.createElement('span');body.textContent=ticket.replyText;
           reply.append(label,body);item.append(reply);
+        }
+        if(ticket.status==='REVIEW'){
+          const reviewActions=document.createElement('div');reviewActions.className='review-actions';
+          const btnValidate=document.createElement('button');btnValidate.type='button';btnValidate.className='btn-validate';
+          btnValidate.textContent='✓ Valider la correction';
+          const btnReopen=document.createElement('button');btnReopen.type='button';btnReopen.className='btn-reopen';
+          btnReopen.textContent='↺ Demander un ajustement';
+          reviewActions.append(btnValidate,btnReopen);
+
+          const reopenBox=document.createElement('div');reopenBox.className='reopen-box hidden';
+          reopenBox.innerHTML=`<textarea class="reopen-input" placeholder="Précisez ce qu'il reste à ajuster..."></textarea><div class="reopen-actions"><button type="button" class="reopen-cancel">Annuler</button><button type="button" class="reopen-submit">Envoyer</button></div>`;
+          const reopenInput=reopenBox.querySelector('.reopen-input') as HTMLTextAreaElement;
+          const reopenCancel=reopenBox.querySelector('.reopen-cancel') as HTMLButtonElement;
+          const reopenSubmit=reopenBox.querySelector('.reopen-submit') as HTMLButtonElement;
+
+          btnValidate.addEventListener('click',async()=>{
+            btnValidate.disabled=true;btnReopen.disabled=true;btnValidate.textContent='Validation…';
+            try{
+              const res=await fetch(`${config.api}/api/feedback/${encodeURIComponent(ticket.id)}/resolve?projectId=${encodeURIComponent(config.projectId)}`,{
+                method:'POST',
+                headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'},
+                body:'{}',
+              });
+              if(!res.ok)throw new Error();
+              ticket.status='DONE';
+              item.className='item DONE';
+              status.textContent=STATUS.DONE ?? 'Traité';
+              reviewActions.remove();reopenBox.remove();
+              const notice=document.createElement('div');notice.className='action-notice done';
+              notice.textContent='✓ Correction validée avec succès';
+              item.append(notice);
+              void countReplies();
+            }catch{
+              btnValidate.disabled=false;btnReopen.disabled=false;btnValidate.textContent='✓ Valider la correction';
+              showError('Impossible de valider. Réessayez.');
+            }
+          });
+
+          btnReopen.addEventListener('click',()=>{
+            reviewActions.classList.add('hidden');
+            reopenBox.classList.remove('hidden');
+            reopenInput.focus();
+          });
+
+          reopenCancel.addEventListener('click',()=>{
+            reopenBox.classList.add('hidden');
+            reviewActions.classList.remove('hidden');
+          });
+
+          reopenSubmit.addEventListener('click',async()=>{
+            const comment=reopenInput.value.trim();
+            reopenSubmit.disabled=true;reopenSubmit.textContent='Envoi…';
+            try{
+              const res=await fetch(`${config.api}/api/feedback/${encodeURIComponent(ticket.id)}/reopen?projectId=${encodeURIComponent(config.projectId)}`,{
+                method:'POST',
+                headers:{Authorization:`Bearer ${config.token}`,'Content-Type':'application/json'},
+                body:JSON.stringify({comment}),
+              });
+              if(!res.ok)throw new Error();
+              ticket.status='TODO';
+              item.className='item TODO';
+              status.textContent=STATUS.TODO ?? 'À traiter';
+              reviewActions.remove();reopenBox.remove();
+              const notice=document.createElement('div');notice.className='action-notice reopened';
+              notice.textContent='↺ Demande d’ajustement envoyée';
+              item.append(notice);
+              void countReplies();
+            }catch{
+              reopenSubmit.disabled=false;reopenSubmit.textContent='Envoyer';
+              showError('Impossible d’envoyer la demande. Réessayez.');
+            }
+          });
+
+          item.append(reviewActions,reopenBox);
         }
         mineList.append(item);
       }
