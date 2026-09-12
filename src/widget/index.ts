@@ -1,4 +1,5 @@
 import { normalizeDiagnostics } from '../privacy.js';
+import html2canvas from 'html2canvas';
 
 type Init = {
   api: string;
@@ -251,8 +252,9 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
   cursor:pointer;text-decoration:underline;padding:2px 4px}
 .seediag:hover{color:var(--rd-text)}
 .shot{display:inline-flex;align-items:center;gap:5px;background:var(--rd-tint-2);
-  border:1px solid var(--rd-stroke);border-radius:6px;padding:2px 6px;margin-left:auto;max-width:160px}
+  border:1px solid var(--rd-stroke);border-radius:6px;padding:2px 6px;margin-left:auto;max-width:175px}
 .shot img{width:16px;height:16px;object-fit:cover;border-radius:3px;flex:none}
+.shot img.hidden{display:none}
 .shot .name{font-size:10.5px;color:var(--rd-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shot .edit-shot{border:0;background:transparent;color:var(--rd-text-3);cursor:pointer;padding:0 2px;font:600 11px inherit}
 .shot .edit-shot:hover{color:var(--rd-text)}
@@ -541,7 +543,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   <div class="view-sent hidden">
     <div class="sent">
       <div class="check">${CHECK_SVG}</div>
-      <h2>Retour envoyé, merci&nbsp;!</h2>
+      <h2 class="sent-title"></h2>
       <p>Vous serez prévenu ici même dès qu’une réponse arrive : rouvrez ce bouton et allez dans « Mes retours ».</p>
       <div class="actions">
         <button type="button" class="secondary again">Écrire un autre retour</button>
@@ -553,7 +555,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
 </div>`;
   root.append(panel);
 
-  let anchor:any=null,pin:HTMLElement|null=null;
+  let anchor:any=null,pin:HTMLElement|null=null,isAutoShot=false;
   const targetBtn=panel.querySelector('.target') as HTMLButtonElement;
   const targetLocate=panel.querySelector('.target-locate') as HTMLButtonElement;
   const targetCancel=panel.querySelector('.target-cancel') as HTMLButtonElement;
@@ -705,6 +707,10 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     pin?.remove();
     pin=null;
     anchor=null;
+    if(isAutoShot){
+      setShot(null);
+      isAutoShot=false;
+    }
     syncAnchorUi();
     clearError();
     if(check.checked)refreshDiag();
@@ -1016,6 +1022,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   let shotUrl:string|null=null;
   let activeShotFile:File|null=null;
   let rawShotFile:File|null=null;
+  let currentCapturePromise:Promise<File|null>|null=null;
 
   function setShot(picked:File|null){
     if(shotUrl){URL.revokeObjectURL(shotUrl);shotUrl=null;}
@@ -1024,13 +1031,84 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       file.value='';
       shot.classList.add('hidden');
       shotImg.removeAttribute('src');
+      shotImg.classList.add('hidden');
       rawShotFile = null;
+      isAutoShot = false;
       return;
     }
     shotUrl=URL.createObjectURL(picked);
     shotImg.src=shotUrl;
+    shotImg.classList.remove('hidden');
     shotName.textContent=picked.name;
     shot.classList.remove('hidden');
+  }
+
+  async function captureAutoScreenshot(clientX: number, clientY: number): Promise<File | null> {
+    try {
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      const h2c: any = (html2canvas as any)?.default || html2canvas;
+      const canvas = await h2c(document.body, {
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        x: scrollX,
+        y: scrollY,
+        width,
+        height,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        ignoreElements: (el: Element) => {
+          return el === host || el.tagName.toLowerCase() === 'reviewdesk-widget' || el.classList?.contains('collab-pins-layer');
+        },
+      });
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const scale = canvas.width / width;
+        const pinX = clientX * scale;
+        const pinY = clientY * scale;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 10 * scale;
+        ctx.shadowOffsetY = 4 * scale;
+
+        ctx.beginPath();
+        ctx.arc(pinX, pinY, 15 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = '#09090b';
+        ctx.fill();
+
+        ctx.lineWidth = 2.5 * scale;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        ctx.restore();
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('1', pinX, pinY);
+        ctx.restore();
+      }
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b: Blob | null) => resolve(b), 'image/webp', 0.85);
+      });
+      if (!blob) return null;
+      const mimeType = blob.type || 'image/webp';
+      const ext = mimeType === 'image/png' ? '.png' : mimeType === 'image/jpeg' ? '.jpg' : '.webp';
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}h${String(now.getMinutes()).padStart(2, '0')}`;
+      const autoFile = new File([blob], `capture-auto-${timeStr}${ext}`, { type: mimeType });
+      return autoFile;
+    } catch {
+      /* Graceful fallback if screenshot fails */
+      return null;
+    }
   }
 
   async function handleIncomingFile(picked:File|null){
@@ -1048,8 +1126,10 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     clearError();
     const compressed = await compressImage(picked);
     rawShotFile = compressed;
+    isAutoShot = false;
     openAnnotator(compressed, (annotated) => {
       setShot(annotated);
+      isAutoShot = false;
     });
   }
 
@@ -1059,6 +1139,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     if(rawShotFile || activeShotFile){
       openAnnotator(rawShotFile || activeShotFile!, (annotated)=>{
         setShot(annotated);
+        isAutoShot = false;
       });
     }
   });
@@ -1126,6 +1207,25 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       syncAnchorUi();clearError();panel.classList.remove('hidden');
       textarea.focus();
       if(check.checked)refreshDiag();
+
+      const clickX = ev.clientX;
+      const clickY = ev.clientY;
+      if(!activeShotFile || isAutoShot){
+        shot.classList.remove('hidden');
+        shotImg.classList.add('hidden');
+        shotName.textContent='📸 Capture auto…';
+        const capturePromise = captureAutoScreenshot(clickX, clickY);
+        currentCapturePromise = capturePromise;
+        void capturePromise.then((autoFile)=>{
+          if(autoFile && anchor && (!activeShotFile || isAutoShot)){
+            rawShotFile = autoFile;
+            setShot(autoFile);
+            isAutoShot = true;
+          }else if(!activeShotFile){
+            shot.classList.add('hidden');
+          }
+        });
+      }
     });
   }
 
@@ -1146,6 +1246,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     composeView.classList.toggle('hidden',which!=='compose');
     sentView.classList.toggle('hidden',which!=='sent');
     mineView.classList.toggle('hidden',which!=='mine');
+    const sentTitle=sentView.querySelector('.sent-title');
+    if(sentTitle) sentTitle.textContent = which==='sent' ? 'Retour envoyé, merci !' : '';
     tabCompose.setAttribute('aria-pressed',String(which!=='mine'));
     tabMine.setAttribute('aria-pressed',String(which==='mine'));
     tabs.classList.toggle('on-mine',which==='mine');
@@ -1242,13 +1344,28 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     clearError();
     sendBtn.disabled=true;sendBtn.textContent='Envoi…';
     try{
+      if(currentCapturePromise){
+        try{
+          await Promise.race([
+            currentCapturePromise,
+            new Promise((resolve)=>setTimeout(resolve,1500)),
+          ]);
+        }catch{
+          /* non-blocking capture fallback */
+        }
+      }
       let screenshotId:string|undefined;
       const fileToUpload = activeShotFile || file.files?.[0];
       if(fileToUpload){
-        const form=new FormData();form.append('file',fileToUpload);
-        const up=await fetch(`${config.api}/api/uploads?projectId=${encodeURIComponent(config.projectId)}`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`},body:form});
-        if(!up.ok)throw new Error('UPLOAD_FAILED');
-        screenshotId=(await up.json()).id;
+        try{
+          const form=new FormData();form.append('file',fileToUpload);
+          const up=await fetch(`${config.api}/api/uploads?projectId=${encodeURIComponent(config.projectId)}`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`},body:form});
+          if(up.ok){
+            screenshotId=(await up.json()).id;
+          }
+        }catch{
+          /* upload non-blocking */
+        }
       }
       // Only the selector and the relative point travel: the friendly label is
       // built from page text and stays on the reviewer's machine.

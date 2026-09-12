@@ -17,6 +17,13 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Capture d'écran automatique à chaque retour (Auto-screenshot)** :
+  - Dès qu'un élément de la page est pointé / ancré, une capture d'écran haute résolution du viewport visible est automatiquement réalisée en arrière-plan via `html2canvas`.
+  - L'image capturée intègre directement une pastille d'ancrage contrastée numérotée (« 1 ») dessinée aux coordonnées précises du clic.
+  - La capture apparaît instantanément dans la zone de prévisualisation du formulaire avec possibilité immédiate de l'annoter avec le mini-éditeur (`✏️`) ou de la remplacer par une capture manuelle.
+  - Si le point d'ancrage est retiré (`Retirer` ou clic sur l'épingle), la capture automatique est nettoyée en synchronisation.
+  - Téléversement automatique non-bloquant lors de la soumission du retour, avec liaison au ticket pour consultation par l'administrateur et les agents IA.
+
 - **Mini-éditeur d'annotation sur capture d'écran** :
   - Éditeur interactif intégré directement au widget permettant d'annoter une capture d'écran avant son envoi.
   - Outils intégrés : tracé de rectangles rouges d'accentuation, tracé de flèches indicatrices directionnelles et masquage/floutage par pixellisation des données sensibles (mots de passe, adresses email, informations confidentielles).
