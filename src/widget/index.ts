@@ -251,9 +251,11 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
   cursor:pointer;text-decoration:underline;padding:2px 4px}
 .seediag:hover{color:var(--rd-text)}
 .shot{display:inline-flex;align-items:center;gap:5px;background:var(--rd-tint-2);
-  border:1px solid var(--rd-stroke);border-radius:6px;padding:2px 6px;margin-left:auto;max-width:140px}
+  border:1px solid var(--rd-stroke);border-radius:6px;padding:2px 6px;margin-left:auto;max-width:160px}
 .shot img{width:16px;height:16px;object-fit:cover;border-radius:3px;flex:none}
 .shot .name{font-size:10.5px;color:var(--rd-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shot .edit-shot{border:0;background:transparent;color:var(--rd-text-3);cursor:pointer;padding:0 2px;font:600 11px inherit}
+.shot .edit-shot:hover{color:var(--rd-text)}
 .shot .drop{border:0;background:transparent;color:var(--rd-text-3);cursor:pointer;padding:0 2px;font:700 11px inherit}
 .shot .drop:hover{color:var(--rd-danger)}
 .diag{background:var(--rd-tint-3);border:1px solid var(--rd-stroke);color:var(--rd-text-2);padding:8px 10px;
@@ -398,6 +400,65 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.2);transition:background .2s}
 .pickcancel:hover{background:rgba(255,255,255,.26)}
 
+/* ----------------------------------------------------------- collab on-page pins */
+.collab-pin{position:absolute;z-index:2147483640;display:inline-flex;align-items:center;gap:5px;
+  transform:translate(-50%,-50%);padding:4px 8px;border-radius:999px;
+  font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:var(--rd-accent-contrast);background:var(--rd-accent);
+  border:2px solid var(--rd-accent-contrast);
+  box-shadow:0 6px 18px rgba(0,0,0,.32),0 1px 3px rgba(0,0,0,.2);
+  cursor:pointer;transition:transform .2s var(--rd-spring),box-shadow .2s;pointer-events:auto}
+.collab-pin:hover{transform:translate(-50%,-50%) scale(1.15);box-shadow:0 10px 24px rgba(0,0,0,.45);z-index:2147483643}
+.collab-pin.status-TODO{background:#18181b}
+:host([data-theme=dark]) .collab-pin.status-TODO{background:#ffffff;color:#09090b}
+.collab-pin.status-IN_PROGRESS{background:#2563eb}
+.collab-pin.status-REVIEW{background:#d97706}
+.collab-pin.status-DONE{background:#71717a;opacity:.78}
+.collab-pin .collab-badge{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.collab-pin .collab-tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:rgba(9,9,11,.92);color:#fff;padding:6px 10px;border-radius:8px;font:500 11.5px/1.35 inherit;
+  white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
+  box-shadow:0 8px 20px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);
+  opacity:0;visibility:hidden;transition:all .18s ease;z-index:2147483644}
+.collab-pin:hover .collab-tip{opacity:1;visibility:visible;transform:translateX(-50%) translateY(-2px)}
+.tab-pins-toggle{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rd-stroke);
+  background:var(--rd-tint-3);color:var(--rd-text-2);padding:4px 9px;border-radius:8px;font:600 11px inherit;
+  cursor:pointer;transition:all .16s ease;margin-left:auto}
+.tab-pins-toggle:hover{color:var(--rd-text);background:var(--rd-tint-2)}
+.tab-pins-toggle.active{background:var(--rd-accent-soft);color:var(--rd-text);border-color:var(--rd-accent)}
+.tab-pins-toggle svg{width:12px;height:12px;flex:none}
+
+/* ------------------------------------------------------------- annotator modal */
+.annotator-overlay{position:fixed;inset:0;z-index:2147483647;
+  background:rgba(0,0,0,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:16px;animation:rd-in .2s ease}
+.annotator-card{background:var(--rd-tint);border:1px solid var(--rd-stroke-2);border-radius:18px;
+  width:min(920px,94vw);max-height:92vh;display:flex;flex-direction:column;
+  box-shadow:var(--rd-lift);overflow:hidden}
+.annotator-header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 18px;border-bottom:1px solid var(--rd-stroke);background:var(--rd-tint-2)}
+.annotator-title{font:650 14px inherit;letter-spacing:-.01em;display:flex;flex-direction:column;gap:2px}
+.annotator-sub{font:500 11.5px inherit;color:var(--rd-text-3)}
+.annotator-actions{display:flex;align-items:center;gap:8px}
+.annotator-btn{padding:7px 13px;border-radius:9px;font:600 12px inherit;cursor:pointer;
+  border:1px solid var(--rd-stroke);background:var(--rd-tint-3);color:var(--rd-text);transition:all .18s ease}
+.annotator-btn:hover{background:var(--rd-tint-2);color:var(--rd-text)}
+.annotator-btn.primary{background:var(--rd-accent);color:var(--rd-accent-contrast);border-color:var(--rd-accent)}
+.annotator-btn.primary:hover{filter:contrast(1.15) brightness(1.08)}
+.annotator-canvas-wrap{flex:1;min-height:280px;max-height:64vh;display:grid;place-items:center;
+  background:rgba(0,0,0,.28);padding:12px;overflow:auto}
+.annotator-canvas{display:block;max-width:100%;max-height:60vh;object-fit:contain;cursor:crosshair;
+  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);touch-action:none}
+.annotator-toolbar{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;
+  border-top:1px solid var(--rd-stroke);background:var(--rd-tint-2)}
+.tool-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:8px;
+  font:600 12px inherit;cursor:pointer;border:1px solid var(--rd-stroke-2);
+  background:var(--rd-tint-3);color:var(--rd-text-2);transition:all .16s ease}
+.tool-btn:hover{color:var(--rd-text);background:var(--rd-tint-2);border-color:var(--rd-stroke)}
+.tool-btn.active{background:var(--rd-accent);color:var(--rd-accent-contrast);border-color:var(--rd-accent)}
+.tool-btn svg{width:14px;height:14px;flex:none}
+.tool-sep{width:1px;height:20px;background:var(--rd-stroke);margin:0 4px}
+
 @media(max-width:520px){
   :host{--rd-edge:12px}
   .panel{right:12px;left:12px;bottom:12px;width:auto;max-height:calc(100dvh - 24px);border-radius:22px;
@@ -443,6 +504,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   <span class="ind"></span>
   <button type="button" class="tab tab-compose" aria-pressed="true">Nouveau retour</button>
   <button type="button" class="tab tab-mine" aria-pressed="false">Mes retours<span class="badge hidden"></span></button>
+  <button type="button" class="tab-pins-toggle active" title="Afficher/Masquer les pastilles sur la page">${PIN_SVG}<span>Pastilles</span></button>
 </div>
 <div class="body">
   <div class="view-compose">
@@ -463,7 +525,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
         <label class="attach" title="Ajouter une capture d’écran">${IMAGE_SVG}<span>Capture</span><input class="file-input" type="file" accept="image/png,image/jpeg,image/webp"></label>
         <label class="privacy" title="Taille d’écran, navigateur, page (sans donnée personnelle)"><input type="checkbox" class="diagcheck"><span>Infos tech</span></label>
         <button type="button" class="seediag hidden">Voir</button>
-        <div class="shot hidden"><img alt=""><span class="name"></span><button type="button" class="drop" title="Retirer la capture">✕</button></div>
+        <div class="shot hidden"><img alt=""><span class="name"></span><button type="button" class="edit-shot" title="Annoter l’image">✏️</button><button type="button" class="drop" title="Retirer la capture">✕</button></div>
       </div>
       <pre class="diag hidden"></pre>
     </div>
@@ -561,7 +623,53 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     });
   };
 
-  const diagnostics=()=>normalizeDiagnostics({viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,orientation:innerWidth>=innerHeight?'landscape':'portrait',locale:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,userAgent:navigator.userAgent,platform:navigator.platform,path:location.href,errors:anchor?[]:[{category:'widget',code:'ANCHOR_MISSING',count:1}]});
+  type RecordedJsError = {
+    type: 'runtime' | 'unhandledrejection';
+    message: string;
+    source?: string;
+    lineno?: number;
+    colno?: number;
+    time: string;
+  };
+  const jsErrorsBuffer: RecordedJsError[] = [];
+  function recordError(type: 'runtime' | 'unhandledrejection', msg: string, source?: string, lineno?: number, colno?: number) {
+    if (jsErrorsBuffer.length >= 6) jsErrorsBuffer.shift();
+    jsErrorsBuffer.push({
+      type,
+      message: String(msg).slice(0, 240),
+      source: typeof source === 'string' ? source.slice(0, 150) : undefined,
+      lineno,
+      colno,
+      time: new Date().toISOString(),
+    });
+  }
+
+  window.addEventListener('error', (ev) => {
+    try {
+      recordError('runtime', String(ev.message || 'Error'), typeof ev.filename === 'string' ? ev.filename : undefined, ev.lineno, ev.colno);
+    } catch { /* error recording failed */ }
+  });
+
+  window.addEventListener('unhandledrejection', (ev) => {
+    try {
+      const reason = ev.reason;
+      const msg = typeof reason === 'string' ? reason : (reason?.message || 'Unhandled Promise Rejection');
+      recordError('unhandledrejection', String(msg));
+    } catch { /* rejection recording failed */ }
+  });
+
+  const diagnostics=()=>normalizeDiagnostics({
+    viewport:{width:innerWidth,height:innerHeight},
+    dpr:devicePixelRatio,
+    orientation:innerWidth>=innerHeight?'landscape':'portrait',
+    locale:navigator.language,
+    timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+    userAgent:navigator.userAgent,
+    platform:navigator.platform,
+    path:location.href,
+    errors:anchor?[]:[{category:'widget',code:'ANCHOR_MISSING',count:1}],
+    jsErrors:jsErrorsBuffer.slice(-5),
+  });
 
   /** Consent stays explicit, and the payload stays one click away from being read. */
   const refreshDiag=()=>{diag.textContent=check.checked?JSON.stringify(diagnostics(),null,2):'';};
@@ -603,28 +711,363 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   }
   targetCancel.addEventListener('click',cancelAnchor);
 
-  // ------------------------------------------------------- optional screenshot
+  // ------------------------------------------------------- image compression & annotation
+
+  function applyPixelate(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+    if (w <= 0 || h <= 0) return;
+    try {
+      const blockSize = Math.max(8, Math.round(Math.min(w, h) / 7));
+      const imgData = ctx.getImageData(x, y, w, h);
+      const data = imgData.data;
+      for (let py = 0; py < h; py += blockSize) {
+        for (let px = 0; px < w; px += blockSize) {
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let dy = 0; dy < blockSize && py + dy < h; dy++) {
+            for (let dx = 0; dx < blockSize && px + dx < w; dx++) {
+              const idx = ((py + dy) * w + (px + dx)) * 4;
+              r += data[idx]!;
+              g += data[idx + 1]!;
+              b += data[idx + 2]!;
+              count++;
+            }
+          }
+          if (!count) continue;
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+          for (let dy = 0; dy < blockSize && py + dy < h; dy++) {
+            for (let dx = 0; dx < blockSize && px + dx < w; dx++) {
+              const idx = ((py + dy) * w + (px + dx)) * 4;
+              data[idx] = r;
+              data[idx + 1] = g;
+              data[idx + 2] = b;
+            }
+          }
+        }
+      }
+      ctx.putImageData(imgData, x, y);
+    } catch {
+      ctx.fillStyle = 'rgba(128,128,128,0.92)';
+      ctx.fillRect(x, y, w, h);
+    }
+  }
+
+  function drawArrow(ctx: CanvasRenderingContext2D, fromX: number, fromY: number, toX: number, toY: number, color: string, width: number) {
+    const headLen = Math.max(16, width * 3.5);
+    const angle = Math.atan2(toY - fromY, toX - fromX);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  async function compressImage(file: File | Blob, maxWidth = 1920, maxHeight = 1080, quality = 0.85): Promise<File> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxWidth || h > maxHeight) {
+          const ratio = Math.min(maxWidth / w, maxHeight / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file instanceof File ? file : new File([file], 'capture.webp', { type: 'image/webp' }));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(file instanceof File ? file : new File([file], 'capture.webp', { type: 'image/webp' }));
+            return;
+          }
+          const baseName = (file instanceof File ? file.name.replace(/\.[^.]+$/, '') : 'capture');
+          resolve(new File([blob], `${baseName}.webp`, { type: 'image/webp' }));
+        }, 'image/webp', quality);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file instanceof File ? file : new File([file], 'capture.webp', { type: 'image/webp' }));
+      };
+      img.src = url;
+    });
+  }
+
+  type Shape =
+    | { tool: 'rect'; x1: number; y1: number; x2: number; y2: number }
+    | { tool: 'arrow'; x1: number; y1: number; x2: number; y2: number }
+    | { tool: 'blur'; x1: number; y1: number; x2: number; y2: number };
+
+  function openAnnotator(file: File, onSave: (annotated: File) => void) {
+    const modal = document.createElement('div');
+    modal.className = 'annotator-overlay';
+    modal.innerHTML = `
+      <div class="annotator-card" role="dialog" aria-label="Annoter la capture">
+        <div class="annotator-header">
+          <div class="annotator-title">
+            <span>Annoter la capture</span>
+            <span class="annotator-sub">Pointez les anomalies et masquez les données privées</span>
+          </div>
+          <div class="annotator-actions">
+            <button type="button" class="annotator-btn annotator-skip" title="Garder sans annotation">Ignorer</button>
+            <button type="button" class="annotator-btn annotator-done primary" title="Valider les annotations">✓ Valider</button>
+          </div>
+        </div>
+        <div class="annotator-canvas-wrap">
+          <canvas class="annotator-canvas"></canvas>
+        </div>
+        <div class="annotator-toolbar">
+          <button type="button" class="tool-btn active" data-tool="rect" title="Cadre rouge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            <span>Cadre</span>
+          </button>
+          <button type="button" class="tool-btn" data-tool="arrow" title="Flèche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>
+            <span>Flèche</span>
+          </button>
+          <button type="button" class="tool-btn" data-tool="blur" title="Flouter des informations sensibles">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+            <span>Flouter</span>
+          </button>
+          <span class="tool-sep"></span>
+          <button type="button" class="tool-btn tool-undo" title="Annuler le dernier tracé">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            <span>Annuler</span>
+          </button>
+          <button type="button" class="tool-btn tool-clear" title="Effacer toutes les annotations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <span>Effacer</span>
+          </button>
+        </div>
+      </div>
+    `;
+    root.append(modal);
+
+    const canvas = modal.querySelector('canvas') as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    let currentTool: 'rect' | 'arrow' | 'blur' = 'rect';
+    const shapes: Shape[] = [];
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let currentX = 0, currentY = 0;
+
+    img.onload = () => {
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      redraw();
+    };
+    img.src = url;
+
+    function redraw(draft?: Shape) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const all = draft ? [...shapes, draft] : shapes;
+      for (const s of all) {
+        drawShape(s);
+      }
+    }
+
+    function drawShape(s: Shape) {
+      const minX = Math.min(s.x1, s.x2);
+      const minY = Math.min(s.y1, s.y2);
+      const w = Math.abs(s.x2 - s.x1);
+      const h = Math.abs(s.y2 - s.y1);
+      const strokeW = Math.max(3, Math.round(canvas.width / 260));
+
+      if (s.tool === 'rect') {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = strokeW;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+        ctx.beginPath();
+        ctx.rect(minX, minY, w, h);
+        ctx.fill();
+        ctx.stroke();
+      } else if (s.tool === 'arrow') {
+        drawArrow(ctx, s.x1, s.y1, s.x2, s.y2, '#ef4444', strokeW);
+      } else if (s.tool === 'blur') {
+        applyPixelate(ctx, minX, minY, w, h);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(minX, minY, w, h);
+        ctx.setLineDash([]);
+      }
+    }
+
+    const toolBtns = modal.querySelectorAll<HTMLButtonElement>('[data-tool]');
+    toolBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        toolBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTool = btn.dataset.tool as any;
+      });
+    });
+
+    modal.querySelector('.tool-undo')!.addEventListener('click', () => {
+      shapes.pop();
+      redraw();
+    });
+    modal.querySelector('.tool-clear')!.addEventListener('click', () => {
+      shapes.length = 0;
+      redraw();
+    });
+
+    const getCanvasPos = (ev: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      return {
+        x: Math.max(0, Math.min(canvas.width, (ev.clientX - rect.left) * scaleX)),
+        y: Math.max(0, Math.min(canvas.height, (ev.clientY - rect.top) * scaleY)),
+      };
+    };
+
+    canvas.addEventListener('pointerdown', (ev) => {
+      isDrawing = true;
+      canvas.setPointerCapture(ev.pointerId);
+      const pos = getCanvasPos(ev);
+      startX = pos.x;
+      startY = pos.y;
+      currentX = pos.x;
+      currentY = pos.y;
+    });
+
+    canvas.addEventListener('pointermove', (ev) => {
+      if (!isDrawing) return;
+      const pos = getCanvasPos(ev);
+      currentX = pos.x;
+      currentY = pos.y;
+      redraw({ tool: currentTool, x1: startX, y1: startY, x2: currentX, y2: currentY });
+    });
+
+    canvas.addEventListener('pointerup', (ev) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+      const pos = getCanvasPos(ev);
+      currentX = pos.x;
+      currentY = pos.y;
+      const dist = Math.hypot(currentX - startX, currentY - startY);
+      if (dist > 4) {
+        shapes.push({ tool: currentTool, x1: startX, y1: startY, x2: currentX, y2: currentY });
+      }
+      redraw();
+    });
+
+    const close = () => {
+      URL.revokeObjectURL(url);
+      modal.remove();
+      removeEventListener('keydown', onKey);
+    };
+
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation();
+        close();
+        onSave(file);
+      }
+    };
+    addEventListener('keydown', onKey);
+
+    modal.querySelector('.annotator-skip')!.addEventListener('click', () => {
+      close();
+      onSave(file);
+    });
+
+    modal.querySelector('.annotator-done')!.addEventListener('click', () => {
+      redraw();
+      canvas.toBlob((blob) => {
+        close();
+        if (blob) {
+          const baseName = file.name.replace(/\.[^.]+$/, '');
+          const out = new File([blob], `${baseName}-annotated.webp`, { type: 'image/webp' });
+          onSave(out);
+        } else {
+          onSave(file);
+        }
+      }, 'image/webp', 0.88);
+    });
+  }
 
   let shotUrl:string|null=null;
+  let activeShotFile:File|null=null;
+  let rawShotFile:File|null=null;
+
   function setShot(picked:File|null){
     if(shotUrl){URL.revokeObjectURL(shotUrl);shotUrl=null;}
-    if(!picked){file.value='';shot.classList.add('hidden');shotImg.removeAttribute('src');return;}
-    if(!['image/png','image/jpeg','image/webp'].includes(picked.type)){file.value='';showError('Format non accepté : utilisez PNG, JPEG ou WebP.');return;}
-    if(picked.size>UPLOAD_MAX_BYTES){file.value='';showError('Capture trop lourde : 4 Mo maximum.');return;}
-    clearError();
+    activeShotFile = picked;
+    if(!picked){
+      file.value='';
+      shot.classList.add('hidden');
+      shotImg.removeAttribute('src');
+      rawShotFile = null;
+      return;
+    }
     shotUrl=URL.createObjectURL(picked);
-    shotImg.src=shotUrl;shotName.textContent=picked.name;shot.classList.remove('hidden');
+    shotImg.src=shotUrl;
+    shotName.textContent=picked.name;
+    shot.classList.remove('hidden');
   }
-  file.addEventListener('change',()=>setShot(file.files?.[0]??null));
+
+  async function handleIncomingFile(picked:File|null){
+    if(!picked) return;
+    if(!['image/png','image/jpeg','image/webp'].includes(picked.type)){
+      file.value='';
+      showError('Format non accepté : utilisez PNG, JPEG ou WebP.');
+      return;
+    }
+    if(picked.size>UPLOAD_MAX_BYTES){
+      file.value='';
+      showError('Capture trop lourde : 4 Mo maximum.');
+      return;
+    }
+    clearError();
+    const compressed = await compressImage(picked);
+    rawShotFile = compressed;
+    openAnnotator(compressed, (annotated) => {
+      setShot(annotated);
+    });
+  }
+
+  file.addEventListener('change',()=>void handleIncomingFile(file.files?.[0]??null));
   panel.querySelector('.shot .drop')!.addEventListener('click',()=>setShot(null));
-  // Pasting is how anyone actually moves a screenshot around; a file picker is
-  // three extra steps for the same PNG.
+  panel.querySelector('.shot .edit-shot')?.addEventListener('click',()=>{
+    if(rawShotFile || activeShotFile){
+      openAnnotator(rawShotFile || activeShotFile!, (annotated)=>{
+        setShot(annotated);
+      });
+    }
+  });
+
   panel.addEventListener('paste',(event)=>{
     const pasted=[...((event as ClipboardEvent).clipboardData?.files ?? [])][0];
     if(!pasted)return;
     event.preventDefault();
-    const transfer=new DataTransfer();transfer.items.add(pasted);file.files=transfer.files;
-    setShot(pasted);
+    void handleIncomingFile(pasted);
   });
 
   // ------------------------------------------------------------------ picking
@@ -800,8 +1243,9 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     sendBtn.disabled=true;sendBtn.textContent='Envoi…';
     try{
       let screenshotId:string|undefined;
-      if(file.files?.[0]){
-        const form=new FormData();form.append('file',file.files[0]);
+      const fileToUpload = activeShotFile || file.files?.[0];
+      if(fileToUpload){
+        const form=new FormData();form.append('file',fileToUpload);
         const up=await fetch(`${config.api}/api/uploads?projectId=${encodeURIComponent(config.projectId)}`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`},body:form});
         if(!up.ok)throw new Error('UPLOAD_FAILED');
         screenshotId=(await up.json()).id;
@@ -815,6 +1259,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       pin?.remove();pin=null;anchor=null;syncAnchorUi();
       (panel.querySelector('.step-text') as HTMLElement).classList.remove('done');
       showView('sent');
+      void listTickets().then(t=>{cachedTickets=t;updateCollabPins();}).catch(()=>{});
     }catch{
       showError('Envoi impossible. Vérifiez votre connexion ou la validité de votre lien, puis réessayez.');
     }finally{
@@ -826,7 +1271,64 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   // ------------------------------------------------------------------- tickets
 
   const STATUS:Record<string,string>={TODO:'À traiter',IN_PROGRESS:'En cours',REVIEW:'À valider',DONE:'Traité'};
-  type Ticket={id:string;text:string;status:string;replyText:string;anchor?:{selector:string}};
+  type Ticket={id:string;text:string;status:string;replyText:string;anchor?:{selector:string;relative?:{x:number;y:number}}};
+
+  let cachedTickets:Ticket[]=[];
+  let showCollabPins=true;
+  const collabLayer=document.createElement('div');
+  collabLayer.className='collab-pins-layer';
+  root.append(collabLayer);
+
+  const pinsToggleBtn=panel.querySelector('.tab-pins-toggle') as HTMLButtonElement|null;
+  pinsToggleBtn?.addEventListener('click',()=>{
+    showCollabPins=!showCollabPins;
+    pinsToggleBtn.classList.toggle('active',showCollabPins);
+    updateCollabPins();
+  });
+
+  function updateCollabPins(){
+    collabLayer.replaceChildren();
+    if(!showCollabPins||!cachedTickets.length)return;
+
+    cachedTickets.forEach((t,idx)=>{
+      if(!t.anchor?.selector)return;
+      try{
+        const el=document.querySelector(t.anchor.selector);
+        if(!el)return;
+        const r=el.getBoundingClientRect();
+        const relX=t.anchor.relative?.x??0.5;
+        const relY=t.anchor.relative?.y??0.5;
+        const x=r.left+window.scrollX+r.width*relX;
+        const y=r.top+window.scrollY+r.height*relY;
+
+        const pinEl=document.createElement('div');
+        pinEl.className=`collab-pin status-${t.status}`;
+        pinEl.style.left=`${x}px`;
+        pinEl.style.top=`${y}px`;
+        pinEl.innerHTML=`
+          <span class="collab-badge"></span>
+          <span>#${idx+1}</span>
+          <div class="collab-tip">
+            <strong>#${idx+1} • ${STATUS[t.status]??t.status}</strong>
+            <p style="margin:2px 0 0;font-size:11px;opacity:.9">${t.text.slice(0,45)}${t.text.length>45?'…':''}</p>
+          </div>
+        `;
+        pinEl.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          openPanel();
+          showView('mine');
+          setTimeout(()=>{
+            const item=mineList.querySelector(`[data-ticket-id="${t.id}"]`) as HTMLElement|null;
+            if(item){
+              item.scrollIntoView({behavior:'smooth',block:'center'});
+              flashElement(t.anchor!.selector);
+            }
+          },120);
+        });
+        collabLayer.append(pinEl);
+      }catch{ /* unlocatable element for pin */ }
+    });
+  }
 
   const listTickets=async():Promise<Ticket[]>=>{
     const response=await fetch(`${config.api}/api/feedback?projectId=${encodeURIComponent(config.projectId)}`,
@@ -857,6 +1359,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     mineList.append(loading);
     try{
       const tickets=await listTickets();
+      cachedTickets=tickets;
+      updateCollabPins();
       mineList.replaceChildren();
       if(!tickets.length){
         const empty=document.createElement('div');empty.className='empty';
@@ -865,6 +1369,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       }
       for(const ticket of tickets){
         const item=document.createElement('div');item.className=`item ${ticket.status}`;
+        item.dataset.ticketId=ticket.id;
         const itemHead=document.createElement('div');itemHead.className='item-head';
         const status=document.createElement('div');status.className='st';
         status.textContent=STATUS[ticket.status]??ticket.status;
@@ -1007,6 +1512,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   const reposition=()=>{
     if(anchor&&pin)place(pin,anchor);
     if(replay&&replayPin)place(replayPin,replay);
+    updateCollabPins();
   };
   addEventListener('resize',reposition,{passive:true});
   addEventListener('scroll',reposition,{passive:true,capture:true});
@@ -1021,6 +1527,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
   // Ping the server to check for replies and touch the reviewer token's
   // lastUsedAt, enabling the admin onboarding wizard to confirm installation.
   void countReplies();
+  void listTickets().then(t=>{cachedTickets=t;updateCollabPins();}).catch(()=>{});
 }
 
 /**

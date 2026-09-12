@@ -1,4 +1,12 @@
 export type DiagnosticError = { category: string; code: string; count: number; message?: string };
+export type JsErrorDiagnostic = {
+  type: string;
+  message: string;
+  source?: string;
+  lineno?: number;
+  colno?: number;
+  time?: string;
+};
 export type Diagnostics = {
   viewport?: { width: number; height: number };
   dpr?: number;
@@ -9,6 +17,7 @@ export type Diagnostics = {
   os?: string;
   path?: string;
   errors?: DiagnosticError[];
+  jsErrors?: JsErrorDiagnostic[];
 };
 
 const bounded = (value: unknown, max = 80) => typeof value === 'string' ? value.slice(0, max) : undefined;
@@ -49,7 +58,7 @@ export function normalizeDiagnostics(input: Record<string, unknown>): Diagnostic
   out.browser = browserInput && ['Chrome','Firefox','Safari','Edge','Unknown'].includes(browserInput) ? browserInput : coarseBrowser(String(input.userAgent ?? ''));
   out.os = osInput && ['macOS','Windows','Linux','iOS','Android','Unknown'].includes(osInput) ? osInput : coarseOs(String(input.platform ?? ''));
   if (typeof input.path === 'string') out.path = cleanUrl(input.path);
-  const allowedErrors = new Set(['widget:ANCHOR_MISSING','widget:UPLOAD_FAILED','widget:SEND_FAILED','network:TIMEOUT']);
+  const allowedErrors = new Set(['widget:ANCHOR_MISSING','widget:UPLOAD_FAILED','widget:SEND_FAILED','network:TIMEOUT','js:RUNTIME_ERROR','js:UNHANDLED_REJECTION']);
   if (Array.isArray(input.errors)) out.errors = input.errors.slice(0, 10).flatMap((raw) => {
     const e = raw as Record<string, unknown>;
     const category = bounded(e.category, 24), code = bounded(e.code, 32);
@@ -58,5 +67,19 @@ export function normalizeDiagnostics(input: Record<string, unknown>): Diagnostic
     const message = rawMessage && /token|bearer|password|secret|cookie|[A-Za-z0-9_-]{20,}/i.test(rawMessage) ? '[redacted]' : rawMessage;
     return [{ category, code, count: Math.min(100, Math.max(1, Math.floor(Number(e.count)))), ...(message ? { message } : {}) }];
   });
+  if (Array.isArray(input.jsErrors)) {
+    out.jsErrors = input.jsErrors.slice(0, 6).flatMap((raw) => {
+      if (typeof raw !== 'object' || !raw) return [];
+      const item = raw as Record<string, unknown>;
+      const type = bounded(item.type, 24);
+      const rawMessage = bounded(item.message, 240);
+      if (!type || !rawMessage) return [];
+      const message = /token|bearer|password|secret|cookie|[A-Za-z0-9_-]{20,}/i.test(rawMessage) ? '[redacted]' : rawMessage;
+      const source = typeof item.source === 'string' ? cleanUrl(item.source) : undefined;
+      const lineno = Number.isFinite(item.lineno) ? Math.max(1, Math.floor(Number(item.lineno))) : undefined;
+      const colno = Number.isFinite(item.colno) ? Math.max(1, Math.floor(Number(item.colno))) : undefined;
+      return [{ type, message, ...(source ? { source } : {}), ...(lineno ? { lineno } : {}), ...(colno ? { colno } : {}) }];
+    });
+  }
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== undefined)) as Diagnostics;
 }

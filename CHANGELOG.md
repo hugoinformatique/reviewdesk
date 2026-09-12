@@ -17,6 +17,23 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Mini-éditeur d'annotation sur capture d'écran** :
+  - Éditeur interactif intégré directement au widget permettant d'annoter une capture d'écran avant son envoi.
+  - Outils intégrés : tracé de rectangles rouges d'accentuation, tracé de flèches indicatrices directionnelles et masquage/floutage par pixellisation des données sensibles (mots de passe, adresses email, informations confidentielles).
+  - Contrôles complets : annulation coup par coup (`Annuler`), réinitialisation (`Effacer`), abandon ou validation avec réencodage instantané.
+- **Mode « Pastilles collaboratives » sur la page (style Figma / Marker.io)** :
+  - Rendu dynamique sur la page de l'ensemble des retours existants sous forme d'épingles numérotées avec badges de statut distinctifs (`À faire`, `En cours`, `À valider`, `Terminé`).
+  - Infobulle au survol affichant le titre/extrait du ticket, son statut et son auteur.
+  - Clic direct sur n'importe quelle pastille : ouverture immédiate de la fiche du retour dans le panneau latéral avec halo lumineux d'attention.
+  - Commutateur dédié (`📍 Pastilles`) directement accessible dans la barre d'onglets pour afficher ou masquer les pastilles à tout moment.
+- **Télémétrie & capture automatique des erreurs JavaScript** :
+  - Écoute discrète et continue des erreurs d'exécution de la page (`window.onerror`) et des promesses non gérées (`unhandledrejection`) dans un tampon circulaire.
+  - Intégration assainie dans les diagnostics techniques (`diagnostics.jsErrors`) avec troncature des messages, filtrage des tokens et anonymisation des URL sources.
+- **Compression d'image côté client (Canvas WebP/JPEG)** :
+  - Redimensionnement automatique des captures d'écran dépassant 1920×1080 px et encodage WebP haute qualité (0.85) avant téléversement, accélérant les soumissions et économisant la bande passante.
+- **Nettoyage automatique du stockage à la résolution (Purge auto au statut Terminé)** :
+  - Détection automatique du passage au statut `DONE` (par validation reviewer, par l'administrateur ou par un agent IA/MCP).
+  - Suppression physique et irréversible de la capture d'écran du bucket de stockage (S3, Supabase Storage ou disque local) et dissociation en base de données pour libérer l'espace disque.
 - **Simplification radicale du compositeur de retours client** :
   - Suppression des étapes numérotées artificielles (« 1 Montrez... », « 2 Dites... ») et du bandeau d'astuce jaune pour une interface aérée, fluide et épurée.
   - Ligne de cible interactive unifiée regroupant le libellé de l'élément pointé, la localisation et le retrait en un clic.
