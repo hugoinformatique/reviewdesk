@@ -77,6 +77,22 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   await ticket.click();
   await page.screenshot({ path: 'artifacts/admin-desktop.png', fullPage: true });
+  // --------------------------------------- export the backlog as one prompt
+
+  // Still TODO at this point, so it must appear in the export with its anchor,
+  // its page and its screen — everything needed to act on it elsewhere.
+  await page.getByRole('button', { name: 'Exporter pour Claude Code' }).click();
+  const prompt = page.locator('#export-output');
+  await expect(prompt).toHaveValue(/1 retour client à traiter/);
+  const exported = await prompt.inputValue();
+  expect(exported).toContain('Rendre ce bouton plus visible sur mobile');
+  expect(exported).toContain('#hero-cta');
+  expect(exported).toContain('(Mobile)');
+  expect(exported).toContain(`${PREVIEW_ORIGIN}/demo.html`);
+  expect(exported).toContain(projectName);
+  expect(exported).not.toContain(token);
+  await page.locator('#export-dialog').getByRole('button', { name: 'Fermer' }).click();
+
   await page.locator('#detail select').selectOption('REVIEW');
   await page.getByLabel('Réponse interne').fill('Ajustement prêt à valider');
   await page.getByRole('button', { name: 'Enregistrer' }).click();

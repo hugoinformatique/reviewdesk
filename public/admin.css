@@ -549,6 +549,9 @@ aside {
 }
 .field-search input { height: 31px; padding: 0 10px 0 30px; font-size: 12.5px; }
 
+/* Sits with the filters because it exports exactly what they select. */
+.toolbar-action { height: 31px; padding: 0 11px; font-size: 12.5px; white-space: nowrap; }
+
 #count {
   margin-left: auto;
   font-size: 12px;
@@ -857,6 +860,17 @@ dialog output:empty { display: none; }
   white-space: pre;
   overflow-wrap: normal;
   overflow-x: auto;
+}
+
+/* Wider than the other dialogs: the prompt is read before it is pasted. */
+#export-dialog { width: min(720px, calc(100vw - 32px)); }
+
+#export-output {
+  font: 11.5px/1.65 var(--mono);
+  min-height: 300px;
+  max-height: 55vh;
+  background: var(--surface-2);
+  white-space: pre-wrap;
 }
 
 #link-list { display: grid; gap: 5px; }

@@ -476,6 +476,135 @@ function openTicket(id: string) {
   detail.append(head, main, side);
 }
 
+// ------------------------------------------------------------ prompt export
+
+/** The API caps a page at 200 rows, and an export must not stop at the first. */
+const EXPORT_PAGE = 200;
+/** A prompt past this many tickets stops being pasteable; say so rather than truncate silently. */
+const EXPORT_MAX = 400;
+
+/**
+ * Every ticket still to triage, under the filters currently on screen — the
+ * status filter excepted, which the export forces to TODO: the point is to hand
+ * over the untreated backlog, not whatever the operator was last looking at.
+ */
+async function fetchPendingTickets(): Promise<{ tickets: Ticket[]; truncated: boolean }> {
+  const params = filterParams();
+  params.set('status', 'TODO');
+  params.set('limit', String(EXPORT_PAGE));
+  const collected: Ticket[] = [];
+  let cursor: string | null = null;
+  do {
+    if (cursor) params.set('cursor', cursor);
+    const payload = await api(`/api/tickets?${params}`);
+    collected.push(...payload.tickets);
+    cursor = payload.nextCursor;
+  } while (cursor && collected.length < EXPORT_MAX);
+  // The list arrives newest first; a worklist reads better oldest first.
+  return { tickets: collected.slice(0, EXPORT_MAX).reverse(), truncated: Boolean(cursor) };
+}
+
+/** Human-readable recap of the filters in force, so the prompt says what it covers. */
+function activeFilterLabels(): string[] {
+  const labels: string[] = [];
+  const project = projects.find((candidate) => candidate.id === selectedProject);
+  if (project) labels.push(`projet « ${project.name} » (${project.clientLabel})`);
+  const client = $<HTMLSelectElement>('#client').value;
+  if (client && !project) labels.push(`client « ${client} »`);
+  const page = $<HTMLInputElement>('#page-filter').value.trim();
+  if (page) labels.push(`pages contenant « ${page} »`);
+  const format = $<HTMLSelectElement>('#format').value;
+  if (format) labels.push(format === 'mobile' ? 'format mobile' : 'format desktop');
+  return labels;
+}
+
+function diagnosticsLine(diagnostics: Record<string, unknown>): string {
+  const parts = Object.entries(diagnostics)
+    .filter(([, value]) => value !== 'Unknown' && value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => `${key} ${Array.isArray(value) ? value.join(', ') : String(value)}`);
+  return parts.length ? parts.join(' · ') : 'non transmis';
+}
+
+function ticketBlock(ticket: Ticket, index: number): string {
+  const { selector, relative: point, viewport } = ticket.anchor;
+  const format = ticket.viewportWidth < 768 ? 'Mobile' : 'Desktop';
+  const lines = [
+    `## ${index}. « ${ticket.text.trim()} »`,
+    '',
+    // Repeated on every ticket, not only in the header: an export across
+    // projects is unreadable otherwise, and the block stays quotable alone.
+    `- Projet : ${ticket.projectName} (${ticket.clientLabel})`,
+    `- Page : ${ticket.pageUrl}`,
+    `- Élément visé : \`${selector}\` — clic à ${Math.round(point.x * 100)} %, ${Math.round(point.y * 100)} % de l’élément`,
+    `- Écran du reviewer : ${viewport.width}×${viewport.height} (${format})`,
+    `- Environnement : ${diagnosticsLine(ticket.diagnostics)}`,
+    `- Reçu le ${formatDate(ticket.createdAt)} · ticket ${ticket.id}`,
+    `- Rouvrir à l’ancrage : ${anchorUrl(ticket)}`,
+  ];
+  // Absolute: the prompt is read outside this page, where a /api/… path means nothing.
+  if (ticket.screenshotId) lines.push(`- Capture (accès admin requis) : ${location.origin}/api/uploads/${ticket.screenshotId}`);
+  if (ticket.response.trim()) lines.push(`- Note interne : ${ticket.response.trim()}`);
+  return lines.join('\n');
+}
+
+function buildPrompt(tickets: Ticket[], truncated: boolean): string {
+  const filters = activeFilterLabels();
+  const head = [
+    `# ${tickets.length} retour${tickets.length === 1 ? '' : 's'} client à traiter`,
+    '',
+    filters.length ? `Périmètre : ${filters.join(', ')}.` : 'Périmètre : tous les projets.',
+    `Export ReviewDesk du ${formatDate(new Date().toISOString())}.`,
+    '',
+    'Chaque retour ci-dessous vient d’un client qui a cliqué un élément précis de la page :',
+    'le sélecteur CSS désigne cet élément, les pourcentages situent le point cliqué à',
+    'l’intérieur de celui-ci. Traite-les un par un, en commençant par ceux qui touchent',
+    'la même page ou le même composant, et dis pour chacun ce que tu as changé.',
+  ];
+  if (truncated) {
+    head.push('', `_Seuls les ${EXPORT_MAX} plus anciens retours sont inclus : filtrez par projet pour le reste._`);
+  }
+  return [head.join('\n'), ...tickets.map((ticket, index) => ticketBlock(ticket, index + 1))].join('\n\n---\n\n') + '\n';
+}
+
+$('#export-prompt').addEventListener('click', async () => {
+  const button = $<HTMLButtonElement>('#export-prompt');
+  const output = $<HTMLTextAreaElement>('#export-output');
+  const summary = $<HTMLElement>('#export-summary');
+  const copy = $<HTMLButtonElement>('#export-copy');
+  button.disabled = true;
+  try {
+    const { tickets: pending, truncated } = await fetchPendingTickets();
+    copy.disabled = !pending.length;
+    if (!pending.length) {
+      output.value = '';
+      summary.textContent = 'Aucun retour « À traiter » sous ces filtres. Rien à exporter.';
+    } else {
+      output.value = buildPrompt(pending, truncated);
+      summary.textContent =
+        `${pending.length} retour${pending.length === 1 ? '' : 's'} « À traiter »` +
+        `${truncated ? ` (limité à ${EXPORT_MAX})` : ''} — collez ce bloc tel quel dans Claude Code.`;
+    }
+    $<HTMLDialogElement>('#export-dialog').showModal();
+  } catch {
+    toast('Export impossible.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#export-copy').addEventListener('click', async () => {
+  const output = $<HTMLTextAreaElement>('#export-output');
+  try {
+    await navigator.clipboard.writeText(output.value);
+    toast('Prompt copié.');
+  } catch {
+    // No clipboard permission (or an insecure origin): select it so Ctrl+C works.
+    output.focus();
+    output.select();
+    toast('Copie automatique refusée : le texte est sélectionné, faites Ctrl+C.', 'error');
+  }
+});
+
 // ------------------------------------------------------------- review links
 
 async function renderReviewLinks() {
