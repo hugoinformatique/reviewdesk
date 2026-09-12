@@ -364,3 +364,82 @@ test('client experience: monochrome UI, launcher label, pin cancellation and sho
   await page.keyboard.press('Meta+Enter');
   await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
 });
+
+test('client screenshot capture works reliably with modern OKLCH styles and displays in admin', async ({ page }) => {
+  const projectName = `DEMO Screenshot ${Date.now()}`;
+  await login(page);
+
+  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
+  const projDialog = page.locator('#project-dialog');
+  await projDialog.locator('input[name="name"]').fill(projectName);
+  await projDialog.locator('input[name="clientLabel"]').fill('DEMO Client Screenshot');
+  await projDialog.locator('textarea[name="origins"]').fill(PREVIEW_ORIGIN);
+  await projDialog.getByRole('button', { name: 'Créer', exact: true }).click();
+  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Liens reviewer' }).click();
+  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
+  await expect(page.locator('#link-output')).toHaveValue(/review=/);
+  const instructions = await page.locator('#link-output').inputValue();
+  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
+  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
+  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+
+  const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
+  await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
+
+  // Inject modern OKLCH styles and an iframe to stress-test capture
+  await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      body {
+        background-color: oklch(0.95 0.05 120) !important;
+        color: oklch(0.2 0.05 200) !important;
+      }
+      #hero-cta {
+        background-color: color-mix(in srgb, oklch(0.6 0.2 240) 80%, white) !important;
+        border: 2px solid oklch(0.5 0.15 150) !important;
+        box-shadow: 0 4px 6px oklch(0.3 0.1 260 / 0.2) !important;
+      }
+    `;
+    document.head.append(style);
+
+    const iframe = document.createElement('iframe');
+    iframe.src = 'about:blank';
+    iframe.style.width = '100px';
+    iframe.style.height = '100px';
+    document.body.append(iframe);
+  });
+
+  // 1. Submit anchored ticket on modern styled element
+  await widget(page).locator('.fab').click();
+  await widget(page).locator('.target').click();
+  const cta = (await page.locator('#hero-cta').boundingBox())!;
+  await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
+  await widget(page).locator('textarea').fill('Test capture avec styles OKLCH');
+  await widget(page).getByRole('button', { name: 'Envoyer mon retour' }).click();
+  await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
+
+  // 2. Submit un-anchored ticket ("Page entière")
+  await widget(page).getByRole('button', { name: 'Écrire un autre retour' }).click();
+  await widget(page).locator('textarea').fill('Test capture page entière sans épingle');
+  await widget(page).getByRole('button', { name: 'Envoyer mon retour' }).click();
+  await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
+
+  // 3. Admin verifies both tickets have screenshot attached and visible
+  await page.goto(`${API_ORIGIN}/`);
+  await page.getByRole('button', { name: projectName, exact: true }).click();
+
+  const ticket1 = page.getByText('Test capture avec styles OKLCH');
+  await expect(ticket1).toBeVisible();
+  await ticket1.click();
+  await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+
+  const ticket2 = page.getByText('Test capture page entière sans épingle');
+  await expect(ticket2).toBeVisible();
+  await ticket2.click();
+  await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+});
+
