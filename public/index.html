@@ -45,6 +45,9 @@
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 5v14M5 12h14"/>
   </symbol>
+  <symbol id="i-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01M9.5 17.5h5"/><path d="M2 13v2M22 13v2"/>
+  </symbol>
   <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
   </symbol>
@@ -108,6 +111,10 @@
           <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
           Liens reviewer
         </button>
+        <button id="agent-access" class="quiet">
+          <svg class="icon" aria-hidden="true"><use href="#i-robot"/></svg>
+          Accès agents
+        </button>
         <button id="logout" class="avatar" aria-label="Se déconnecter">A</button>
       </div>
     </header>
@@ -168,6 +175,32 @@
     <textarea id="link-output" readonly placeholder="Le secret du prochain lien généré apparaîtra ici."></textarea>
     <h3>Liens de ce projet</h3>
     <div id="link-list"></div>
+    <div class="dialog-actions">
+      <button class="quiet close">Fermer</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="agent-dialog">
+  <div class="dialog-body">
+    <h2>Accès agents IA</h2>
+    <p>Un jeton ouvre l’API agent : lire les retours, les commenter, changer leur statut. Il n’est affiché qu’une fois, à sa création, et se révoque à tout moment. Il ne donne accès ni à l’administration ni aux projets.</p>
+    <form id="agent-form">
+      <label>Libellé<input name="label" placeholder="Claude Code — poste d’Alexis" maxlength="80"></label>
+      <label>Portée
+        <select name="projectId" id="agent-project"><option value="">Tous les projets</option></select>
+      </label>
+      <label>Droits
+        <select name="scope">
+          <option value="write">Lecture et écriture (statuts, commentaires)</option>
+          <option value="read">Lecture seule</option>
+        </select>
+      </label>
+      <button id="new-agent-token" class="btn btn-primary">Générer un jeton</button>
+    </form>
+    <textarea id="agent-output" readonly placeholder="Le jeton et la configuration MCP apparaîtront ici."></textarea>
+    <h3>Jetons existants</h3>
+    <div id="agent-list"></div>
     <div class="dialog-actions">
       <button class="quiet close">Fermer</button>
     </div>

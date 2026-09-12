@@ -15,6 +15,41 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [2.0.0] — 2026-09-12
+
+Les retours ne se lisent plus seulement : un agent IA s'y branche, les traite et
+rend compte.
+
+### Ajouté
+
+- **Serveur MCP.** `dist/mcp.js` expose ReviewDesk à tout client MCP (Claude Code,
+  Claude Desktop…) via six outils : `list_projects`, `list_tickets`, `get_ticket`,
+  `get_screenshot`, `comment_ticket`, `update_ticket`. L'agent lit le retour avec
+  son élément visé, sa page, son écran et ses diagnostics, voit la capture, puis
+  déplace le statut en expliquant ce qu'il a changé — en un seul appel.
+- **API agent** (`/api/agent/*`), authentifiée par `Authorization: Bearer rda_…` :
+  contexte, liste filtrée et paginée, détail avec journal, commentaires, statut,
+  capture. Pas de cookie, donc pas de CSRF ; aucune origine autorisée en CORS.
+- **Jetons agents**, gérés depuis l'administration (« Accès agents ») : libellé,
+  portée (un projet ou tous), droits (lecture seule ou lecture/écriture),
+  révocation immédiate, date de dernière utilisation. Le secret n'est affiché
+  qu'une fois, avec la configuration MCP déjà remplie, et n'est stocké qu'en
+  SHA-256. Limite de 120 requêtes par minute et par jeton (`AGENT_REQUESTS_PER_MINUTE`).
+- **Journal par retour** : chaque commentaire, d'un humain ou d'un agent, est
+  horodaté, attribué, et porte le changement de statut qui l'accompagne. Il
+  s'affiche dans le détail du retour, les entrées d'agent distinguées de celles
+  de l'équipe, et s'écrit aussi depuis l'administration.
+- Un commentaire en portée `reviewer` devient la réponse que le client lit dans
+  son widget ; un commentaire interne ne peut pas le devenir après coup.
+
+### Modifié
+
+- **Rupture (base de données)** : migration `006_agent_access` (tables
+  `agent_tokens` et `ticket_comments`). Elle s'applique au démarrage comme les
+  précédentes, mais une instance antérieure ne lira pas ce schéma.
+- `/api/tickets` et l'API agent partagent désormais le même moteur de filtres et
+  de pagination, et renvoient `commentCount` par retour.
+
 ## [1.2.0] — 2026-09-12
 
 ### Ajouté
@@ -170,7 +205,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.2.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v2.0.0
 [1.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.2.0
 [1.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.0.0

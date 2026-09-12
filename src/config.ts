@@ -40,6 +40,8 @@ export type AppConfig = {
   uploadMaxBytes: number;
   submissionsPerMinute: number;
   loginAttemptsPerMinute: number;
+  /** Per-token ceiling for the agent API; an agent polls far more than a human. */
+  agentRequestsPerMinute: number;
   /** Bounds how long a feedback submission can wait on the project's webhook. */
   webhookTimeoutMs: number;
   runMigrationsOnBoot: boolean;
@@ -189,6 +191,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
     uploadMaxBytes,
     submissionsPerMinute: integer(env, 'SUBMISSIONS_PER_MINUTE', 20, 1, 1_000),
     loginAttemptsPerMinute: integer(env, 'LOGIN_ATTEMPTS_PER_MINUTE', 10, 1, 1_000),
+    agentRequestsPerMinute: integer(env, 'AGENT_REQUESTS_PER_MINUTE', 120, 1, 10_000),
     webhookTimeoutMs: integer(env, 'WEBHOOK_TIMEOUT_MS', 3_000, 200, 10_000),
     runMigrationsOnBoot: boolean(env, 'RUN_MIGRATIONS_ON_BOOT', true),
     logLevel: env.LOG_LEVEL?.trim() || (production ? 'warn' : 'error'),

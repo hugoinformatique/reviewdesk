@@ -93,7 +93,30 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   expect(exported).not.toContain(token);
   await page.locator('#export-dialog').getByRole('button', { name: 'Fermer' }).click();
 
-  await page.locator('#detail select').selectOption('REVIEW');
+  // ------------------------------------------ the work log, from the admin
+
+  await page.locator('.comment-draft').fill('Vu avec le client : on garde l’orange.');
+  await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+  await expect(page.locator('.comment')).toContainText('Vu avec le client');
+  await expect(page.locator('.comment-meta')).toContainText('Équipe');
+
+  // -------------------------------------------------- an agent token to mint
+
+  await page.getByRole('button', { name: 'Accès agents' }).click();
+  await page.getByLabel('Libellé').fill('Claude Code — E2E');
+  await page.getByRole('button', { name: 'Générer un jeton' }).click();
+  const agentOutput = page.locator('#agent-output');
+  await expect(agentOutput).toHaveValue(/rda_/);
+  const mcpConfig = await agentOutput.inputValue();
+  expect(mcpConfig).toContain('claude mcp add reviewdesk');
+  expect(mcpConfig).toContain('/api/agent/tickets?status=TODO');
+  await expect(page.locator('#agent-list')).toContainText('Claude Code — E2E');
+  await page.locator('#agent-list').getByRole('button', { name: 'Révoquer' }).click();
+  await expect(page.locator('#agent-list')).toContainText('révoqué');
+  await page.locator('#agent-dialog').getByRole('button', { name: 'Fermer' }).click();
+
+  // The ticket stayed selected behind the dialogs; triage it from there.
+  await page.locator('#ticket-status').selectOption('REVIEW');
   await page.getByLabel('Réponse interne').fill('Ajustement prêt à valider');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
 
@@ -168,7 +191,7 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   await page.getByRole('button', { name: projectName, exact: true }).click();
   await page.getByText('Le libellé du bouton est ambigu').click();
   await page.getByLabel('Réponse visible par le reviewer').fill('Renommé en « Voir la collection ».');
-  await page.locator('#detail select').selectOption('DONE');
+  await page.locator('#ticket-status').selectOption('DONE');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
   await expect(page.locator('#toast')).toHaveText('Retour enregistré.');
 
