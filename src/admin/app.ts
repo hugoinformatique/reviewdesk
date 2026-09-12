@@ -1222,7 +1222,8 @@ type AgentTarget = {
   id: string;
   name: string;
   hint: string;
-  glyph: string;
+  /** Symbol id of the tool's own logo, drawn from the sprite sheet. */
+  mark: string;
   where: string;
   language: string;
   install: (context: { token: string; origin: string; server: string }) => string;
@@ -1248,7 +1249,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'claude-code',
     name: 'Claude Code',
     hint: 'CLI, une commande',
-    glyph: '⌘',
+    mark: 'i-claude',
     where: 'À lancer dans un terminal, depuis le dépôt de votre site.',
     language: 'bash',
     install: ({ token, origin, server }) =>
@@ -1258,7 +1259,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'codex',
     name: 'Codex CLI',
     hint: '~/.codex/config.toml',
-    glyph: '▸',
+    mark: 'i-openai',
     where: 'À ajouter à la fin de ~/.codex/config.toml.',
     language: 'toml',
     install: ({ token, origin, server }) =>
@@ -1268,7 +1269,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'cursor',
     name: 'Cursor',
     hint: '.cursor/mcp.json',
-    glyph: '◆',
+    mark: 'i-cursor',
     where: 'À créer à la racine du projet, dans .cursor/mcp.json.',
     language: 'json',
     install: MCP_JSON('mcpServers'),
@@ -1277,7 +1278,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'claude-desktop',
     name: 'Claude Desktop',
     hint: 'claude_desktop_config.json',
-    glyph: '◼',
+    mark: 'i-claude',
     where: 'Réglages → Développeur → Modifier la configuration, puis redémarrer l’application.',
     language: 'json',
     install: MCP_JSON('mcpServers'),
@@ -1286,7 +1287,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'vscode',
     name: 'VS Code',
     hint: '.vscode/mcp.json',
-    glyph: '⬓',
+    mark: 'i-vscode',
     where: 'À créer à la racine du projet, dans .vscode/mcp.json.',
     language: 'json',
     install: MCP_JSON('servers'),
@@ -1295,7 +1296,7 @@ const AGENT_TARGETS: AgentTarget[] = [
     id: 'api',
     name: 'Autre outil',
     hint: 'API HTTP, script, n8n…',
-    glyph: '∞',
+    mark: 'i-plug',
     where: 'N’importe quel client HTTP. Le jeton part en en-tête Authorization.',
     language: 'bash',
     install: ({ token, origin }) =>
@@ -1366,7 +1367,9 @@ function renderAgentPicker() {
     card.type = 'button';
     card.setAttribute('role', 'radio');
     card.setAttribute('aria-checked', String(wizardTarget.id === target.id));
-    card.append(el('span', 'agent-glyph', target.glyph), el('strong', '', target.name), el('span', 'agent-hint', target.hint));
+    const glyph = el('span', 'agent-glyph');
+    glyph.append(icon(target.mark, 'logo'));
+    card.append(glyph, el('strong', '', target.name), el('span', 'agent-hint', target.hint));
     card.onclick = () => {
       wizardTarget = target;
       renderAgentPicker();

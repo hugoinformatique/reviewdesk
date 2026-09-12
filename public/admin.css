@@ -339,6 +339,20 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   place-items: center;
   padding: 24px;
   background: var(--bg-sunken);
+  /* A field of hairline dots: the page stops being a blank slab, and nothing on
+     it has to shout to be seen. */
+  background-image: radial-gradient(circle at 1px 1px, var(--border-2) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* The card sits in a pool of clean ground rather than directly on the grid. */
+.login form { position: relative; }
+.login form::before {
+  content: '';
+  position: absolute;
+  inset: -60px;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--bg-sunken) 55%, transparent);
 }
 
 .login form {
@@ -361,9 +375,10 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   box-shadow: var(--edge-strong), var(--shadow-1);
 }
 
-.mark .icon { width: 18px; height: 18px; }
+.mark .icon { width: 19px; height: 19px; }
 
-.login h1 { margin: 16px 0 4px; font-size: 20px; }
+.login h1 { margin: 18px 0 6px; font-size: 23px; letter-spacing: -0.03em; }
+.login .wordmark { font-size: 23px; font-weight: 400; }
 .login > form > p { color: var(--text-2); margin: 0 0 24px; font-size: 13px; }
 .login label { margin: 14px 0; }
 .login button { width: 100%; height: 36px; margin-top: 20px; }
@@ -418,14 +433,23 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   display: flex;
   align-items: center;
   gap: 9px;
-  font-weight: 620;
-  font-size: 13.5px;
-  letter-spacing: -0.01em;
   flex: none;
 }
 
-.brand .mark { width: 22px; height: 22px; border-radius: 4px; }
-.brand .mark .icon { width: 13px; height: 13px; }
+/* The wordmark carries the weight contrast, so the logo can stay a single
+   silhouette: Review sets the context, Desk is where the work happens. */
+.wordmark {
+  font-size: 13.5px;
+  letter-spacing: -0.022em;
+  font-weight: 420;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.wordmark b { font-weight: 600; color: var(--text); }
+
+.brand .mark { width: 23px; height: 23px; border-radius: 6px; }
+.brand .mark .icon { width: 14px; height: 14px; }
 
 /* What is on screen, said once, in the bar: client above, project beside it. */
 .nav-context {
@@ -1403,21 +1427,25 @@ button.mobile-only, .scrim { display: none; }
 .agent-card strong { font-size: 13px; font-weight: 560; }
 .agent-hint { font-size: 11px; color: var(--text-3); }
 
+/* The one place in the product where colour is allowed: a tool's own logo.
+   Redrawn in grey it would stop being that tool's logo. */
 .agent-glyph {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin-bottom: 6px;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 7px;
   border-radius: var(--r-sm);
+  border: 1px solid var(--border);
   background: var(--surface-2);
-  font-size: 13px;
-  color: var(--text-2);
+  color: var(--text);
 }
+
+.agent-glyph .logo { width: 17px; height: 17px; }
 
 /* The chosen card is inked, not tinted — the same language as the rest. */
 .agent-card.active { border-color: var(--accent); box-shadow: var(--edge), 0 0 0 1px var(--accent); }
-.agent-card.active .agent-glyph { background: var(--accent); color: var(--accent-fg); }
+.agent-card.active .agent-glyph { border-color: var(--border-2); background: var(--surface); }
 
 @media (hover: hover) and (pointer: fine) {
   .agent-card:hover { border-color: var(--border-2); box-shadow: var(--edge), var(--shadow-2); }
