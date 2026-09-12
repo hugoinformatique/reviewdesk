@@ -17,6 +17,14 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Refonte de l'expérience client & adaptation mobile complète (inspiré 21st.dev / Linear)** :
+  - **Tiroir Bottom Sheet mobile ultra-fluide** : sur smartphone et tablette (`max-width: 640px`), le widget adopte un tiroir bottom sheet ancré en bas d'écran avec poignée de glissement tactile (`sheet-handle`), geste de fermeture par balayage vers le bas (swipe down), arrière-plan sombre avec flou d'atténuation (`panel-backdrop`), et respect strict des marges de sécurité iOS (`env(safe-area-inset-bottom)`).
+  - **Carte de cible interactive (`.target-card`)** : état initial en carte pointillée incitative avec micro-copie (« Touchez ici pour pointer un élément sur la page »), puis état ancré avec icône d'action, libellé contrasté, bouton de recentrage visuel (`Localiser`) et bouton de suppression instantanée (`✕ Retirer`).
+  - **Fallback transparent sur la page entière** : si un client rédige et envoie un retour sans avoir sélectionné d'élément spécifique, le système ne le bloque plus par un message d'erreur : il ancre automatiquement le ticket sur `body` (« Page entière ») avec capture automatique du viewport visible.
+  - **Carte de capture enrichie (`.shot`)** : prévisualisation miniature haute fidélité avec badge de statut vert (`● Prête`), nom de fichier, raccourci d'édition directe vers le mini-éditeur d'annotation (`✏️ Annoter`), et retrait en un clic.
+  - **Contraste et opacité renforcés** : surfaces de panneaux à haute opacité (`rgba(255,255,255,0.98)` / `rgba(12,12,15,0.98)`) éliminant toute fuite visuelle du texte de la page hôte au travers du verre dépoli.
+  - **Mention explicite dans l'assistant d'intégration admin** : mise en avant de la compatibilité 100% mobile dans le wizard d'installation de script.
+
 - **Capture d'écran automatique à chaque retour (Auto-screenshot)** :
   - Dès qu'un élément de la page est pointé / ancré, une capture d'écran haute résolution du viewport visible est automatiquement réalisée en arrière-plan via `html2canvas`.
   - L'image capturée intègre directement une pastille d'ancrage contrastée numérotée (« 1 ») dessinée aux coordonnées précises du clic.

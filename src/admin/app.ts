@@ -1448,6 +1448,10 @@ function renderWidgetSnippet() {
   });
 
   container.append(codeBlock(codeText, 'Copier le code'));
+  const mobileNotice = el('p', 'note wizard-mobile-notice', '📱 100% optimisé mobile (tiroir bottom sheet fluide, capture tactile et raccourcis clavier).');
+  mobileNotice.style.margin = '10px 0 0';
+  mobileNotice.style.fontSize = '12px';
+  container.append(mobileNotice);
 
   // Update preview links for step 3
   $('#test-preview-target').textContent = `Préproduction : ${previewOrigin}`;
