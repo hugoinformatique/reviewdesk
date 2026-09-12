@@ -265,10 +265,96 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
 
   // Reading the answer must cost nothing: opening the widget and switching to
   // the list files no comment and places no pin.
-  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await widget(page).getByRole('button', { name: /Faire un retour|Donner mon avis/ }).click();
   await widget(page).locator('.tab-mine').click();
   const entry = widget(page).locator('.mine .item').first();
   await expect(entry).toContainText('Le libellé du bouton est ambigu');
   await expect(entry).toContainText('Traité');
   await expect(entry).toContainText('Renommé en « Voir la collection ».');
+});
+
+test('client experience: monochrome UI, launcher label, pin cancellation and shortcuts', async ({ page }) => {
+  const projectName = `DEMO Client UX ${Date.now()}`;
+  await login(page);
+
+  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
+  await page.getByLabel('Nom').fill(projectName);
+  await page.getByLabel('Client').fill('DEMO Client UX');
+  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
+  await page.getByRole('button', { name: 'Créer', exact: true }).click();
+  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Liens reviewer' }).click();
+  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
+  await expect(page.locator('#link-output')).toHaveValue(/review=/);
+  const instructions = await page.locator('#link-output').inputValue();
+  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
+  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
+  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+
+  const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
+  await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
+
+  // 1. Check launcher has "Faire un retour" and [C] badge
+  const fab = widget(page).locator('.fab');
+  await expect(fab).toBeVisible();
+  await expect(fab).toContainText('Faire un retour');
+  await expect(fab.locator('.fab-kbd')).toHaveText('C');
+
+  // 2. Shortcut [C]: opens and closes widget
+  await page.keyboard.press('c');
+  const panel = widget(page).locator('.panel');
+  await expect(panel).toBeVisible();
+  await page.keyboard.press('c');
+  await expect(panel).toBeHidden();
+
+  // 3. Shortcut [P]: triggers pointer directly
+  await page.keyboard.press('p');
+  const pickOverlay = widget(page).locator('.pick');
+  await expect(pickOverlay).toBeVisible();
+
+  // Click on CTA to place a pin
+  const cta = (await page.locator('#hero-cta').boundingBox())!;
+  await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
+
+  await expect(panel).toBeVisible();
+  await expect(widget(page).locator('.pin')).toBeVisible();
+  await expect(widget(page).locator('.target-cancel')).toBeVisible();
+
+  // 4. Pin cancellation via ✕ Retirer button
+  await widget(page).locator('.target-cancel').click();
+  await expect(widget(page).locator('.pin')).toHaveCount(0);
+  await expect(widget(page).locator('.target-cancel')).toBeHidden();
+  await expect(widget(page).locator('.target .lbl')).toContainText('Cliquez ici');
+
+  // 5. Place pin again and cancel via direct click on the pin
+  await widget(page).locator('.target').click();
+  await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
+  await expect(widget(page).locator('.pin')).toBeVisible();
+
+  await widget(page).locator('.pin').click();
+  await expect(widget(page).locator('.pin')).toHaveCount(0);
+  await expect(widget(page).locator('.target-cancel')).toBeHidden();
+
+  // 6. Place pin again and cancel via Escape
+  await widget(page).locator('.target').click();
+  await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
+  await expect(widget(page).locator('.pin')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(widget(page).locator('.pin')).toHaveCount(0);
+  await expect(panel).toBeVisible(); // panel stays open, anchor reset
+
+  // 7. Place pin, select category chip with shortcut 1, fill text and submit with Cmd+Enter
+  await widget(page).locator('.target').click();
+  await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
+  await expect(widget(page).locator('.pin')).toBeVisible();
+
+  // Press 1 for Bug category chip
+  await widget(page).locator('.category-chips .chip').first().click();
+  await expect(widget(page).locator('textarea')).toHaveValue(/\[Bug\]/);
+
+  await widget(page).locator('textarea').fill('[Bug] Bouton CTA non réactif');
+  await page.keyboard.press('Meta+Enter');
+  await expect(widget(page).locator('.view-sent')).toContainText('Retour envoyé');
 });

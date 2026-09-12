@@ -17,6 +17,24 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Direction Artistique Monochrome Noir & Blanc pour l'interface client** :
+  - Refonte visuelle complète du widget client avec des tokens noir et blanc purs (`#09090b` et `#ffffff`), surfaces dépolies en verre dépoli translucide, suppression des teintes indigo/orange pour une esthétique sobre, élégante et premium (style Linear/Vercel).
+  - Pastille d'épingle `.pin` ultra-contrastée avec bague inversée, effet de survol dynamique et bague de rémanence.
+  - Viseur de sélection d'élément (`.hl`) et bandeau d'instruction (`.pickbar`) en noir profond et verre fumé.
+- **Nouveau libellé standard du bouton : « Faire un retour »** :
+  - Remplacement de l'ancien libellé « Donner mon avis » par « Faire un retour », formule standardisée et professionnelle pour la revue de site web, avec rétro-compatibilité complète sur les configurations et attributs `label`.
+  - Badge de raccourci clavier `[C]` directement visible sur le lanceur flottant.
+- **Annulation intuitive de l'épingle posée (pin cancellation)** :
+  - Bouton explicite `[✕ Retirer]` dans l'étape 1 du panneau de composition pour retirer le point d'ancrage en un clic.
+  - Épingle posée directement interactive sur la page : au survol elle affiche `✕`, et un simple clic dessus retire l'épingle instantanément.
+  - Touche `Échap` : annule l'épingle posée lorsqu'un point est sélectionné, ou ferme le widget si aucun point n'est posé.
+- **Raccourcis clavier orientés productivité client** :
+  - `C` : ouvre / ferme instantanément le panneau du widget (hors champs de saisie).
+  - `P` : déclenche immédiatement le mode pointeur / sélection d'élément sur la page sans étape intermédiaire.
+  - `1..4` (ou `Alt+1..4`) : sélection rapide de la catégorie (`1: Bug`, `2: Visuel`, `3: Contenu`, `4: Idée`).
+  - `Échap` : annulation du point d'ancrage ou fermeture du widget.
+  - `⌘ + ↵` / `Ctrl + ↵` : envoi direct du retour depuis le champ de saisie.
+  - Barre d'aide aux raccourcis (`.shortcuts-bar`) discrète et élégante au bas du compositeur.
 - **Boucle de validation complète pour le client reviewer** :
   - Actions interactives dans « Mes retours » pour les retours en attente (`À valider`) :
     - Bouton `[✓ Valider la correction]` : clôture immédiatement le retour (`DONE`), enregistre la validation client dans le journal de travail et émet l'événement webhook `feedback.resolved`.

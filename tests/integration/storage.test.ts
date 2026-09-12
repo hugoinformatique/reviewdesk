@@ -46,7 +46,7 @@ test('stored objects are not readable without a signature', { skip: !usingRealS3
   assert.equal(listing.ok, false, 'the bucket must not be publicly listable');
 
   const tampered = await fetch(signed.url, {
-    headers: { ...signed.headers, authorization: signed.headers.authorization!.replace(/.$/, '0') },
+    headers: { ...signed.headers, authorization: signed.headers.authorization!.replace(/.$/, c => c === '0' ? '1' : '0') },
   });
   assert.equal(tampered.ok, false, 'a tampered signature is rejected');
   await store.delete(key);
