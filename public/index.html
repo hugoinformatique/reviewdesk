@@ -420,6 +420,21 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+<aside id="onboarding-prompt" class="onboarding-prompt" role="alert" aria-live="polite" hidden>
+  <div class="prompt-icon">
+    <svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg>
+  </div>
+  <div class="prompt-body">
+    <strong id="prompt-title">Nouveau projet créé !</strong>
+    <p id="prompt-desc">Voulez-vous configurer l’installation du widget sur votre site dès maintenant ?</p>
+    <div class="prompt-actions">
+      <button type="button" id="prompt-dismiss" class="btn btn-ghost">Plus tard</button>
+      <button type="button" id="prompt-install" class="btn btn-primary">Installer le widget →</button>
+    </div>
+  </div>
+  <button type="button" id="prompt-close" class="prompt-close-btn" aria-label="Fermer la notification">✕</button>
+</aside>
+
 <script src="/admin.js"></script>
 </body>
 </html>

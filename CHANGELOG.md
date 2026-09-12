@@ -27,6 +27,7 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
   - Nettoyage des captures et fichiers stockés dans le bucket d'objets (S3 / Supabase).
   - Zone de suppression avec confirmation explicite intégrée dans le dialogue de réglages du projet.
 - **Aides à la création de projet** : puces d'ajout rapide d'origines autorisées (`localhost:3000`, `localhost:5173`, origine actuelle) et aides contextuelles.
+- **Notification incitative après création de projet** : affichage automatique d'une carte flottante d'onboarding demandant à l'utilisateur s'il souhaite configurer l'intégration immédiatement, avec bouton d'accès direct au formulaire et option pour différer (« Plus tard »).
 - **Écran d'accueil guidé pour projet vierge** : carte d'onboarding dans la liste des retours invitant à installer le widget ou tester le flux.
 - Détection immédiate de l'installation par ping automatique de l'état des réponses au montage du widget.
 

@@ -148,6 +148,32 @@ function toast(message: string, tone: 'ok' | 'error' = 'ok') {
   }, 3200);
 }
 
+let promptTimer: ReturnType<typeof setTimeout> | undefined;
+
+function showOnboardingPrompt(projectName: string) {
+  const host = $<HTMLElement>('#onboarding-prompt');
+  $('#prompt-title').textContent = `Projet « ${projectName} » créé !`;
+  $('#prompt-desc').textContent = 'Voulez-vous configurer l’installation du widget sur votre site dès maintenant ?';
+  host.hidden = false;
+  clearTimeout(promptTimer);
+  promptTimer = setTimeout(() => {
+    host.hidden = true;
+  }, 16_000);
+}
+
+function hideOnboardingPrompt() {
+  const host = document.querySelector<HTMLElement>('#onboarding-prompt');
+  if (host) host.hidden = true;
+  clearTimeout(promptTimer);
+}
+
+$('#prompt-dismiss').addEventListener('click', hideOnboardingPrompt);
+$('#prompt-close').addEventListener('click', hideOnboardingPrompt);
+$('#prompt-install').addEventListener('click', () => {
+  hideOnboardingPrompt();
+  $<HTMLButtonElement>('#review-link').click();
+});
+
 function emptyState(iconId: string, title: string, hint: string) {
   const box = document.createElement('div');
   box.className = 'empty-state';
@@ -1479,6 +1505,7 @@ async function renderReviewLinks() {
 // Opening the dialog only reads. Minting a secret is a separate, deliberate
 // action, so revoking a link never requires creating another one first.
 $('#review-link').addEventListener('click', async () => {
+  hideOnboardingPrompt();
   if (!selectedProject) {
     toast('Sélectionnez d’abord un projet dans la colonne de gauche.', 'error');
     return;
@@ -2205,7 +2232,11 @@ $('#project-form').addEventListener('submit', async (event) => {
     editingProject = null;
     projects = await api('/api/projects');
     await chooseProject(saved.id);
-    toast(target ? 'Projet mis à jour.' : 'Projet créé.');
+    if (target) {
+      toast('Projet mis à jour.');
+    } else {
+      showOnboardingPrompt(saved.name);
+    }
   } catch {
     output.textContent =
       'Vérifiez le nom, le client, les origines (http(s), une par ligne) et le webhook (https public).';
