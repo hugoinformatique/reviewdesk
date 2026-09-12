@@ -15,6 +15,34 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [3.0.0] — 2026-09-12
+
+Refonte de l'administration : monochrome, et rangée.
+
+### Modifié
+
+- **Rupture (visuel)** : la palette n'a plus de teinte. Fond, texte, bordures et
+  boutons sont une seule rampe de gris ; le bouton principal est de l'encre noire
+  sur blanc, et s'inverse en thème sombre. Les seules couleurs restantes sont le
+  rouge des erreurs et des actions destructrices.
+- **Barre de navigation** en haut, sur toute la largeur : marque, projet affiché
+  et son client, actions (liens reviewer, accès agents, réglages), thème et
+  déconnexion. Elle remplace l'en-tête qui vivait dans la colonne de droite.
+- **Barre de configuration** distincte, sous la navigation : les filtres (client,
+  page, format, statut), l'export et le compteur, sur fond plat, sans encadré.
+- **Rail projets** allégé : plus de pastille pleine ni d'ombre portée. La
+  sélection est un filet d'encre sur le bord gauche, le compte de retours un
+  simple nombre.
+- **Statuts sans couleur** : un disque qui se vide à mesure que le travail
+  avance — plein pour « à traiter », moitié pour « en cours », quart pour
+  « à valider », vide et grisé pour « traité ». Le libellé reste toujours à côté
+  du glyphe : la forme ne porte jamais le sens toute seule.
+- Lignes de la liste et sélection reposées sur le contraste et l'espacement
+  plutôt que sur des fonds colorés ; ombres réduites à presque rien.
+
+Le widget côté client n'est pas touché : il garde son apparence « liquid glass »
+et l'épingle orange.
+
 ## [2.0.0] — 2026-09-12
 
 Les retours ne se lisent plus seulement : un agent IA s'y branche, les traite et
@@ -205,7 +233,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v2.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v3.0.0
 [2.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v2.0.0
 [1.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.2.0
 [1.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.1.0

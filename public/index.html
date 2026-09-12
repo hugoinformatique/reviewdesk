@@ -72,83 +72,85 @@
 <div id="app" hidden>
   <div class="scrim" id="scrim"></div>
 
-  <aside>
+  <header class="nav">
+    <button id="nav-open" class="icon-btn mobile-only" aria-label="Ouvrir la navigation">
+      <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+    </button>
     <div class="brand">
       <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg></span>
       ReviewDesk
     </div>
-    <div class="aside-title">Projets</div>
-    <nav id="projects"></nav>
-    <div class="aside-foot">
-      <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
-           while the accessible name keeps its historical wording. -->
-      <button id="new-project" class="quiet" aria-label="＋ Nouveau projet">
-        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
-        <span aria-hidden="true">Nouveau projet</span>
+    <div class="nav-context">
+      <span class="eyebrow" id="client-label">TOUS LES CLIENTS</span>
+      <h1 id="project-title">Tous les retours</h1>
+    </div>
+    <div class="nav-actions">
+      <button id="review-link" class="quiet">
+        <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+        <span class="label">Liens reviewer</span>
       </button>
-      <button id="theme" class="theme-toggle" aria-label="Basculer le thème">
+      <button id="agent-access" class="quiet">
+        <svg class="icon" aria-hidden="true"><use href="#i-robot"/></svg>
+        <span class="label">Accès agents</span>
+      </button>
+      <button id="edit-project" class="icon-btn" aria-label="Réglages du projet">
+        <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+      </button>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <button id="theme" class="icon-btn theme-toggle" aria-label="Basculer le thème">
         <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
         <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
-        <span>Apparence</span>
       </button>
+      <button id="logout" class="avatar" aria-label="Se déconnecter">A</button>
     </div>
-  </aside>
+  </header>
 
-  <section class="workspace">
-    <header>
-      <div>
-        <div class="eyebrow" id="client-label">TOUS LES CLIENTS</div>
-        <h1 id="project-title">Tous les retours</h1>
+  <div class="shell">
+    <aside>
+      <div class="aside-title">Projets</div>
+      <nav id="projects"></nav>
+      <div class="aside-foot">
+        <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
+             while the accessible name keeps its historical wording. -->
+        <button id="new-project" class="quiet" aria-label="＋ Nouveau projet">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+          <span aria-hidden="true">Nouveau projet</span>
+        </button>
       </div>
-      <div class="header-actions">
-        <button id="nav-open" class="quiet mobile-only" aria-label="Ouvrir la navigation">
-          <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
-        </button>
-        <button id="edit-project" class="quiet" aria-label="Réglages du projet">
-          <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
-        </button>
-        <button id="review-link" class="quiet">
-          <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
-          Liens reviewer
-        </button>
-        <button id="agent-access" class="quiet">
-          <svg class="icon" aria-hidden="true"><use href="#i-robot"/></svg>
-          Accès agents
-        </button>
-        <button id="logout" class="avatar" aria-label="Se déconnecter">A</button>
-      </div>
-    </header>
+    </aside>
 
-    <div class="toolbar">
-      <select id="client"><option value="">Tous les clients</option></select>
-      <div class="field-search">
-        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-        <input id="page-filter" placeholder="Filtrer une page…">
+    <section class="workspace">
+      <div class="config">
+        <select id="client"><option value="">Tous les clients</option></select>
+        <div class="field-search">
+          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="page-filter" placeholder="Filtrer une page…">
+        </div>
+        <select id="format">
+          <option value="">Tous les formats</option>
+          <option value="mobile">Mobile</option>
+          <option value="desktop">Desktop</option>
+        </select>
+        <select id="status">
+          <option value="">Tous les statuts</option>
+          <option value="TODO">À traiter</option>
+          <option value="IN_PROGRESS">En cours</option>
+          <option value="REVIEW">À valider</option>
+          <option value="DONE">Traité</option>
+        </select>
+        <button id="export-prompt" class="quiet config-action">
+          <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+          Exporter pour Claude Code
+        </button>
+        <span id="count"></span>
       </div>
-      <select id="format">
-        <option value="">Tous les formats</option>
-        <option value="mobile">Mobile</option>
-        <option value="desktop">Desktop</option>
-      </select>
-      <select id="status">
-        <option value="">Tous les statuts</option>
-        <option value="TODO">À traiter</option>
-        <option value="IN_PROGRESS">En cours</option>
-        <option value="REVIEW">À valider</option>
-        <option value="DONE">Traité</option>
-      </select>
-      <button id="export-prompt" class="quiet toolbar-action">
-        <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
-        Exporter pour Claude Code
-      </button>
-      <span id="count"></span>
-    </div>
 
-    <div class="content">
-      <div id="tickets" class="tickets"></div>
-      <div id="detail" class="detail empty"></div>
-    </div>
-  </section>
+      <div class="content">
+        <div id="tickets" class="tickets"></div>
+        <div id="detail" class="detail empty"></div>
+      </div>
+    </section>
+  </div>
 </div>
 
 <dialog id="project-dialog">

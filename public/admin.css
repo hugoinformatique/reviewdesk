@@ -1,56 +1,56 @@
-/* ReviewDesk — "Ink & Signal"
-   Token vocabulary mirrors the shadcn/21st.dev theme contract, so any 21st
-   theme CSS can be dropped over :root / [data-theme=dark] without touching
-   a single rule below. */
+/* ReviewDesk — "Paper & Ink"
+   Monochrome by construction: the palette holds no hue except the red kept for
+   errors and destructive actions. Hierarchy is carried by weight, size, spacing
+   and one neutral ramp — never by colour. Token names still mirror the
+   shadcn/21st.dev contract, so a themed palette can be dropped over :root /
+   [data-theme=dark] without touching a single rule below. */
 
 /* ------------------------------------------------------------------ tokens */
 
 :root {
   color-scheme: light;
 
-  --bg: #fafaf9;
-  --bg-sunken: #f1f1ef;
+  --bg: #ffffff;
+  --bg-sunken: #fafafa;
   --surface: #ffffff;
-  --surface-2: #f6f6f5;
-  --surface-hover: #f0f0ed;
-  --surface-active: #e9e9e5;
+  --surface-2: #f7f7f7;
+  --surface-hover: #f2f2f2;
+  --surface-active: #e9e9e9;
 
-  --text: #18181b;
-  --text-2: #56565f;
-  --text-3: #8b8b94;
+  --text: #111111;
+  --text-2: #5b5b5b;
+  --text-3: #8e8e8e;
 
-  --border: #e6e6e2;
-  --border-2: #d6d6d1;
+  --border: #e6e6e6;
+  --border-2: #d2d2d2;
 
-  --accent: #4338ca;
-  --accent-hover: #3730a3;
-  --accent-text: #4338ca;
-  --accent-soft: #eef1ff;
+  /* The "accent" is ink: a primary button is black on white, and inverts in
+     dark mode. Nothing in this interface is coloured to attract attention. */
+  --accent: #111111;
+  --accent-hover: #000000;
+  --accent-text: #111111;
+  --accent-soft: #f0f0f0;
   --accent-fg: #ffffff;
-  --ring: #4338ca38;
+  --ring: #1111112e;
 
-  --pin: #ea580c;
-  --danger: #be123c;
-  --danger-soft: #fff1f2;
+  /* The only hue left, and only where being wrong costs something. */
+  --danger: #b42318;
+  --danger-soft: #fdf3f2;
 
-  --todo: #a35a06;         --todo-soft: #fdf3e3;
-  --progress: #1d4ed8;     --progress-soft: #e8effe;
-  --review: #6d28d9;       --review-soft: #f0eafe;
-  --done: #047857;         --done-soft: #e3f6ef;
-
-  --r-sm: 6px;
-  --r: 9px;
-  --r-lg: 14px;
+  --r-sm: 5px;
+  --r: 8px;
+  --r-lg: 12px;
   --r-full: 999px;
 
-  --shadow-1: 0 1px 2px #18181b0a, 0 1px 3px #18181b0f;
-  --shadow-2: 0 4px 12px #18181b12, 0 2px 4px #18181b0a;
-  --shadow-3: 0 24px 60px #18181b26, 0 4px 12px #18181b14;
+  --shadow-1: 0 1px 2px #11111110;
+  --shadow-2: 0 4px 12px #11111114;
+  --shadow-3: 0 24px 60px #1111112e, 0 4px 12px #11111114;
 
   --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
-  --sidebar-w: 252px;
+  --sidebar-w: 232px;
+  --nav-h: 52px;
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -58,35 +58,29 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: #0c0c0e;
-    --bg-sunken: #08080a;
-    --surface: #141417;
-    --surface-2: #1b1b1f;
-    --surface-hover: #212127;
-    --surface-active: #2a2a31;
+    --bg: #0a0a0a;
+    --bg-sunken: #070707;
+    --surface: #121212;
+    --surface-2: #171717;
+    --surface-hover: #1e1e1e;
+    --surface-active: #272727;
 
-    --text: #f4f4f5;
-    --text-2: #a5a5ae;
-    --text-3: #74747e;
+    --text: #f5f5f5;
+    --text-2: #a1a1a1;
+    --text-3: #767676;
 
-    --border: #26262b;
-    --border-2: #35353d;
+    --border: #242424;
+    --border-2: #363636;
 
-    --accent: #6366f1;
-    --accent-hover: #818cf8;
-    --accent-text: #a5b4fc;
-    --accent-soft: #1c1b3a;
-    --accent-fg: #ffffff;
-    --ring: #818cf855;
+    --accent: #f5f5f5;
+    --accent-hover: #ffffff;
+    --accent-text: #f5f5f5;
+    --accent-soft: #1e1e1e;
+    --accent-fg: #0a0a0a;
+    --ring: #f5f5f545;
 
-    --pin: #fb923c;
-    --danger: #fb7185;
-    --danger-soft: #2a1218;
-
-    --todo: #e0a04a;         --todo-soft: #2b2011;
-    --progress: #7ba4f8;     --progress-soft: #121c33;
-    --review: #b79cf5;       --review-soft: #1f1733;
-    --done: #4ec99a;         --done-soft: #0e2a20;
+    --danger: #f87171;
+    --danger-soft: #2a1212;
 
     --shadow-1: 0 1px 2px #0008;
     --shadow-2: 0 4px 14px #0009;
@@ -97,35 +91,29 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #0c0c0e;
-  --bg-sunken: #08080a;
-  --surface: #141417;
-  --surface-2: #1b1b1f;
-  --surface-hover: #212127;
-  --surface-active: #2a2a31;
+  --bg: #0a0a0a;
+  --bg-sunken: #070707;
+  --surface: #121212;
+  --surface-2: #171717;
+  --surface-hover: #1e1e1e;
+  --surface-active: #272727;
 
-  --text: #f4f4f5;
-  --text-2: #a5a5ae;
-  --text-3: #74747e;
+  --text: #f5f5f5;
+  --text-2: #a1a1a1;
+  --text-3: #767676;
 
-  --border: #26262b;
-  --border-2: #35353d;
+  --border: #242424;
+  --border-2: #363636;
 
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-text: #a5b4fc;
-  --accent-soft: #1c1b3a;
-  --accent-fg: #ffffff;
-  --ring: #818cf855;
+  --accent: #f5f5f5;
+  --accent-hover: #ffffff;
+  --accent-text: #f5f5f5;
+  --accent-soft: #1e1e1e;
+  --accent-fg: #0a0a0a;
+  --ring: #f5f5f545;
 
-  --pin: #fb923c;
-  --danger: #fb7185;
-  --danger-soft: #2a1218;
-
-  --todo: #e0a04a;         --todo-soft: #2b2011;
-  --progress: #7ba4f8;     --progress-soft: #121c33;
-  --review: #b79cf5;       --review-soft: #1f1733;
-  --done: #4ec99a;         --done-soft: #0e2a20;
+  --danger: #f87171;
+  --danger-soft: #2a1212;
 
   --shadow-1: 0 1px 2px #0008;
   --shadow-2: 0 4px 14px #0009;
@@ -153,7 +141,7 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
-h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 640; }
+h1, h2, h3 { margin: 0; letter-spacing: -0.015em; font-weight: 620; }
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -161,7 +149,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 640; }
   border-radius: var(--r-sm);
 }
 
-::selection { background: var(--accent-soft); color: var(--accent-text); }
+::selection { background: var(--text); color: var(--bg); }
 
 .sr-only {
   position: absolute; width: 1px; height: 1px;
@@ -173,13 +161,13 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 640; }
 
 .eyebrow {
   font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-weight: 620;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-3);
 }
 
-.icon { width: 15px; height: 15px; flex: none; stroke-width: 1.75; }
+.icon { width: 15px; height: 15px; flex: none; stroke-width: 1.6; }
 
 /* Buttons ------------------------------------------------------------------ */
 
@@ -191,19 +179,15 @@ button.quiet,
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 33px;
-  padding: 0 13px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   font-size: 13px;
-  font-weight: 560;
+  font-weight: 530;
   white-space: nowrap;
-  transition: background 0.12s var(--ease), border-color 0.12s var(--ease),
-              color 0.12s var(--ease), transform 0.08s var(--ease);
+  transition: background 0.12s var(--ease), border-color 0.12s var(--ease), color 0.12s var(--ease);
 }
-
-.btn:active,
-button.quiet:active { transform: translateY(0.5px); }
 
 .btn-primary,
 #project-form button:not(.quiet),
@@ -211,18 +195,17 @@ button.quiet:active { transform: translateY(0.5px); }
   background: var(--accent);
   color: var(--accent-fg);
   border-color: var(--accent);
-  box-shadow: var(--shadow-1);
 }
 
 .btn-primary:hover,
 #project-form button:not(.quiet):hover,
 .login button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
 button.quiet,
 .btn-ghost {
-  background: var(--surface);
+  background: transparent;
   color: var(--text-2);
   border-color: var(--border-2);
 }
@@ -232,6 +215,22 @@ button.quiet:hover,
 
 .btn-danger { background: transparent; color: var(--danger); border-color: transparent; }
 .btn-danger:hover { background: var(--danger-soft); }
+
+/* A square button that carries an icon and nothing else. */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  transition: background 0.12s var(--ease), color 0.12s var(--ease);
+}
+
+.icon-btn:hover { background: var(--surface-hover); color: var(--text); }
 
 /* Fields ------------------------------------------------------------------- */
 
@@ -255,17 +254,17 @@ input:focus, select:focus, textarea:focus {
 
 select {
   appearance: none;
-  padding-right: 28px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b8b94' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e8e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 7px center;
   cursor: pointer;
 }
 
 textarea { resize: vertical; line-height: 1.55; }
 
-label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 580; color: var(--text-2); }
-label small { font-weight: 450; color: var(--text-3); font-size: 11.5px; }
+label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 560; color: var(--text-2); }
+label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
 
 /* --------------------------------------------------------------- login page */
 
@@ -274,43 +273,40 @@ label small { font-weight: 450; color: var(--text-3); font-size: 11.5px; }
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(900px 520px at 50% -10%, var(--accent-soft), transparent 70%),
-    var(--bg-sunken);
+  background: var(--bg-sunken);
 }
 
 .login form {
-  width: min(384px, 100%);
+  width: min(372px, 100%);
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: 32px;
+  padding: 30px;
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--shadow-2);
 }
 
 .mark {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
   background: var(--accent);
   color: var(--accent-fg);
-  box-shadow: var(--shadow-1);
 }
 
-.mark .icon { width: 20px; height: 20px; }
+.mark .icon { width: 18px; height: 18px; }
 
-.login h1 { margin: 18px 0 5px; font-size: 21px; }
-.login > form > p { color: var(--text-2); margin: 0 0 26px; font-size: 13px; }
+.login h1 { margin: 16px 0 4px; font-size: 20px; }
+.login > form > p { color: var(--text-2); margin: 0 0 24px; font-size: 13px; }
 .login label { margin: 14px 0; }
-.login button { width: 100%; height: 37px; margin-top: 20px; }
+.login button { width: 100%; height: 36px; margin-top: 20px; }
 
 .login output {
   display: block;
   color: var(--danger);
   background: var(--danger-soft);
-  border: 1px solid color-mix(in srgb, var(--danger) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent);
   border-radius: var(--r-sm);
   font-size: 12.5px;
   margin-top: 14px;
@@ -320,45 +316,112 @@ label small { font-weight: 450; color: var(--text-3); font-size: 11.5px; }
 
 /* --------------------------------------------------------------- app shell */
 
-#app { min-height: 100dvh; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+/* Two rows: the nav bar owns the full width, everything else lives under it. */
+#app { min-height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); }
 #app:not([hidden]) { display: grid; }
 
-/* Sidebar ------------------------------------------------------------------ */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 0;
+}
 
-aside {
+/* Nav bar ------------------------------------------------------------------ */
+
+.nav {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--bg-sunken);
-  border-right: 1px solid var(--border);
-  padding: 14px 10px 10px;
-  min-height: 100dvh;
+  align-items: center;
+  gap: 14px;
+  height: var(--nav-h);
+  padding: 0 14px 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
   position: sticky;
   top: 0;
-  max-height: 100dvh;
+  z-index: 40;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 4px 6px 14px;
-  font-weight: 660;
-  font-size: 14px;
-  letter-spacing: -0.015em;
+  font-weight: 620;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+  flex: none;
 }
 
-.brand .mark { width: 26px; height: 26px; border-radius: 8px; }
-.brand .mark .icon { width: 15px; height: 15px; }
+.brand .mark { width: 22px; height: 22px; border-radius: 4px; }
+.brand .mark .icon { width: 13px; height: 13px; }
+
+/* What is on screen, said once, in the bar: client above, project beside it. */
+.nav-context {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+#project-title {
+  font-size: 14px;
+  font-weight: 580;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#client-label { white-space: nowrap; }
+
+.nav-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.nav-actions .quiet { height: 30px; padding: 0 10px; font-size: 12.5px; }
+.nav-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 650;
+  display: grid;
+  place-items: center;
+}
+
+.avatar:hover { background: var(--surface-hover); color: var(--text); }
+
+.theme-toggle .icon-moon { display: none; }
+:root[data-theme='dark'] .theme-toggle .icon-moon { display: block; }
+:root[data-theme='dark'] .theme-toggle .icon-sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-toggle .icon-moon { display: block; }
+  :root:not([data-theme='light']) .theme-toggle .icon-sun { display: none; }
+}
+
+/* Project rail ------------------------------------------------------------- */
+
+aside {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-sunken);
+  border-right: 1px solid var(--border);
+  padding: 12px 8px 8px;
+  position: sticky;
+  top: var(--nav-h);
+  height: calc(100dvh - var(--nav-h));
+}
 
 .aside-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 8px 6px;
+  padding: 4px 8px 8px;
   font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-weight: 620;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-3);
 }
@@ -371,6 +434,7 @@ aside {
   flex: 1;
   margin: 0 -4px;
   padding: 0 4px 8px;
+  scrollbar-width: thin;
 }
 
 .project {
@@ -382,7 +446,7 @@ aside {
   background: transparent;
   border: 0;
   border-radius: var(--r-sm);
-  padding: 7px 9px;
+  padding: 6px 9px;
   color: var(--text-2);
   position: relative;
   transition: background 0.12s var(--ease), color 0.12s var(--ease);
@@ -390,19 +454,15 @@ aside {
 
 .project:hover { background: var(--surface-hover); color: var(--text); }
 
-.project.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow-1);
-}
+/* Selection is a rule of ink on the left edge, not a coloured slab. */
+.project.active { background: var(--surface-hover); color: var(--text); }
 
 .project.active::before {
   content: '';
   position: absolute;
   left: -4px; top: 50%;
-  width: 3px; height: 16px;
-  border-radius: 0 3px 3px 0;
-  background: var(--accent);
+  width: 2px; height: 18px;
+  background: var(--text);
   transform: translateY(-50%);
 }
 
@@ -421,7 +481,7 @@ aside {
 .project .name {
   display: block;
   font-size: 13px;
-  font-weight: 560;
+  font-weight: 530;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -436,110 +496,57 @@ aside {
   white-space: nowrap;
 }
 
+/* A count, not a decoration: plain tabular figures, no filled capsule. */
 .project .badge {
-  min-width: 19px;
-  height: 19px;
-  padding: 0 6px;
-  border-radius: var(--r-full);
-  background: var(--surface-active);
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
-  display: grid;
-  place-items: center;
   flex: none;
 }
 
-.project.active .badge { background: var(--accent); color: var(--accent-fg); }
+.project.active .badge { color: var(--text); }
 
-.aside-foot {
-  display: grid;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
+.aside-foot { padding-top: 8px; border-top: 1px solid var(--border); }
 
-#new-project { width: 100%; justify-content: flex-start; }
-
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  height: 30px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--text-3);
-  font-size: 12.5px;
-  font-weight: 530;
-}
-
-.theme-toggle:hover { background: var(--surface-hover); color: var(--text); }
-.theme-toggle .icon-moon { display: none; }
-:root[data-theme='dark'] .theme-toggle .icon-moon { display: block; }
-:root[data-theme='dark'] .theme-toggle .icon-sun { display: none; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .theme-toggle .icon-moon { display: block; }
-  :root:not([data-theme='light']) .theme-toggle .icon-sun { display: none; }
-}
+#new-project { width: 100%; justify-content: flex-start; border-color: transparent; }
+#new-project:hover { border-color: var(--border-2); }
 
 /* Workspace ---------------------------------------------------------------- */
 
 .workspace {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
-.workspace > header {
+/* Config bar --------------------------------------------------------------- */
+
+.config {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px 14px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
 
-#project-title { font-size: 20px; margin-top: 3px; }
-
-.header-actions { display: flex; align-items: center; gap: 8px; }
-
-.avatar {
-  width: 31px;
-  height: 31px;
-  padding: 0;
-  border-radius: var(--r-full);
-  border: 1px solid var(--border-2);
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 680;
-  display: grid;
-  place-items: center;
+.config select {
+  width: auto;
+  min-width: 126px;
+  height: 30px;
+  padding-block: 0;
+  font-size: 12.5px;
+  background-color: transparent;
+  border-color: transparent;
 }
 
-.avatar:hover { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.config select:hover { background-color: var(--surface-hover); }
+.config select:focus { border-color: var(--accent); background-color: var(--surface); }
 
-/* Toolbar ------------------------------------------------------------------ */
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 11px 22px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.toolbar select { width: auto; min-width: 132px; height: 31px; padding-block: 0; font-size: 12.5px; }
-
-.field-search { position: relative; flex: 1; min-width: 170px; max-width: 300px; }
+.field-search { position: relative; flex: 1; min-width: 160px; max-width: 280px; }
 .field-search .icon {
   position: absolute;
   left: 9px; top: 50%;
@@ -547,10 +554,18 @@ aside {
   color: var(--text-3);
   pointer-events: none;
 }
-.field-search input { height: 31px; padding: 0 10px 0 30px; font-size: 12.5px; }
+.field-search input {
+  height: 30px;
+  padding: 0 10px 0 29px;
+  font-size: 12.5px;
+  background: transparent;
+  border-color: transparent;
+}
+.field-search input:hover { background: var(--surface-hover); }
+.field-search input:focus { border-color: var(--accent); background: var(--surface); }
 
 /* Sits with the filters because it exports exactly what they select. */
-.toolbar-action { height: 31px; padding: 0 11px; font-size: 12.5px; white-space: nowrap; }
+.config-action { height: 30px; padding: 0 10px; font-size: 12.5px; white-space: nowrap; }
 
 #count {
   margin-left: auto;
@@ -571,10 +586,10 @@ aside {
 .tickets {
   overflow-y: auto;
   border-right: 1px solid var(--border);
-  padding: 8px;
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   scrollbar-width: thin;
 }
 
@@ -591,23 +606,28 @@ aside {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--r);
-  padding: 11px 12px;
-  transition: background 0.12s var(--ease), border-color 0.12s var(--ease);
+  padding: 10px 12px;
+  position: relative;
+  transition: background 0.12s var(--ease);
 }
 
 .ticket:hover { background: var(--surface-hover); }
 
-.ticket.active {
-  background: var(--surface);
-  border-color: var(--border-2);
-  box-shadow: var(--shadow-1);
+.ticket.active { background: var(--surface-hover); }
+
+.ticket.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 10px; bottom: 10px;
+  width: 2px;
+  background: var(--text);
 }
 
 .ticket .summary { grid-area: summary; display: grid; gap: 4px; min-width: 0; }
 
 .ticket .summary strong {
   font-size: 13px;
-  font-weight: 540;
+  font-weight: 520;
   line-height: 1.42;
   color: var(--text);
   display: -webkit-box;
@@ -635,37 +655,35 @@ aside {
 
 .ticket .status { grid-area: status; justify-self: end; }
 
-/* Status pill — dot + label, so it never relies on hue alone */
+/* Status — a dot that empties as the work advances -------------------------
+   No hue at all: "à traiter" is a full disc in ink, "traité" an empty ring in
+   grey, and the two intermediate states are quarters of the same disc. The
+   label always sits next to it, so the glyph never carries the meaning alone. */
 
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px 2px 6px;
-  border-radius: var(--r-full);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.005em;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 520;
   white-space: nowrap;
-  border: 1px solid transparent;
+  color: var(--text-2);
 }
 
-.status::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+.status .dot {
+  width: 9px;
+  height: 9px;
   flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: transparent;
 }
 
-.status.TODO { color: var(--todo); background: var(--todo-soft); border-color: color-mix(in srgb, var(--todo) 22%, transparent); }
-.status.IN_PROGRESS { color: var(--progress); background: var(--progress-soft); border-color: color-mix(in srgb, var(--progress) 22%, transparent); }
-.status.REVIEW { color: var(--review); background: var(--review-soft); border-color: color-mix(in srgb, var(--review) 22%, transparent); }
-.status.DONE { color: var(--done); background: var(--done-soft); border-color: color-mix(in srgb, var(--done) 22%, transparent); }
-
-/* IN_PROGRESS reads as "live": the dot breathes. */
-.status.IN_PROGRESS::before { animation: pulse 2s var(--ease) infinite; }
-@keyframes pulse { 50% { opacity: 0.35; } }
+.status.TODO { color: var(--text); font-weight: 600; }
+.status.TODO .dot { background: currentColor; }
+.status.IN_PROGRESS .dot { background: conic-gradient(currentColor 0 50%, transparent 50% 100%); }
+.status.REVIEW .dot { background: conic-gradient(currentColor 0 25%, transparent 25% 100%); }
+.status.DONE { color: var(--text-3); }
 
 /* Detail pane -------------------------------------------------------------- */
 
@@ -677,7 +695,7 @@ aside {
   grid-template-areas: 'head' 'main' 'side';
   align-content: start;
   gap: 18px 28px;
-  background: var(--surface-2);
+  background: var(--bg-sunken);
   scrollbar-width: thin;
 }
 
@@ -699,9 +717,9 @@ aside {
 .detail-side > .anchor-link { justify-self: start; }
 
 .detail h2 {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.4;
-  font-weight: 580;
+  font-weight: 560;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -718,7 +736,7 @@ aside {
 }
 
 .detail select { max-width: 240px; }
-.detail textarea { min-height: 116px; }
+.detail textarea { min-height: 112px; }
 
 .detail .diag {
   font: 11.5px/1.6 var(--mono);
@@ -745,15 +763,15 @@ aside {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--accent-text);
+  color: var(--text);
   font-size: 12.5px;
-  font-weight: 560;
+  font-weight: 530;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-bottom: 1px solid var(--border-2);
   padding-bottom: 1px;
 }
 
-.detail a:hover { border-bottom-color: var(--accent); }
+.detail a:hover { border-bottom-color: var(--text); }
 
 .load-more { margin: 10px auto 4px; }
 
@@ -764,6 +782,37 @@ aside {
 }
 
 .anchor-link:hover { color: var(--text); }
+
+/* Work log ----------------------------------------------------------------- */
+
+.thread { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.thread-empty { color: var(--text-3); font-size: 12.5px; margin: 0; }
+
+.comment {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  background: var(--surface);
+}
+
+/* An agent's entry is marked, so a human never mistakes it for a colleague's. */
+.comment.agent { border-left: 2px solid var(--text); }
+.comment p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.comment-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-3); }
+.comment-meta strong { font-size: 12.5px; font-weight: 580; color: var(--text-2); }
+.comment-meta .tag {
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-full);
+  padding: 1px 7px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.comment-meta .move { color: var(--text-2); }
+
+.comment-draft { min-height: 62px; font-size: 13px; }
+.comment-actions { display: flex; gap: 8px; }
+.comment-actions select { width: auto; flex: 1; }
 
 /* Toast -------------------------------------------------------------------- */
 
@@ -780,7 +829,7 @@ aside {
   background: var(--text);
   color: var(--bg);
   font-size: 12.5px;
-  font-weight: 560;
+  font-weight: 530;
   box-shadow: var(--shadow-3);
   animation: toast-in 0.22s var(--ease);
 }
@@ -802,8 +851,8 @@ aside {
   max-width: 300px;
 }
 
-.empty-state .icon { width: 26px; height: 26px; color: var(--border-2); stroke-width: 1.5; }
-.empty-state strong { font-size: 13.5px; font-weight: 580; color: var(--text-2); }
+.empty-state .icon { width: 24px; height: 24px; color: var(--border-2); stroke-width: 1.4; }
+.empty-state strong { font-size: 13.5px; font-weight: 560; color: var(--text-2); }
 .empty-state span { font-size: 12.5px; line-height: 1.55; }
 
 /* Dialogs ------------------------------------------------------------------ */
@@ -818,12 +867,12 @@ dialog {
   box-shadow: var(--shadow-3);
 }
 
-dialog::backdrop { background: #0c0c0e5c; backdrop-filter: blur(2px); }
+dialog::backdrop { background: #11111159; backdrop-filter: blur(2px); }
 
 dialog > form, .dialog-body { padding: 22px; }
 
 dialog h2 { font-size: 16px; margin-bottom: 4px; }
-dialog h3 { font-size: 12px; margin: 18px 0 8px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
+dialog h3 { font-size: 11.5px; margin: 18px 0 8px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
 dialog > .dialog-body > p, dialog p.note {
   color: var(--text-2);
   font-size: 12.5px;
@@ -862,61 +911,8 @@ dialog output:empty { display: none; }
   overflow-x: auto;
 }
 
-/* Work log ----------------------------------------------------------------- */
-
-.thread { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
-.thread-empty { color: var(--text-3); font-size: 12.5px; margin: 0; }
-
-.comment {
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 10px 12px;
-  background: var(--surface-2);
-}
-/* An agent's entry is marked, so a human never mistakes it for a colleague's. */
-.comment.agent { border-left: 2px solid var(--accent); }
-.comment p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-.comment-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-3); }
-.comment-meta strong { font-size: 12.5px; color: var(--text-2); }
-.comment-meta .tag {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 7px;
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.comment-meta .move { color: var(--text-2); }
-
-.comment-draft { min-height: 64px; font-size: 13px; }
-.comment-actions { display: flex; gap: 8px; }
-.comment-actions select { width: auto; flex: 1; }
-
-#agent-form { display: grid; gap: 10px; margin-bottom: 14px; }
-#agent-output {
-  font: 11.5px/1.65 var(--mono);
-  min-height: 170px;
-  background: var(--surface-2);
-  white-space: pre-wrap;
-}
-#agent-list { display: grid; gap: 5px; }
-#agent-list p { color: var(--text-3); font-size: 12.5px; margin: 0; }
-#agent-dialog { width: min(640px, calc(100vw - 32px)); }
-
-/* Wider than the other dialogs: the prompt is read before it is pasted. */
-#export-dialog { width: min(720px, calc(100vw - 32px)); }
-
-#export-output {
-  font: 11.5px/1.65 var(--mono);
-  min-height: 300px;
-  max-height: 55vh;
-  background: var(--surface-2);
-  white-space: pre-wrap;
-}
-
-#link-list { display: grid; gap: 5px; }
-
-#link-list p { color: var(--text-3); font-size: 12.5px; margin: 0; }
+#link-list, #agent-list { display: grid; gap: 5px; }
+#link-list p, #agent-list p { color: var(--text-3); font-size: 12.5px; margin: 0; }
 
 .link-row {
   display: flex;
@@ -933,6 +929,26 @@ dialog output:empty { display: none; }
 
 .link-row button { height: 26px; padding: 0 9px; font-size: 12px; }
 
+#agent-dialog { width: min(640px, calc(100vw - 32px)); }
+#agent-form { display: grid; gap: 10px; margin-bottom: 14px; }
+#agent-output {
+  font: 11.5px/1.65 var(--mono);
+  min-height: 170px;
+  background: var(--surface-2);
+  white-space: pre-wrap;
+}
+
+/* Wider than the other dialogs: the prompt is read before it is pasted. */
+#export-dialog { width: min(720px, calc(100vw - 32px)); }
+
+#export-output {
+  font: 11.5px/1.65 var(--mono);
+  min-height: 300px;
+  max-height: 55vh;
+  background: var(--surface-2);
+  white-space: pre-wrap;
+}
+
 /* Wide and ultrawide -------------------------------------------------------
    A 21:9 34" panel is ~3440px. Left unchecked the detail pane becomes one
    column several thousand pixels wide, which is unreadable — a line of text
@@ -942,7 +958,7 @@ dialog output:empty { display: none; }
 
 @media (min-width: 1500px) {
   .content { grid-template-columns: minmax(360px, 520px) minmax(0, 1fr); }
-  .workspace > header, .toolbar { padding-inline: 28px; }
+  .config { padding-inline: 26px; }
   .detail { padding: 26px 30px 48px; }
 }
 
@@ -962,10 +978,10 @@ dialog output:empty { display: none; }
 }
 
 @media (min-width: 2300px) {
-  :root { --sidebar-w: 300px; }
+  :root { --sidebar-w: 280px; }
   .content { grid-template-columns: minmax(440px, 760px) minmax(0, 1fr); }
   .detail:not(.empty) { grid-template-columns: minmax(0, 1120px) minmax(380px, 560px); }
-  /* Rows get room for the date and the pill on one line instead of stacking. */
+  /* Rows get room for the date and the status on one line instead of stacking. */
   .ticket {
     grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas: 'summary status date';
@@ -986,22 +1002,32 @@ dialog output:empty { display: none; }
 /* Mobile ------------------------------------------------------------------- */
 
 /* Both only exist below the breakpoint; on desktop they must not become grid
-   items. `button.mobile-only` matches the specificity of `button.quiet` above
-   and wins on order. */
+   items. `button.mobile-only` matches the specificity of `.icon-btn` above and
+   wins on order. */
 button.mobile-only, .scrim { display: none; }
 
+@media (max-width: 1100px) {
+  /* The label of a nav action goes first; the icon still says which is which. */
+  .nav-actions .quiet .label { display: none; }
+  .nav-actions .quiet { width: 30px; padding: 0; }
+}
+
 @media (max-width: 900px) {
-  #app { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: 1fr; }
+
+  .nav { padding-inline: 10px 12px; gap: 10px; }
+  .nav-context { padding-left: 10px; }
+  .nav-context .eyebrow { display: none; }
 
   aside {
     position: fixed;
     inset: 0 auto 0 0;
-    width: 268px;
-    z-index: 30;
+    width: 264px;
+    height: 100dvh;
+    z-index: 45;
     transform: translateX(-100%);
     transition: transform 0.26s var(--ease);
     box-shadow: var(--shadow-3);
-    max-height: none;
   }
 
   #app.nav-open aside { transform: none; }
@@ -1010,8 +1036,8 @@ button.mobile-only, .scrim { display: none; }
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 20;
-    background: #0c0c0e66;
+    z-index: 44;
+    background: #11111166;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.26s var(--ease);
@@ -1019,19 +1045,18 @@ button.mobile-only, .scrim { display: none; }
 
   #app.nav-open .scrim { opacity: 1; pointer-events: auto; }
 
-  button.mobile-only { display: inline-flex; }
+  button.mobile-only { display: inline-grid; }
 
-  .workspace > header { padding: 14px 16px 12px; }
-  .toolbar { padding: 10px 16px; }
-  .toolbar select, .field-search { flex: 1 1 132px; max-width: none; }
+  .config { padding: 9px 14px; }
+  .config select, .field-search { flex: 1 1 126px; max-width: none; }
 
   /* One pane at a time: the detail slides over the list. */
   .content { grid-template-columns: 1fr; }
   .tickets { border-right: 0; }
   .detail {
     position: fixed;
-    inset: 0;
-    z-index: 25;
+    inset: var(--nav-h) 0 0;
+    z-index: 30;
     padding: 16px 16px 40px;
   }
   .detail.empty { display: none; }
