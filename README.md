@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-3.0.0-111111)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-4.0.0-111111)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -93,6 +93,9 @@ au même endroit.
 - **journal par retour** : chaque commentaire, humain ou agent, horodaté et
   rattaché au changement de statut qui l'accompagne ;
 - **notification sortante** par projet : un POST JSON à chaque nouveau retour ;
+- **vue d'ensemble** : ce qui attend, ce qui a bougé sur 7/30/90 jours, la
+  répartition par statut, le classement des projets et des pages, et le journal
+  des derniers mouvements — humains et agents ;
 - **interface monochrome** : barre de navigation, barre de configuration, rail
   projets ; aucune couleur décorative, le statut se lit à un disque qui se vide ;
 - interface utilisable de 390 px à un 21:9 de 3440 px ;
@@ -205,6 +208,25 @@ il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
 Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. On y crée les projets
 et leurs origines, on génère et révoque les liens reviewer, on filtre et on
 traite les retours.
+
+### La vue d'ensemble
+
+L'onglet **« Vue d'ensemble »**, dans la barre de navigation, répond à trois
+questions dans cet ordre : ce qui attend, comment la file bouge, et où se trouve
+le travail.
+
+- cinq indicateurs : retours **à traiter** (avec l'âge du plus ancien), retours
+  **ouverts** (dont ceux qui traînent depuis plus de 7 jours), **reçus** et
+  **traités** sur la période, chacun comparé à la période précédente de même
+  longueur, et le **délai moyen** entre le dépôt et le passage à « traité » ;
+- un graphe d'activité jour par jour, reçus contre traités, en SVG écrit à la
+  main — l'administration ne charge aucun script tiers, et sa CSP le refuserait ;
+- la répartition par statut, le classement des projets (cliquer une ligne filtre
+  tout le reste dessus), les pages les plus signalées, et le journal des
+  derniers mouvements, agents compris.
+
+La période se choisit entre 7, 30 et 90 jours ; le projet sélectionné dans le
+rail de gauche restreint l'ensemble des chiffres.
 
 ### Exporter le reste à faire en un prompt
 
@@ -452,6 +474,7 @@ Administration — cookie de session + jeton CSRF sur les mutations :
 | `GET` `POST` | `/api/projects/:id/review-links` | Liens reviewer (le secret n'est montré qu'une fois). |
 | `POST` | `/api/projects/:projectId/review-links/:linkId/revoke` | Révocation. |
 | `GET` | `/api/tickets` | Triage filtré, pagination par curseur. |
+| `GET` | `/api/stats` | Vue d'ensemble : `days` (7, 30, 90) et `projectId` optionnel. |
 | `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
 | `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
 | `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
@@ -483,7 +506,7 @@ npm run test:e2e     # E2E Playwright, admin :4310 et preview :4311
 npm run check        # tout l'enchaînement ci-dessus + npm audit --omit=dev
 ```
 
-`npm run check` est la porte d'entrée : lint, typecheck, **72 tests Node**
+`npm run check` est la porte d'entrée : lint, typecheck, **74 tests Node**
 (unitaires et intégration adversariale contre PostgreSQL + MinIO Docker
 jetables — 3 d'entre eux sont sautés sans Docker), build, **3 E2E Playwright**
 sur une origine réellement distincte, puis `npm audit --omit=dev`.
@@ -498,7 +521,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **3.0.0**.
+Keep a Changelog. Version courante : **4.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,

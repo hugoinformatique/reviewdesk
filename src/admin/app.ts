@@ -97,6 +97,10 @@ const formatDate = (value: string) =>
     new Date(value),
   );
 
+/** A calendar day, without the hour nobody reads on a chart axis. */
+const formatDay = (value: string) =>
+  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(new Date(value));
+
 const relative = new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' });
 
 /** Scannable age for list rows; the exact timestamp stays in the `title`. */
@@ -241,7 +245,8 @@ async function chooseProject(id: string) {
   $('#client-label').textContent = (project?.clientLabel ?? 'TOUS LES CLIENTS').toUpperCase();
   $('#app').classList.remove('nav-open');
   renderProjects();
-  await loadTickets();
+  // Both views are scoped by the project, so whichever is on screen reloads.
+  await (view === 'overview' ? loadStats() : loadTickets());
 }
 
 function filterParams() {
@@ -509,6 +514,351 @@ function openTicket(id: string) {
 
   detail.append(head, main, side);
 }
+
+// -------------------------------------------------------------- overview
+
+type Stats = {
+  days: number;
+  byStatus: Record<string, number>;
+  total: number;
+  received: number;
+  receivedPrevious: number;
+  resolved: number;
+  resolvedPrevious: number;
+  resolutionSeconds: number | null;
+  stale: number;
+  oldestTodo: string | null;
+  daily: { received: Record<string, number>; resolved: Record<string, number> };
+  projects: { id: string; name: string; clientLabel: string; todo: number; inProgress: number; review: number; done: number; total: number }[];
+  pages: { pageUrl: string; count: number; open: number }[];
+  activity: {
+    id: string;
+    author: 'admin' | 'agent';
+    authorLabel: string;
+    statusFrom: string | null;
+    statusTo: string | null;
+    createdAt: string;
+    ticketId: string;
+    ticketText: string;
+  }[];
+};
+
+/** Terse element builder; the overview is mostly structure, not logic. */
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className = '',
+  text = '',
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** A duration a human reads without converting: « 3 h 20 », « 2 j ». */
+function humanDuration(seconds: number): string {
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`;
+  if (seconds < 86_400) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.round((seconds % 3600) / 60);
+    return minutes ? `${hours} h ${String(minutes).padStart(2, '0')}` : `${hours} h`;
+  }
+  const days = seconds / 86_400;
+  return days < 10 ? `${days.toFixed(1).replace('.', ',')} j` : `${Math.round(days)} j`;
+}
+
+/**
+ * A KPI tile: the figure, what it counts, and one line of context underneath —
+ * either a comparison with the previous period of the same length, or the
+ * detail that makes the number actionable.
+ */
+function kpi(label: string, value: string, note: string, tone: 'plain' | 'up' | 'down' = 'plain') {
+  const card = el('div', 'kpi');
+  card.append(el('span', 'kpi-label', label), el('strong', 'kpi-value', value), el('span', `kpi-note ${tone}`, note));
+  return card;
+}
+
+function deltaNote(current: number, previous: number, days: number): { text: string; tone: 'plain' | 'up' | 'down' } {
+  const period = `vs ${days} j précédents`;
+  if (!previous && !current) return { text: `aucun, ${period}`, tone: 'plain' };
+  if (!previous) return { text: `aucun sur les ${days} j précédents`, tone: 'plain' };
+  const change = Math.round(((current - previous) / previous) * 100);
+  if (change === 0) return { text: `stable, ${period}`, tone: 'plain' };
+  return { text: `${change > 0 ? '+' : '−'}${Math.abs(change)} % ${period}`, tone: change > 0 ? 'up' : 'down' };
+}
+
+/**
+ * Received against resolved, one pair of bars per day. Drawn as inline SVG
+ * rather than pulled from a chart library: the admin ships no third-party
+ * script, and its CSP would refuse one anyway.
+ */
+function activityChart(stats: Stats) {
+  const days: string[] = [];
+  for (let index = stats.days - 1; index >= 0; index--) {
+    days.push(new Date(Date.now() - index * 86_400_000).toISOString().slice(0, 10));
+  }
+  const received = days.map((day) => stats.daily.received[day] ?? 0);
+  const resolved = days.map((day) => stats.daily.resolved[day] ?? 0);
+  const peak = Math.max(1, ...received, ...resolved);
+
+  const slot = 10;
+  const width = days.length * slot;
+  const height = 72;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'chart');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute(
+    'aria-label',
+    `${received.reduce((sum, count) => sum + count, 0)} retours reçus et ${resolved.reduce((sum, count) => sum + count, 0)} traités sur ${stats.days} jours`,
+  );
+
+  days.forEach((day, index) => {
+    const pairs: [number, string][] = [
+      [received[index]!, 'bar-received'],
+      [resolved[index]!, 'bar-resolved'],
+    ];
+    pairs.forEach(([value, className], side) => {
+      if (!value) return;
+      const barHeight = Math.max(1.5, (value / peak) * (height - 6));
+      const rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', String(index * slot + 1 + side * 4));
+      rect.setAttribute('y', String(height - barHeight));
+      rect.setAttribute('width', '3.4');
+      rect.setAttribute('height', String(barHeight));
+      rect.setAttribute('class', className);
+      const title = document.createElementNS(SVG_NS, 'title');
+      title.textContent = `${day} — ${value} ${className === 'bar-received' ? 'reçu(s)' : 'traité(s)'}`;
+      rect.append(title);
+      svg.append(rect);
+    });
+  });
+
+  const frame = el('div', 'chart-frame');
+  const scale = el('div', 'chart-scale');
+  scale.append(el('span', '', String(peak)), el('span', '', '0'));
+  frame.append(scale, svg);
+
+  const axis = el('div', 'chart-axis');
+  axis.append(el('span', '', formatDay(`${days[0]}T12:00:00Z`)), el('span', '', 'aujourd’hui'));
+
+  const block = el('div', 'chart-block');
+  block.append(frame, axis);
+  return block;
+}
+
+/** One horizontal bar per status, in the same ink-to-grey ramp as the list. */
+function statusBreakdown(stats: Stats) {
+  const list = el('div', 'breakdown');
+  const peak = Math.max(1, ...Object.values(stats.byStatus));
+  for (const [status, label] of Object.entries(STATUS_LABELS)) {
+    const count = stats.byStatus[status] ?? 0;
+    const row = el('div', 'breakdown-row');
+    const name = el('span', `status ${status}`);
+    const dot = el('span', 'dot');
+    dot.setAttribute('aria-hidden', 'true');
+    name.append(dot, document.createTextNode(label));
+    const track = el('span', 'breakdown-track');
+    const fill = el('span', `breakdown-fill ${status}`);
+    fill.style.width = `${(count / peak) * 100}%`;
+    track.append(fill);
+    const value = el('span', 'breakdown-value', String(count));
+    row.append(name, track, value);
+    list.append(row);
+  }
+  return list;
+}
+
+function projectTable(stats: Stats) {
+  const table = el('table', 'stat-table');
+  const head = el('thead');
+  const headRow = el('tr');
+  for (const [label, className] of [
+    ['Projet', ''],
+    ['À traiter', 'num'],
+    ['En cours', 'num'],
+    ['À valider', 'num'],
+    ['Traité', 'num'],
+  ] as const) {
+    headRow.append(el('th', className, label));
+  }
+  head.append(headRow);
+  const body = el('tbody');
+  for (const project of stats.projects) {
+    const row = el('tr');
+    const cell = el('td');
+    cell.append(el('strong', '', project.name), el('span', 'muted', project.clientLabel));
+    row.append(cell);
+    for (const count of [project.todo, project.inProgress, project.review, project.done]) {
+      row.append(el('td', 'num', String(count)));
+    }
+    // Clicking a line is the obvious move once the numbers say where the work is.
+    row.onclick = () => {
+      void chooseProject(project.id);
+    };
+    body.append(row);
+  }
+  table.append(head, body);
+  const scroll = el('div', 'table-scroll');
+  scroll.append(table);
+  return scroll;
+}
+
+function activityFeed(stats: Stats) {
+  const list = el('div', 'feed');
+  if (!stats.activity.length) {
+    list.append(el('p', 'thread-empty', 'Aucun mouvement. Les agents connectés et l’équipe écrivent ici.'));
+    return list;
+  }
+  for (const entry of stats.activity) {
+    const item = el('div', `feed-row ${entry.author}`);
+    const head = el('div', 'feed-head');
+    head.append(el('strong', '', entry.authorLabel || (entry.author === 'agent' ? 'Agent' : 'Équipe')));
+    if (entry.statusTo && entry.statusTo !== entry.statusFrom) {
+      head.append(
+        el(
+          'span',
+          'tag move',
+          `${STATUS_LABELS[entry.statusFrom ?? ''] ?? entry.statusFrom} → ${STATUS_LABELS[entry.statusTo] ?? entry.statusTo}`,
+        ),
+      );
+    }
+    const when = el('span', 'feed-when', formatAge(entry.createdAt));
+    when.title = formatDate(entry.createdAt);
+    head.append(when);
+    const subject = el('button', 'feed-subject', entry.ticketText);
+    subject.type = 'button';
+    subject.onclick = async () => {
+      await showTickets();
+      const known = tickets.find((ticket) => ticket.id === entry.ticketId);
+      if (known) openTicket(known.id);
+      else toast('Ce retour est hors des filtres actuels.', 'error');
+    };
+    item.append(head, subject);
+    list.append(item);
+  }
+  return list;
+}
+
+function panel(title: string, hint: string, body: HTMLElement, variant: string) {
+  const section = el('section', `panel panel-${variant}`);
+  const head = el('div', 'panel-head');
+  head.append(el('h2', '', title), el('span', 'panel-hint', hint));
+  section.append(head, body);
+  return section;
+}
+
+function renderOverview(stats: Stats) {
+  const host = $('#overview');
+  host.replaceChildren();
+
+  const open = stats.byStatus.TODO! + stats.byStatus.IN_PROGRESS! + stats.byStatus.REVIEW!;
+  const kpis = el('div', 'kpi-row');
+  kpis.append(
+    kpi(
+      'À traiter',
+      String(stats.byStatus.TODO ?? 0),
+      stats.oldestTodo ? `le plus ancien : ${formatAge(stats.oldestTodo)}` : 'rien en attente',
+      stats.stale > 0 ? 'up' : 'plain',
+    ),
+    kpi('Ouverts', String(open), `${stats.stale} ouvert${stats.stale === 1 ? '' : 's'} depuis plus de 7 jours`),
+    (() => {
+      const delta = deltaNote(stats.received, stats.receivedPrevious, stats.days);
+      return kpi(`Reçus · ${stats.days} j`, String(stats.received), delta.text, delta.tone);
+    })(),
+    (() => {
+      const delta = deltaNote(stats.resolved, stats.resolvedPrevious, stats.days);
+      return kpi(`Traités · ${stats.days} j`, String(stats.resolved), delta.text, delta.tone);
+    })(),
+    kpi(
+      'Délai moyen',
+      stats.resolutionSeconds === null ? '—' : humanDuration(stats.resolutionSeconds),
+      stats.resolutionSeconds === null ? 'aucun retour traité sur la période' : 'du dépôt au statut « traité »',
+    ),
+  );
+
+  const grid = el('div', 'panel-grid');
+  grid.append(
+    panel('Activité', `reçus et traités, ${stats.days} derniers jours`, activityChart(stats), 'chart'),
+    panel('Répartition', `${stats.total} retour${stats.total === 1 ? '' : 's'} au total`, statusBreakdown(stats), 'breakdown'),
+    panel('Par projet', 'cliquez une ligne pour filtrer', projectTable(stats), 'projects'),
+    panel(
+      'Pages les plus signalées',
+      `sur ${stats.days} jours`,
+      (() => {
+        const list = el('div', 'page-list');
+        if (!stats.pages.length) list.append(el('p', 'thread-empty', 'Aucun retour sur la période.'));
+        for (const page of stats.pages) {
+          const row = el('div', 'page-row');
+          let label = page.pageUrl;
+          try {
+            label = new URL(page.pageUrl).pathname || '/';
+          } catch {
+            // A stored URL that no longer parses stays readable as written.
+          }
+          const name = el('span', 'page-name', label);
+          name.title = page.pageUrl;
+          row.append(name, el('span', 'page-count', `${page.count} · ${page.open} ouvert${page.open === 1 ? '' : 's'}`));
+          list.append(row);
+        }
+        return list;
+      })(),
+      'pages',
+    ),
+    panel('Derniers mouvements', 'journal, tous retours confondus', activityFeed(stats), 'feed'),
+  );
+
+  host.append(kpis, grid);
+}
+
+async function loadStats() {
+  const params = new URLSearchParams({ days: $<HTMLSelectElement>('#period').value });
+  if (selectedProject) params.set('projectId', selectedProject);
+  const scope = $('#stats-scope');
+  try {
+    const stats = (await api(`/api/stats?${params}`)) as Stats;
+    scope.textContent = selectedProject ? 'Projet sélectionné' : 'Tous les projets';
+    renderOverview(stats);
+  } catch {
+    scope.textContent = '';
+    $('#overview').replaceChildren(
+      emptyState('i-chart', 'Statistiques indisponibles', 'Le serveur n’a pas répondu. Réessayez dans un instant.'),
+    );
+  }
+}
+
+/** Which half of the workspace is on screen; the nav tabs own this. */
+let view: 'tickets' | 'overview' = 'tickets';
+
+function applyView() {
+  const overview = view === 'overview';
+  $<HTMLElement>('#overview').hidden = !overview;
+  $<HTMLElement>('#config-overview').hidden = !overview;
+  $<HTMLElement>('#tickets-view').hidden = overview;
+  $<HTMLElement>('#config-tickets').hidden = overview;
+  $('#tab-overview').setAttribute('aria-current', String(overview));
+  $('#tab-tickets').setAttribute('aria-current', String(!overview));
+}
+
+async function showOverview() {
+  view = 'overview';
+  applyView();
+  await loadStats();
+}
+
+async function showTickets() {
+  const wasOverview = view === 'overview';
+  view = 'tickets';
+  applyView();
+  if (wasOverview) await loadTickets();
+}
+
+$('#tab-overview').addEventListener('click', () => void showOverview());
+$('#tab-tickets').addEventListener('click', () => void showTickets());
+$('#period').addEventListener('change', () => void loadStats());
 
 // --------------------------------------------------------------- work log
 

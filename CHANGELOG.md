@@ -15,6 +15,31 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [4.0.0] — 2026-09-12
+
+### Ajouté
+
+- **Vue d'ensemble.** Un second onglet dans la barre de navigation, qui répond à
+  trois questions : ce qui attend, comment la file bouge, où est le travail.
+  Cinq indicateurs (à traiter et âge du plus ancien, ouverts dont ceux de plus de
+  7 jours, reçus et traités sur la période avec comparaison à la période
+  précédente, délai moyen de traitement), un graphe d'activité jour par jour
+  reçus contre traités, la répartition par statut, le classement des projets, les
+  pages les plus signalées et le journal des derniers mouvements — agents
+  compris.
+- Période réglable (7, 30 ou 90 jours) et périmètre hérité du projet sélectionné :
+  les chiffres décrivent toujours ce que le reste de l'écran affiche.
+- Route `GET /api/stats` (`days`, `projectId`), qui calcule tout en une requête
+  côté serveur plutôt que de faire agréger le navigateur.
+- Le graphe est un SVG écrit à la main : aucune bibliothèque de charts, aucun
+  script tiers — la CSP de l'administration le refuserait de toute façon.
+
+### Modifié
+
+- La barre de configuration est désormais propre à chaque vue : filtres pour les
+  retours, sélecteur de période pour la vue d'ensemble.
+- Cliquer une ligne du classement par projet sélectionne ce projet partout.
+
 ## [3.0.0] — 2026-09-12
 
 Refonte de l'administration : monochrome, et rangée.
@@ -233,7 +258,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v3.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v4.0.0
 [3.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v3.0.0
 [2.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v2.0.0
 [1.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.2.0

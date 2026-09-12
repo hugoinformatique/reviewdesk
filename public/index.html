@@ -45,6 +45,9 @@
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 5v14M5 12h14"/>
   </symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20V4M4 20h16"/><rect x="8" y="11" width="3" height="6"/><rect x="14" y="7" width="3" height="10"/>
+  </symbol>
   <symbol id="i-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01M9.5 17.5h5"/><path d="M2 13v2M22 13v2"/>
   </symbol>
@@ -80,6 +83,10 @@
       <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg></span>
       ReviewDesk
     </div>
+    <nav class="nav-tabs" aria-label="Vues">
+      <button id="tab-overview" class="nav-tab" type="button" aria-current="false">Vue d’ensemble</button>
+      <button id="tab-tickets" class="nav-tab" type="button" aria-current="true">Retours</button>
+    </nav>
     <div class="nav-context">
       <span class="eyebrow" id="client-label">TOUS LES CLIENTS</span>
       <h1 id="project-title">Tous les retours</h1>
@@ -120,7 +127,17 @@
     </aside>
 
     <section class="workspace">
-      <div class="config">
+      <div class="config" id="config-overview" hidden>
+        <span class="eyebrow">Période</span>
+        <select id="period" aria-label="Période observée">
+          <option value="7">7 derniers jours</option>
+          <option value="30" selected>30 derniers jours</option>
+          <option value="90">90 derniers jours</option>
+        </select>
+        <span id="stats-scope"></span>
+      </div>
+
+      <div class="config" id="config-tickets">
         <select id="client"><option value="">Tous les clients</option></select>
         <div class="field-search">
           <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
@@ -145,10 +162,12 @@
         <span id="count"></span>
       </div>
 
-      <div class="content">
+      <div class="content" id="tickets-view">
         <div id="tickets" class="tickets"></div>
         <div id="detail" class="detail empty"></div>
       </div>
+
+      <div class="overview" id="overview" hidden></div>
     </section>
   </div>
 </div>

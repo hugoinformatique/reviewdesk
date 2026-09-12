@@ -403,6 +403,27 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   :root:not([data-theme='light']) .theme-toggle .icon-sun { display: none; }
 }
 
+/* View tabs ---------------------------------------------------------------- */
+
+.nav-tabs { display: flex; gap: 2px; flex: none; }
+
+.nav-tab {
+  height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 530;
+  white-space: nowrap;
+  transition: background 0.12s var(--ease), color 0.12s var(--ease);
+}
+
+.nav-tab:hover { background: var(--surface-hover); color: var(--text); }
+/* The current view is stated by weight and ink, not by a coloured underline. */
+.nav-tab[aria-current='true'] { background: var(--surface-active); color: var(--text); font-weight: 580; }
+
 /* Project rail ------------------------------------------------------------- */
 
 aside {
@@ -684,6 +705,148 @@ aside {
 .status.IN_PROGRESS .dot { background: conic-gradient(currentColor 0 50%, transparent 50% 100%); }
 .status.REVIEW .dot { background: conic-gradient(currentColor 0 25%, transparent 25% 100%); }
 .status.DONE { color: var(--text-3); }
+
+/* Overview ------------------------------------------------------------------
+   A dashboard that answers three questions in order: what is waiting, how the
+   backlog moves, and where the work is. No colour does any of the work. */
+
+.overview {
+  overflow-y: auto;
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  background: var(--bg-sunken);
+  scrollbar-width: thin;
+}
+
+#stats-scope { font-size: 12px; color: var(--text-3); margin-left: auto; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.kpi {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.kpi-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.kpi-value { font-size: 27px; font-weight: 620; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-note { font-size: 11.5px; color: var(--text-3); }
+/* A rise in what arrives is not good news and a fall is not bad: both are just
+   movement, so neither gets a colour — only a slightly firmer grey. */
+.kpi-note.up, .kpi-note.down { color: var(--text-2); }
+
+/* Twelve columns rather than auto-fit: the panels have very different natural
+   heights, and a fixed span per panel is what stops a short one from leaving a
+   hole beside a tall one. Below 1100px everything stacks. */
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+  /* Stretch, so the cards of one row end on the same line: a short panel leaves
+     white space inside its own frame rather than a hole in the page. */
+  align-items: stretch;
+}
+
+.panel-chart { grid-column: span 12; }
+.panel-breakdown { grid-column: span 4; }
+.panel-projects { grid-column: span 8; }
+.panel-pages { grid-column: span 5; }
+.panel-feed { grid-column: span 7; }
+
+@media (max-width: 1100px) {
+  .panel-grid > .panel { grid-column: span 12; }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px 16px 16px;
+  min-width: 0;
+}
+
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.panel h2 { font-size: 13px; font-weight: 600; }
+.panel-hint { font-size: 11.5px; color: var(--text-3); text-align: right; }
+
+.chart-block { display: grid; gap: 6px; }
+.chart-frame { display: flex; gap: 10px; }
+.chart-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.chart { flex: 1; height: 86px; width: 100%; border-bottom: 1px solid var(--border); }
+.bar-received { fill: var(--text); }
+.bar-resolved { fill: var(--border-2); }
+.chart-axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); padding-left: 26px; }
+
+.breakdown { display: grid; gap: 9px; }
+.breakdown-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 34px; align-items: center; gap: 10px; }
+.breakdown-track { height: 6px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; }
+.breakdown-fill { display: block; height: 100%; background: var(--text-3); }
+.breakdown-fill.TODO { background: var(--text); }
+.breakdown-fill.IN_PROGRESS { background: var(--text-2); }
+.breakdown-value { font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; color: var(--text-2); }
+
+/* The table is allowed to scroll inside its panel rather than push the count
+   columns out of view on a narrow one. */
+.table-scroll { overflow-x: auto; margin: 0 -2px; padding: 0 2px; }
+.stat-table { width: 100%; min-width: 380px; border-collapse: collapse; font-size: 12.5px; }
+.stat-table th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 0 0 8px;
+  white-space: nowrap;
+}
+.stat-table th.num, .stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; padding-left: 10px; }
+.stat-table td { padding: 8px 0; border-top: 1px solid var(--border); }
+.stat-table tbody tr { cursor: pointer; }
+.stat-table tbody tr:hover td { background: var(--surface-hover); }
+.stat-table td strong { display: block; font-weight: 560; }
+.stat-table td:first-child { min-width: 150px; }
+.stat-table td .muted { font-size: 11px; color: var(--text-3); }
+
+.page-list, .feed { display: grid; gap: 8px; }
+.page-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12.5px; }
+.page-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11.5px; }
+.page-count { color: var(--text-3); font-size: 11.5px; white-space: nowrap; }
+
+.feed-row { display: grid; gap: 3px; padding-left: 10px; border-left: 1px solid var(--border); }
+.feed-row.agent { border-left-color: var(--text); }
+.feed-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-3); }
+.feed-head strong { font-size: 12px; font-weight: 580; color: var(--text-2); }
+.feed-head .tag { border: 1px solid var(--border-2); border-radius: var(--r-full); padding: 0 6px; font-size: 10px; }
+.feed-when { margin-left: auto; }
+.feed-subject {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-subject:hover { text-decoration: underline; }
 
 /* Detail pane -------------------------------------------------------------- */
 
