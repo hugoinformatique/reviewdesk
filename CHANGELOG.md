@@ -15,6 +15,16 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+### Ajouté
+
+- **Assistant d'onboarding projet & installation widget en 3 étapes** :
+  - **Étape 1 (Plateforme)** : sélection visuelle de la méthode d'intégration (HTML / Script direct, Next.js / React, CMS / No-Code, ou Lien direct sans code), génération sécurisée de jeton d'accès et historique des liens.
+  - **Étape 2 (Intégration & Personnalisation)** : options interactives (positionnement du lanceur, thème visuel, libellé de bouton) avec génération dynamique de snippet de code et bouton de copie.
+  - **Étape 3 (Vérification)** : accès direct pour tester sur l'origine de préproduction ou la démo locale, et détection en direct de la première connexion du widget.
+- **Aides à la création de projet** : puces d'ajout rapide d'origines autorisées (`localhost:3000`, `localhost:5173`, origine actuelle) et aides contextuelles.
+- **Écran d'accueil guidé pour projet vierge** : carte d'onboarding dans la liste des retours invitant à installer le widget ou tester le flux.
+- Détection immédiate de l'installation par ping automatique de l'état des réponses au montage du widget.
+
 ## [7.0.0] — 2026-09-12
 
 Le produit a une identité, et les outils tiers ont leur vrai visage.
