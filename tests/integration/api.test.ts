@@ -506,3 +506,63 @@ test('a reviewer can validate and reopen tickets in review status', async (t) =>
   });
   assert.equal(unauthorized.statusCode, 403);
 });
+
+test('a ticket marked DONE automatically cleans up its screenshot to reclaim storage', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+  const project = await createProject(app, auth, {
+    name: 'Storage Test',
+    clientLabel: 'Client Storage',
+    origins: ['https://preview.storage.test'],
+  });
+  const link = await createReviewLink(app, auth, project.id);
+  const reviewer = { authorization: `Bearer ${link.token}`, origin: 'https://preview.storage.test' };
+
+  const boundary = `boundary-${randomUUID()}`;
+  const upload = await app.inject({
+    method: 'POST',
+    url: `/api/uploads?projectId=${project.id}`,
+    headers: { ...reviewer, 'content-type': `multipart/form-data; boundary=${boundary}` },
+    payload: multipartBody(boundary, [
+      { name: 'file', filename: 'capture.png', contentType: 'image/png', body: PNG_1X1 },
+    ]),
+  });
+  assert.equal(upload.statusCode, 201);
+  const screenshotId = upload.json().id as string;
+
+  const submitted = await app.inject({
+    method: 'POST',
+    url: '/api/feedback',
+    headers: reviewer,
+    payload: {
+      projectId: project.id,
+      text: 'Bug visuel avec capture',
+      pageUrl: 'https://preview.storage.test/home',
+      anchor: { selector: '#test', relative: { x: 0.5, y: 0.5 }, viewport: { width: 1200, height: 800 } },
+      screenshotId,
+    },
+  });
+  assert.equal(submitted.statusCode, 201);
+  const ticketId = submitted.json().id as string;
+
+  // Screenshot exists and is readable before DONE
+  const beforeDone = await app.inject({ method: 'GET', url: `/api/uploads/${screenshotId}`, headers: auth.read });
+  assert.equal(beforeDone.statusCode, 200);
+
+  // Mark ticket as DONE via admin patch
+  const patched = await app.inject({
+    method: 'PATCH',
+    url: `/api/tickets/${ticketId}`,
+    headers: auth.write,
+    payload: { status: 'DONE' },
+  });
+  assert.equal(patched.statusCode, 200);
+
+  // Ticket screenshot_id in DB is cleared and upload record/file is cleaned up
+  const checked = await app.inject({ method: 'GET', url: `/api/tickets?projectId=${project.id}`, headers: auth.read });
+  assert.equal(checked.json().tickets[0].screenshotId, null);
+
+  const afterDone = await app.inject({ method: 'GET', url: `/api/uploads/${screenshotId}`, headers: auth.read });
+  assert.equal(afterDone.statusCode, 404, 'upload must be deleted from storage once ticket is DONE');
+});
+

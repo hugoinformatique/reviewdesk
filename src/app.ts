@@ -567,6 +567,38 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     return rows.rows[0];
   }
 
+  /**
+   * Reclaims object storage and database space as soon as a ticket is closed (DONE).
+   * Prevents storage saturation over time while preserving the ticket and its comment history.
+   */
+  async function cleanupTicketScreenshot(ticketId: string): Promise<void> {
+    try {
+      const ticketRes = await db.query<{ screenshot_id: string | null }>(
+        'SELECT screenshot_id FROM tickets WHERE id = $1',
+        [ticketId],
+      );
+      const screenshotId = ticketRes.rows[0]?.screenshot_id;
+      if (!screenshotId) return;
+
+      const uploadRes = await db.query<{ storage_key: string }>(
+        'SELECT storage_key FROM uploads WHERE id = $1',
+        [screenshotId],
+      );
+      const storageKey = uploadRes.rows[0]?.storage_key;
+      if (storageKey) {
+        try {
+          await store.delete(storageKey);
+        } catch {
+          // best-effort storage cleanup
+        }
+      }
+      await db.query('UPDATE tickets SET screenshot_id = NULL WHERE id = $1', [ticketId]);
+      await db.query('DELETE FROM uploads WHERE id = $1', [screenshotId]);
+    } catch {
+      // best-effort cleanup
+    }
+  }
+
   const reviewerFeedbackActionInput = z.object({
     comment: z.string().max(2000).optional(),
   });
@@ -657,6 +689,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     if (!ticket) return allowOrigin(reply, grant.origin).code(404).send({ error: 'NOT_FOUND' });
 
     await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, 'DONE']);
+    await cleanupTicketScreenshot(id);
     const commentBody = parsed.data.comment?.trim() || 'Validation confirmée par le client.';
     const comment = await addComment({
       ticketId: id,
@@ -911,6 +944,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     );
     const row = rows.rows[0];
     if (!row) return reply.code(404).send({ error: 'NOT_FOUND' });
+    if (row.status === 'DONE') {
+      await cleanupTicketScreenshot(id);
+    }
     return { id, status: row.status, response: row.response, replyText: row.replyText };
   });
 
@@ -1252,6 +1288,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     const status = parsed.data.status ?? before.status;
     if (parsed.data.status && parsed.data.status !== before.status) {
       await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, parsed.data.status]);
+      if (parsed.data.status === 'DONE') {
+        await cleanupTicketScreenshot(id);
+      }
     }
     const body = parsed.data.comment?.trim();
     const comment = body
