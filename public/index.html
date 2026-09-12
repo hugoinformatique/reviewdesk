@@ -45,6 +45,9 @@
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 5v14M5 12h14"/>
   </symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+  </symbol>
   <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/>
     <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 1 0 5.7 5.7l1.3-1.3"/>
@@ -127,6 +130,10 @@
         <option value="REVIEW">À valider</option>
         <option value="DONE">Traité</option>
       </select>
+      <button id="export-prompt" class="quiet toolbar-action">
+        <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+        Exporter pour Claude Code
+      </button>
       <span id="count"></span>
     </div>
 
@@ -163,6 +170,18 @@
     <div id="link-list"></div>
     <div class="dialog-actions">
       <button class="quiet close">Fermer</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="export-dialog">
+  <div class="dialog-body">
+    <h2>Retours à traiter, en un seul prompt</h2>
+    <p id="export-summary">Préparation…</p>
+    <textarea id="export-output" readonly placeholder="Le prompt apparaîtra ici."></textarea>
+    <div class="dialog-actions">
+      <button class="quiet close">Fermer</button>
+      <button id="export-copy" class="btn btn-primary">Copier le prompt</button>
     </div>
   </div>
 </dialog>

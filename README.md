@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-1.1.0-4f46e5)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.2.0-4f46e5)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -83,6 +83,9 @@ au même endroit.
 - **deux réponses distinctes** par retour : une note interne jamais exposée, et
   une réponse que le reviewer relit dans son widget ;
 - **retour au point d'ancrage** : un lien rouvre la préproduction, épingle reposée ;
+- **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
+  avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un
+  agent de code ;
 - **notification sortante** par projet : un POST JSON à chaque nouveau retour ;
 - interface utilisable de 390 px à un 21:9 de 3440 px ;
 - téléchargements privés servis seulement après authentification admin.
@@ -194,6 +197,22 @@ il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
 Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. On y crée les projets
 et leurs origines, on génère et révoque les liens reviewer, on filtre et on
 traite les retours.
+
+### Exporter le reste à faire en un prompt
+
+Le bouton **« Exporter pour Claude Code »**, dans la barre de filtres, rassemble
+**tous les retours au statut `À traiter`** du périmètre courant — projet, client,
+page et format filtrés sont respectés, le filtre de statut est ignoré — et en
+fait un seul bloc Markdown : pour chaque retour, le projet, la page, le sélecteur
+CSS de l'élément visé et le point cliqué en pourcentage, la taille d'écran, les
+diagnostics consentis, le lien de rejeu de l'épingle, la capture le cas échéant
+et la note interne s'il y en a une. L'ordre est chronologique, du plus ancien au
+plus récent, et l'export s'arrête à 400 retours.
+
+Un clic sur **Copier le prompt** le met dans le presse-papier : il se colle tel
+quel dans Claude Code ou tout autre agent, sans réécriture. Le prompt ne contient
+aucun secret — ni mot de passe admin, ni token reviewer. Les liens de capture,
+eux, restent protégés : ils ne s'ouvrent qu'avec une session admin.
 
 Le rejeu d'épingle suppose que le widget est déjà installé sur la page ouverte,
 ce qui est le cas d'une préproduction équipée du snippet ci-dessus. Le lien de
@@ -365,7 +384,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **1.1.0**.
+Keep a Changelog. Version courante : **1.2.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,

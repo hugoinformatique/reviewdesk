@@ -15,6 +15,24 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [1.2.0] — 2026-09-12
+
+### Ajouté
+
+- **Export « un seul prompt ».** Un bouton « Exporter pour Claude Code », dans la
+  barre de filtres, rassemble **tous les retours au statut `À traiter`** du
+  périmètre affiché (projet, client, page et format filtrés sont respectés ; le
+  filtre de statut est ignoré) et les rend en un bloc Markdown prêt à coller dans
+  un agent de code. Chaque retour y arrive avec son projet, sa page, le sélecteur
+  CSS de l'élément visé et le point cliqué en pourcentage, la taille d'écran, les
+  diagnostics consentis, le lien de rejeu de l'épingle, la capture s'il y en a une
+  et la note interne s'il y en a une. Plus besoin de rouvrir douze retours pour en
+  recopier le contexte à la main.
+- L'export suit la pagination jusqu'au bout (et non la seule page chargée),
+  classe les retours du plus ancien au plus récent, s'arrête à 400 retours en le
+  disant, et copie dans le presse-papier en un clic. Il ne contient aucun secret :
+  ni mot de passe admin, ni token reviewer.
+
 ## [1.1.0] — 2026-09-10
 
 ### Ajouté
@@ -152,7 +170,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.1.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.2.0
 [1.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.1.0
 [1.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.0.0
 [0.3.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.3.0
