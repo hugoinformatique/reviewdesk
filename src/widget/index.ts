@@ -1148,7 +1148,270 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     shot.classList.remove('hidden');
   }
 
-  async function captureAutoScreenshot(clientX: number, clientY: number): Promise<File | null> {
+  function getHelperContext(): CanvasRenderingContext2D | null {
+    try {
+      const helperCanvas = document.createElement('canvas');
+      helperCanvas.width = 1;
+      helperCanvas.height = 1;
+      return helperCanvas.getContext('2d', { willReadFrequently: true });
+    } catch {
+      return null;
+    }
+  }
+
+  function toRgbString(cssColor: string, helperCtx: CanvasRenderingContext2D | null): string {
+    if (!helperCtx) return cssColor;
+    try {
+      helperCtx.clearRect(0, 0, 1, 1);
+      helperCtx.fillStyle = '#00000000';
+      helperCtx.fillStyle = cssColor;
+      helperCtx.fillRect(0, 0, 1, 1);
+      const data = helperCtx.getImageData(0, 0, 1, 1).data;
+      const r = data[0] ?? 0;
+      const g = data[1] ?? 0;
+      const b = data[2] ?? 0;
+      const a = data[3] ?? 255;
+      if (a === 255) return `rgb(${r}, ${g}, ${b})`;
+      const alpha = +(a / 255).toFixed(3);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    } catch {
+      return cssColor;
+    }
+  }
+
+  function sanitizeColorValue(val: string, helperCtx: CanvasRenderingContext2D | null): string {
+    if (!val || typeof val !== 'string') return val;
+    if (!/(oklch|oklab|lab|lch|color-mix|hwb|color\()/i.test(val)) return val;
+    const trimmed = val.trim();
+    if (typeof CSS !== 'undefined' && CSS.supports && CSS.supports('color', trimmed)) {
+      const direct = toRgbString(trimmed, helperCtx);
+      if (direct && !/(oklch|oklab|lab|lch|color-mix|hwb|color\()/i.test(direct)) {
+        return direct;
+      }
+    }
+    let res = val;
+    let iterations = 0;
+    const innerRegex = /(?:oklch|oklab|lab|lch|color-mix|hwb|color)\([^()]+\)/gi;
+    while (innerRegex.test(res) && iterations < 6) {
+      res = res.replace(innerRegex, (match) => toRgbString(match, helperCtx));
+      iterations++;
+    }
+    return res;
+  }
+
+  function patchComputedStyle(win: Window, helperCtx: CanvasRenderingContext2D | null): () => void {
+    const orig = win.getComputedStyle;
+    try {
+      win.getComputedStyle = function (elt: Element, pseudo?: string | null): CSSStyleDeclaration {
+        const real = orig.call(win, elt, pseudo);
+        return new Proxy(real, {
+          get(target, prop) {
+            if (prop === 'getPropertyValue') {
+              return (name: string) => sanitizeColorValue(target.getPropertyValue(name), helperCtx);
+            }
+            const v = Reflect.get(target, prop, target);
+            if (typeof v === 'string') return sanitizeColorValue(v, helperCtx);
+            if (typeof v === 'function') return v.bind(target);
+            return v;
+          },
+        });
+      };
+    } catch {
+      // getComputedStyle may be non-configurable in rare environments
+    }
+    return () => {
+      try {
+        win.getComputedStyle = orig;
+      } catch {
+        /* ignore restoration error */
+      }
+    };
+  }
+
+  async function createFallbackViewportFile(clientX: number, clientY: number, drawPin = true): Promise<File> {
+    const width = Math.max(320, window.innerWidth || 800);
+    const height = Math.max(320, window.innerHeight || 600);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const ctx = canvas.getContext('2d');
+
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+
+      // Dark elegant background
+      ctx.fillStyle = '#09090b';
+      ctx.fillRect(0, 0, width, height);
+
+      // Subtle technical grid
+      ctx.strokeStyle = '#27272a';
+      ctx.lineWidth = 1;
+      const step = 32;
+      for (let x = 0; x < width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Browser mock bar
+      const barH = 44;
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, width, barH);
+      ctx.strokeStyle = '#27272a';
+      ctx.beginPath();
+      ctx.moveTo(0, barH);
+      ctx.lineTo(width, barH);
+      ctx.stroke();
+
+      // Traffic dots
+      const dots = ['#ef4444', '#f59e0b', '#10b981'];
+      dots.forEach((color, i) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(18 + i * 16, barH / 2, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // URL Pill
+      const pillW = Math.min(width - 160, 480);
+      const pillX = (width - pillW) / 2;
+      if (pillW > 120) {
+        ctx.fillStyle = '#09090b';
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(pillX, 8, pillW, 28, 6);
+        } else {
+          ctx.rect(pillX, 8, pillW, 28);
+        }
+        ctx.fill();
+        ctx.strokeStyle = '#3f3f46';
+        ctx.stroke();
+
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const displayUrl = location.origin + location.pathname;
+        const truncatedUrl = displayUrl.length > 50 ? displayUrl.slice(0, 47) + '…' : displayUrl;
+        ctx.fillText(truncatedUrl, pillX + pillW / 2, 22);
+      }
+
+      // Context Info Card
+      const cardW = Math.min(width - 40, 520);
+      const cardH = 170;
+      const cardX = (width - cardW) / 2;
+      const cardY = barH + 36;
+      ctx.fillStyle = '#18181b';
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(cardX, cardY, cardW, cardH, 12);
+      } else {
+        ctx.rect(cardX, cardY, cardW, cardH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = '#3f3f46';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f4f4f5';
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const title = document.title || 'Page Web';
+      ctx.fillText(title.slice(0, 42), cardX + 20, cardY + 20);
+
+      ctx.fillStyle = '#a1a1aa';
+      ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(`Dimensions : ${width} × ${height} px (DPR ${dpr})`, cardX + 20, cardY + 48);
+      if (anchor?.label) {
+        ctx.fillText(`Élément ciblé : ${anchor.label.slice(0, 45)}`, cardX + 20, cardY + 72);
+      }
+      if (anchor?.selector) {
+        ctx.fillStyle = '#71717a';
+        ctx.font = '11px monospace';
+        ctx.fillText(`Sélecteur : ${anchor.selector.slice(0, 48)}`, cardX + 20, cardY + 98);
+      }
+      ctx.fillStyle = '#71717a';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('Capture de contexte ReviewDesk (DOM interactif)', cardX + 20, cardY + 130);
+
+      if (drawPin) {
+        const pinX = clientX;
+        const pinY = clientY;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+
+        ctx.beginPath();
+        ctx.arc(pinX, pinY, 15, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#09090b';
+        ctx.stroke();
+
+        ctx.restore();
+        ctx.save();
+        ctx.fillStyle = '#09090b';
+        ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('1', pinX, pinY);
+        ctx.restore();
+      }
+    }
+
+    let blob = await new Promise<Blob | null>((resolve) => {
+      try {
+        canvas.toBlob((b) => resolve(b), 'image/webp', 0.88);
+      } catch {
+        resolve(null);
+      }
+    });
+    if (!blob) {
+      blob = await new Promise<Blob | null>((resolve) => {
+        try {
+          canvas.toBlob((b) => resolve(b), 'image/png');
+        } catch {
+          resolve(null);
+        }
+      });
+    }
+
+    // Ultimate fallback to ensure a valid non-empty file is always returned
+    if (!blob) {
+      const minimalPngBytes = new Uint8Array([
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196,
+        137, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0,
+        0, 5, 0, 1, 13, 10, 45, 180, 0, 0, 0, 0, 73, 69, 78,
+        68, 174, 66, 96, 130
+      ]);
+      blob = new Blob([minimalPngBytes], { type: 'image/png' });
+    }
+
+    const mime = blob.type || 'image/png';
+    const ext = mime === 'image/webp' ? '.webp' : '.png';
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}h${String(now.getMinutes()).padStart(2, '0')}`;
+    return new File([blob], `capture-vue-${timeStr}${ext}`, { type: mime });
+  }
+
+  async function captureAutoScreenshot(clientX: number, clientY: number, drawPin = true): Promise<File | null> {
+    const helperCtx = getHelperContext();
+    const unpatch = patchComputedStyle(window, helperCtx);
+
     try {
       const scrollX = window.scrollX || window.pageXOffset || 0;
       const scrollY = window.scrollY || window.pageYOffset || 0;
@@ -1166,12 +1429,27 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
         height,
         scale: Math.min(window.devicePixelRatio || 1, 2),
         ignoreElements: (el: Element) => {
-          return el === host || el.tagName?.toLowerCase() === 'reviewdesk-widget' || el.classList?.contains('collab-pins-layer');
+          if (el === host || el.tagName?.toLowerCase() === 'reviewdesk-widget' || el.classList?.contains('collab-pins-layer')) {
+            return true;
+          }
+          const tag = el.tagName?.toLowerCase();
+          return tag === 'iframe' || tag === 'video' || tag === 'audio' || tag === 'script' || tag === 'noscript';
+        },
+        onclone: (clonedDoc: Document) => {
+          try {
+            clonedDoc.querySelectorAll('iframe, video, audio, script, noscript').forEach((n) => n.remove());
+            const clonedWin = clonedDoc.defaultView;
+            if (clonedWin) {
+              patchComputedStyle(clonedWin, helperCtx);
+            }
+          } catch {
+            /* ignore clone cleanup error */
+          }
         },
       });
 
       const ctx = canvas.getContext('2d');
-      if (ctx) {
+      if (ctx && drawPin) {
         const scale = canvas.width / width;
         const pinX = clientX * scale;
         const pinY = clientY * scale;
@@ -1201,14 +1479,24 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       }
 
       let blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b: Blob | null) => resolve(b), 'image/webp', 0.85);
+        try {
+          canvas.toBlob((b: Blob | null) => resolve(b), 'image/webp', 0.85);
+        } catch {
+          resolve(null);
+        }
       });
       if (!blob) {
         blob = await new Promise<Blob | null>((resolve) => {
-          canvas.toBlob((b: Blob | null) => resolve(b), 'image/png');
+          try {
+            canvas.toBlob((b: Blob | null) => resolve(b), 'image/png');
+          } catch {
+            resolve(null);
+          }
         });
       }
-      if (!blob) return null;
+      if (!blob) {
+        return await createFallbackViewportFile(clientX, clientY, drawPin);
+      }
       const mimeType = blob.type || 'image/webp';
       const ext = mimeType === 'image/png' ? '.png' : mimeType === 'image/jpeg' ? '.jpg' : '.webp';
       const now = new Date();
@@ -1216,8 +1504,10 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       const autoFile = new File([blob], `capture-auto-${timeStr}${ext}`, { type: mimeType });
       return autoFile;
     } catch (err) {
-      console.warn('captureAutoScreenshot failed:', err);
-      return null;
+      console.warn('captureAutoScreenshot failed, using fallback viewport capture:', err);
+      return await createFallbackViewportFile(clientX, clientY, drawPin);
+    } finally {
+      unpatch();
     }
   }
 
@@ -1468,7 +1758,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       };
       if(!activeShotFile){
         try{
-          const autoFile=await captureAutoScreenshot(innerWidth/2,innerHeight/2);
+          const autoFile=await captureAutoScreenshot(innerWidth/2,innerHeight/2,false);
           if(autoFile){
             rawShotFile=autoFile;
             setShot(autoFile);
@@ -1486,7 +1776,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
         try{
           const autoFile = await Promise.race([
             currentCapturePromise,
-            new Promise<null>((resolve)=>setTimeout(()=>resolve(null),6000)),
+            new Promise<null>((resolve)=>setTimeout(()=>resolve(null),8000)),
           ]);
           if(autoFile){
             fileToUpload = autoFile;
@@ -1495,6 +1785,13 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
           }
         }catch(err){
           console.warn('Auto-capture wait error:', err);
+        }
+      }
+      if(!fileToUpload){
+        try{
+          fileToUpload = await createFallbackViewportFile(innerWidth / 2, innerHeight / 2, Boolean(pin));
+        }catch(err){
+          console.warn('Fallback capture creation error:', err);
         }
       }
       let screenshotId:string|undefined;

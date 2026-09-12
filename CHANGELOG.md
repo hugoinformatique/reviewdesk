@@ -17,6 +17,12 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Capture d'écran 100% robuste sur tout site web (Support CSS moderne OKLCH, iframes et fallback résilient)** :
+  - **Intercepteur et conversion automatique des couleurs CSS modernes** : `html2canvas` ne supporte pas nativement les fonctions de couleur modernes (`oklch()`, `color-mix()`, `lab()`, `oklab()`, `hwb()`) massivement utilisées par Tailwind v4 et les frameworks récents, provoquant un plantage silencieux de la capture. Mise en place d'un proxy transparent sur `window.getComputedStyle` (sur la fenêtre hôte et les clones `html2canvas`) qui convertit automatiquement et fidèlement ces formats en `rgb()` / `rgba()` via un canvas de tramage 2D matériel.
+  - **Filtrage des frames inter-origines et médias externes** : exclusion préventive des balises `iframe`, `video`, `audio`, `script` et `noscript` dans `ignoreElements` et nettoyage systématique dans `onclone` pour empêcher tout blocage `SecurityError` cross-origin.
+  - **Capture de secours technique blueprint (Fallback Viewport Blueprint)** : si le moteur `html2canvas` échoue (toiles corrompues, restrictions CSP ou environnement dégradé), génération automatique d'une vue synthétique élégante reproduisant le cadre de navigation, l'URL, le titre de la page, les dimensions de l'écran, le sélecteur d'ancrage et la pastille d'épingle numérotée.
+  - **Garantie d'image à 100% des retours** : à la soumission du formulaire, le widget attend jusqu'à 8s la fin de la capture automatique ; si aucune image n'est disponible (ex: validation instantanée ou capture désactivée), le fallback est généré immédiatement. Aucun ticket n'arrive plus jamais sans capture d'écran côté admin.
+
 - **Affichage visuel de la capture d'écran dans la fiche ticket admin & Modale Lightbox** :
   - **Carte de capture d'écran dédiée dans l'interface admin** : intégration d'une carte d'aperçu d'image haute fidélité (`.ticket-screenshot-card`) affichée directement sous les métadonnées et le bouton d'ancrage dans le panneau de détail du ticket.
   - **Aperçu interactif & badge viewport** : affichage direct de la capture d'écran annotée avec badge d'environnement (`📱 Mobile · 390×844` ou `💻 Desktop · 1280×800`), indicateur au survol et zoom au clic.
