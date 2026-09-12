@@ -17,6 +17,13 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- **Affichage visuel de la capture d'écran dans la fiche ticket admin & Modale Lightbox** :
+  - **Carte de capture d'écran dédiée dans l'interface admin** : intégration d'une carte d'aperçu d'image haute fidélité (`.ticket-screenshot-card`) affichée directement sous les métadonnées et le bouton d'ancrage dans le panneau de détail du ticket.
+  - **Aperçu interactif & badge viewport** : affichage direct de la capture d'écran annotée avec badge d'environnement (`📱 Mobile · 390×844` ou `💻 Desktop · 1280×800`), indicateur au survol et zoom au clic.
+  - **Modale Lightbox grand format (`#screenshot-dialog`)** : ouverture d'une modale plein écran haute résolution sur clic de l'image ou du bouton `🔍 Agrandir`, avec boutons de téléchargement direct (`Télécharger`), ouverture de l'original dans un nouvel onglet (`Voir la capture privée`), et fermeture facile par touche Échap, bouton ✕ ou clic sur le voile d'arrière-plan.
+  - **Indicateur dans la liste des tickets** : ajout d'une puce `📸 Capture` dans le résumé contextuel de chaque ticket disposant d'une capture d'écran.
+  - **Fiabilisation de l'upload et de la capture automatique** : allongement de la fenêtre d'attente de capture automatique à 6s avant envoi pour éviter toute perte de capture sur pages complexes, fallback transparent sur PNG si WebP n'est pas supporté par le canvas du navigateur, et journalisation détaillée des erreurs réseau.
+
 - **Refonte de l'expérience client & adaptation mobile complète (inspiré 21st.dev / Linear)** :
   - **Tiroir Bottom Sheet mobile ultra-fluide** : sur smartphone et tablette (`max-width: 640px`), le widget adopte un tiroir bottom sheet ancré en bas d'écran avec poignée de glissement tactile (`sheet-handle`), geste de fermeture par balayage vers le bas (swipe down), arrière-plan sombre avec flou d'atténuation (`panel-backdrop`), et respect strict des marges de sécurité iOS (`env(safe-area-inset-bottom)`).
   - **Carte de cible interactive (`.target-card`)** : état initial en carte pointillée incitative avec micro-copie (« Touchez ici pour pointer un élément sur la page »), puis état ancré avec icône d'action, libellé contrasté, bouton de recentrage visuel (`Localiser`) et bouton de suppression instantanée (`✕ Retirer`).

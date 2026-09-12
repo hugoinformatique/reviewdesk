@@ -1166,7 +1166,7 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
         height,
         scale: Math.min(window.devicePixelRatio || 1, 2),
         ignoreElements: (el: Element) => {
-          return el === host || el.tagName.toLowerCase() === 'reviewdesk-widget' || el.classList?.contains('collab-pins-layer');
+          return el === host || el.tagName?.toLowerCase() === 'reviewdesk-widget' || el.classList?.contains('collab-pins-layer');
         },
       });
 
@@ -1200,9 +1200,14 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
         ctx.restore();
       }
 
-      const blob = await new Promise<Blob | null>((resolve) => {
+      let blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob((b: Blob | null) => resolve(b), 'image/webp', 0.85);
       });
+      if (!blob) {
+        blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b: Blob | null) => resolve(b), 'image/png');
+        });
+      }
       if (!blob) return null;
       const mimeType = blob.type || 'image/webp';
       const ext = mimeType === 'image/png' ? '.png' : mimeType === 'image/jpeg' ? '.jpg' : '.webp';
@@ -1210,8 +1215,8 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
       const timeStr = `${String(now.getHours()).padStart(2, '0')}h${String(now.getMinutes()).padStart(2, '0')}`;
       const autoFile = new File([blob], `capture-auto-${timeStr}${ext}`, { type: mimeType });
       return autoFile;
-    } catch {
-      /* Graceful fallback if screenshot fails */
+    } catch (err) {
+      console.warn('captureAutoScreenshot failed:', err);
       return null;
     }
   }
@@ -1476,27 +1481,35 @@ button{font:600 13px inherit;cursor:pointer;border-radius:10px;
     clearError();
     sendBtn.disabled=true;sendBtn.textContent='Envoi…';
     try{
-      if(currentCapturePromise){
+      let fileToUpload = activeShotFile || file.files?.[0];
+      if(!fileToUpload && currentCapturePromise){
         try{
-          await Promise.race([
+          const autoFile = await Promise.race([
             currentCapturePromise,
-            new Promise((resolve)=>setTimeout(resolve,1500)),
+            new Promise<null>((resolve)=>setTimeout(()=>resolve(null),6000)),
           ]);
-        }catch{
-          /* non-blocking capture fallback */
+          if(autoFile){
+            fileToUpload = autoFile;
+            activeShotFile = autoFile;
+            rawShotFile = autoFile;
+          }
+        }catch(err){
+          console.warn('Auto-capture wait error:', err);
         }
       }
       let screenshotId:string|undefined;
-      const fileToUpload = activeShotFile || file.files?.[0];
       if(fileToUpload){
         try{
           const form=new FormData();form.append('file',fileToUpload);
           const up=await fetch(`${config.api}/api/uploads?projectId=${encodeURIComponent(config.projectId)}`,{method:'POST',headers:{Authorization:`Bearer ${config.token}`},body:form});
           if(up.ok){
-            screenshotId=(await up.json()).id;
+            const upJson = await up.json();
+            screenshotId=upJson.id;
+          }else{
+            console.warn('Screenshot upload HTTP error:', up.status, await up.text().catch(()=>''));
           }
-        }catch{
-          /* upload non-blocking */
+        }catch(err){
+          console.warn('Screenshot upload failed:', err);
         }
       }
       // Only the selector and the relative point travel: the friendly label is
