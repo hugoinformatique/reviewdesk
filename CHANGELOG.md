@@ -15,6 +15,42 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [6.0.0] — 2026-09-12
+
+Connecter un agent n'est plus une affaire de fichier de configuration.
+
+### Ajouté
+
+- **Parcours de connexion en trois étapes** (Administration → Accès agents) :
+  choix de l'outil (Claude Code, Codex CLI, Cursor, Claude Desktop, VS Code, ou
+  l'API HTTP pour tout le reste), puis portée et droits reformulés en toutes
+  lettres avant qu'un secret n'existe, puis la connexion.
+- **Configuration écrite pour l'outil choisi** : commande `claude mcp add`, table
+  `[mcp_servers.reviewdesk]` d'un `config.toml`, `mcpServers` d'un `.cursor/mcp.json`
+  ou d'un `claude_desktop_config.json`, `servers` d'un `.vscode/mcp.json`, ou deux
+  `curl` commentés. Chaque bloc a son bouton Copier, qui confirme sur lui-même.
+- **Le chemin local du serveur MCP se saisit une fois** dans le parcours : tous
+  les blocs se réécrivent en direct, et la valeur est mémorisée pour la fois
+  suivante.
+- **Détection de connexion en direct** : la dernière étape interroge le serveur
+  et bascule sur « Agent connecté » à la toute première requête de l'agent. Un
+  jeton qui existe n'est pas un jeton qui marche, et la fenêtre ne prétend pas le
+  contraire — au bout de deux minutes sans requête, elle le dit.
+- **Prompt de démarrage** prêt à coller dans l'agent une fois connecté.
+- **Liste de démarrage** sur la vue d'ensemble d'une instance neuve : projet →
+  widget → premier retour → agent connecté, avec la progression et un seul bouton
+  d'action, celui de la prochaine étape. Elle est déduite des données et jamais
+  stockée : révoquer le dernier jeton remet l'étape à faire.
+- Route `GET /api/onboarding`.
+
+### Modifié
+
+- **Rupture (interface)** : la fenêtre « Accès agents » n'est plus un formulaire
+  suivi d'un pavé de texte ; les jetons existants restent gérés et révocables à
+  la première étape du parcours.
+- Une instance sans aucun retour affiche la liste de démarrage seule, au lieu
+  d'un mur de zéros.
+
 ## [5.0.0] — 2026-09-12
 
 Passe de finition sur l'administration : elle était correcte et plate, elle a
@@ -297,7 +333,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v5.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v6.0.0
 [5.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v5.0.0
 [4.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v4.0.0
 [3.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v3.0.0

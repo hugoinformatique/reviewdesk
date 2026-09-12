@@ -1335,6 +1335,220 @@ button.mobile-only, .scrim { display: none; }
 }
 
 
+/* Connection wizard ---------------------------------------------------------
+   Connecting an agent is the moment the product either feels finished or feels
+   like a config file. Three steps, one decision each, and the page waits for
+   the agent to actually call before it claims anything. */
+
+#agent-dialog { width: min(680px, calc(100vw - 32px)); }
+.wizard { display: grid; gap: 16px; }
+.wizard-head { display: grid; gap: 12px; }
+
+.steps {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+  counter-reset: step;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.steps li.current { color: var(--text); border-color: var(--border-2); }
+.steps li.current::before { background: var(--accent); color: var(--accent-fg); }
+.steps li.done::before { content: '✓'; background: var(--surface-active); color: var(--text); }
+
+.wizard-step { display: grid; gap: 14px; }
+.wizard-step > p { margin: 0; color: var(--text-2); font-size: 12.5px; line-height: 1.6; }
+
+.agent-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+.agent-card {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-1);
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease), transform 0.16s var(--ease);
+}
+
+.agent-card:active { transform: scale(0.98); }
+.agent-card strong { font-size: 13px; font-weight: 560; }
+.agent-hint { font-size: 11px; color: var(--text-3); }
+
+.agent-glyph {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 6px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* The chosen card is inked, not tinted — the same language as the rest. */
+.agent-card.active { border-color: var(--accent); box-shadow: var(--edge), 0 0 0 1px var(--accent); }
+.agent-card.active .agent-glyph { background: var(--accent); color: var(--accent-fg); }
+
+@media (hover: hover) and (pointer: fine) {
+  .agent-card:hover { border-color: var(--border-2); box-shadow: var(--edge), var(--shadow-2); }
+}
+
+#agent-form { display: grid; gap: 12px; }
+#agent-scope-note { margin: 0; }
+
+#agent-result { display: grid; gap: 14px; }
+
+.secret { display: grid; gap: 6px; }
+.secret-label { font-size: 10.5px; font-weight: 560; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+
+.secret-field {
+  padding: 9px 11px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+
+.secret-field code { font: 11.5px/1.5 var(--mono); white-space: nowrap; }
+.secret .copy { justify-self: start; }
+
+.path-field input { font: 11.5px/1.5 var(--mono); }
+
+.code-block { display: grid; gap: 8px; }
+
+.code {
+  margin: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font: 11.5px/1.7 var(--mono);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.code-block .copy { justify-self: start; height: 28px; padding: 0 10px; font-size: 12px; }
+.copy.copied { color: var(--text); border-color: var(--accent); }
+
+/* The live connection check: the wizard's whole point. */
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.connection strong { font-size: 12.5px; font-weight: 580; color: var(--text-2); }
+.connection.connected { border-color: var(--accent); background: var(--surface); }
+.connection.connected strong { color: var(--text); }
+.connection.connected .icon { color: var(--text); }
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  animation: breathe 1.6s var(--ease-in-out) infinite;
+}
+
+@keyframes breathe { 50% { opacity: 0.25; transform: scale(0.8); } }
+
+#agent-existing { display: grid; gap: 5px; }
+#agent-existing h3 { margin: 6px 0 2px; }
+.link-row strong { display: block; font-weight: 560; color: var(--text); font-size: 12.5px; }
+.link-row .muted { color: var(--text-3); }
+
+/* Onboarding checklist ------------------------------------------------------ */
+
+.onboarding { grid-column: span 12; }
+
+.onboarding-track {
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.onboarding-fill { display: block; height: 100%; background: var(--text); transition: width 0.4s var(--ease); }
+
+.onboarding-steps { display: grid; gap: 0; }
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.onboarding-step:first-child { border-top: 0; }
+
+.onboarding-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.onboarding-step.done .onboarding-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.onboarding-step.done .onboarding-mark .icon { width: 12px; height: 12px; }
+.onboarding-text { display: grid; gap: 2px; min-width: 0; }
+.onboarding-text strong { font-size: 13px; font-weight: 560; }
+.onboarding-step.done .onboarding-text strong { color: var(--text-2); }
+.onboarding-text span { font-size: 12px; color: var(--text-3); line-height: 1.5; }
+
+@media (max-width: 720px) {
+  .agent-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .onboarding-step { grid-template-columns: 22px minmax(0, 1fr); }
+  .onboarding-step .btn { grid-column: 2; justify-self: start; }
+}
+
 /* Motion --------------------------------------------------------------------
    Rules of the house: enter with a strong ease-out, never from scale(0), stay
    under 300ms, never animate something a keyboard repeats, and let hover live

@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-5.0.0-09090b)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.0.0-09090b)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -87,6 +87,8 @@ au même endroit.
 - **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
   avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un
   agent de code ;
+- **parcours de connexion d'un agent** en trois étapes, avec la configuration
+  écrite pour l'outil choisi et la détection en direct de sa première requête ;
 - **serveur MCP + API agent** : un agent IA lit les retours, les commente,
   change leur statut et publie la réponse au client, avec un jeton révocable,
   scopé à un projet et en lecture seule si besoin ;
@@ -255,8 +257,9 @@ jamais au serveur du client.
 
 ## Brancher un agent IA (MCP)
 
-Un agent de code (Claude Code, Claude Desktop, ou tout client MCP) peut lire les
-retours, les traiter et rendre compte — sans qu'on lui recopie quoi que ce soit.
+Un agent de code (Claude Code, Codex, Cursor, Claude Desktop, VS Code, ou tout
+client MCP) peut lire les retours, les traiter et rendre compte — sans qu'on lui
+recopie quoi que ce soit.
 
 ### 1. Créer un jeton
 
@@ -266,7 +269,7 @@ n'est affiché **qu'une fois**, avec la configuration MCP déjà remplie. Il est
 révocable à tout moment, et ne donne accès ni à l'administration, ni aux
 projets, ni aux liens reviewer.
 
-### 2. Déclarer le serveur MCP
+### Déclarer le serveur MCP à la main
 
 Le serveur MCP tourne depuis une copie de ce dépôt (`npm run build`, qui produit
 `dist/mcp.js`). Pour Claude Code :
@@ -479,6 +482,7 @@ Administration — cookie de session + jeton CSRF sur les mutations :
 | `POST` | `/api/projects/:projectId/review-links/:linkId/revoke` | Révocation. |
 | `GET` | `/api/tickets` | Triage filtré, pagination par curseur. |
 | `GET` | `/api/stats` | Vue d'ensemble : `days` (7, 30, 90) et `projectId` optionnel. |
+| `GET` | `/api/onboarding` | État d'installation, déduit des données. |
 | `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
 | `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
 | `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
@@ -510,7 +514,7 @@ npm run test:e2e     # E2E Playwright, admin :4310 et preview :4311
 npm run check        # tout l'enchaînement ci-dessus + npm audit --omit=dev
 ```
 
-`npm run check` est la porte d'entrée : lint, typecheck, **74 tests Node**
+`npm run check` est la porte d'entrée : lint, typecheck, **75 tests Node**
 (unitaires et intégration adversariale contre PostgreSQL + MinIO Docker
 jetables — 3 d'entre eux sont sautés sans Docker), build, **3 E2E Playwright**
 sur une origine réellement distincte, puis `npm audit --omit=dev`.
@@ -525,7 +529,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **5.0.0**.
+Keep a Changelog. Version courante : **6.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
