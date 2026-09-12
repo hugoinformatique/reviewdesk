@@ -315,7 +315,12 @@ function renderTickets() {
     row.className = `ticket ${selectedTicket === ticket.id ? 'active' : ''}`;
     const status = document.createElement('span');
     status.className = `status ${ticket.status}`;
-    status.textContent = STATUS_LABELS[ticket.status] ?? ticket.status;
+    // The glyph is a disc that empties as the work advances; the label always
+    // rides with it, so nothing depends on reading the shape alone.
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.setAttribute('aria-hidden', 'true');
+    status.append(dot, document.createTextNode(STATUS_LABELS[ticket.status] ?? ticket.status));
     const summary = document.createElement('span');
     summary.className = 'summary';
     const title = document.createElement('strong');

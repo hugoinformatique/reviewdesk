@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-2.0.0-4f46e5)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-3.0.0-111111)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -93,6 +93,8 @@ au même endroit.
 - **journal par retour** : chaque commentaire, humain ou agent, horodaté et
   rattaché au changement de statut qui l'accompagne ;
 - **notification sortante** par projet : un POST JSON à chaque nouveau retour ;
+- **interface monochrome** : barre de navigation, barre de configuration, rail
+  projets ; aucune couleur décorative, le statut se lit à un disque qui se vide ;
 - interface utilisable de 390 px à un 21:9 de 3440 px ;
 - téléchargements privés servis seulement après authentification admin.
 
@@ -496,7 +498,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **2.0.0**.
+Keep a Changelog. Version courante : **3.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
