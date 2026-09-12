@@ -637,6 +637,18 @@ function activityChart(stats: Stats) {
     });
   });
 
+  // Two hairlines at a third and two thirds of the peak: enough to read a
+  // height off the chart, faint enough not to compete with the bars.
+  for (const ratio of [1 / 3, 2 / 3]) {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('x2', String(width));
+    line.setAttribute('y1', String(height - ratio * (height - 6)));
+    line.setAttribute('y2', String(height - ratio * (height - 6)));
+    line.setAttribute('class', 'chart-grid');
+    svg.prepend(line);
+  }
+
   const frame = el('div', 'chart-frame');
   const scale = el('div', 'chart-scale');
   scale.append(el('span', '', String(peak)), el('span', '', '0'));
@@ -645,8 +657,19 @@ function activityChart(stats: Stats) {
   const axis = el('div', 'chart-axis');
   axis.append(el('span', '', formatDay(`${days[0]}T12:00:00Z`)), el('span', '', 'aujourd’hui'));
 
+  // Without a key, two shades of grey are just two shades of grey.
+  const legend = el('div', 'chart-legend');
+  for (const [className, label, total] of [
+    ['key-received', 'reçus', received.reduce((sum, count) => sum + count, 0)],
+    ['key-resolved', 'traités', resolved.reduce((sum, count) => sum + count, 0)],
+  ] as const) {
+    const item = el('span', 'chart-key');
+    item.append(el('span', `key-swatch ${className}`), document.createTextNode(`${label} · ${total}`));
+    legend.append(item);
+  }
+
   const block = el('div', 'chart-block');
-  block.append(frame, axis);
+  block.append(frame, axis, legend);
   return block;
 }
 
@@ -669,6 +692,13 @@ function statusBreakdown(stats: Stats) {
     row.append(name, track, value);
     list.append(row);
   }
+  const open = (stats.byStatus.TODO ?? 0) + (stats.byStatus.IN_PROGRESS ?? 0) + (stats.byStatus.REVIEW ?? 0);
+  const share = stats.total ? Math.round((open / stats.total) * 100) : 0;
+  const footer = el('p', 'breakdown-note');
+  footer.textContent = stats.total
+    ? `${open} retour${open === 1 ? '' : 's'} encore ouvert${open === 1 ? '' : 's'}, soit ${share} % de tout ce qui a été reçu.`
+    : 'Aucun retour reçu pour l’instant.';
+  list.append(footer);
   return list;
 }
 
@@ -764,7 +794,7 @@ function renderOverview(stats: Stats) {
       stats.oldestTodo ? `le plus ancien : ${formatAge(stats.oldestTodo)}` : 'rien en attente',
       stats.stale > 0 ? 'up' : 'plain',
     ),
-    kpi('Ouverts', String(open), `${stats.stale} ouvert${stats.stale === 1 ? '' : 's'} depuis plus de 7 jours`),
+    kpi('Ouverts', String(open), `dont ${stats.stale} depuis plus de 7 jours`, stats.stale > 0 ? 'up' : 'plain'),
     (() => {
       const delta = deltaNote(stats.received, stats.receivedPrevious, stats.days);
       return kpi(`Reçus · ${stats.days} j`, String(stats.received), delta.text, delta.tone);
@@ -814,10 +844,24 @@ function renderOverview(stats: Stats) {
   host.append(kpis, grid);
 }
 
+/** The shape of the answer, drawn while the answer is on its way. */
+function renderStatsSkeleton() {
+  const host = $('#overview');
+  if (host.querySelector('.kpi-row')) return;
+  const kpis = el('div', 'kpi-row');
+  for (let index = 0; index < 5; index++) kpis.append(el('div', 'skeleton skeleton-kpi'));
+  const grid = el('div', 'panel-grid');
+  for (const variant of ['chart', 'breakdown', 'projects', 'pages', 'feed']) {
+    grid.append(el('div', `skeleton skeleton-panel panel-${variant}`));
+  }
+  host.replaceChildren(kpis, grid);
+}
+
 async function loadStats() {
   const params = new URLSearchParams({ days: $<HTMLSelectElement>('#period').value });
   if (selectedProject) params.set('projectId', selectedProject);
   const scope = $('#stats-scope');
+  renderStatsSkeleton();
   try {
     const stats = (await api(`/api/stats?${params}`)) as Stats;
     scope.textContent = selectedProject ? 'Projet sélectionné' : 'Tous les projets';

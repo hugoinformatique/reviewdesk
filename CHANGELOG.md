@@ -15,6 +15,45 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [5.0.0] — 2026-09-12
+
+Passe de finition sur l'administration : elle était correcte et plate, elle a
+maintenant de la matière.
+
+### Ajouté
+
+- **Typographie Geist**, auto-hébergée (SIL OFL 1.1, 52 Ko pour les deux
+  graisses variables, `font-display: swap` et préchargement). La CSP de
+  l'administration n'autorise que `font-src 'self'` : aucun CDN n'est joignable,
+  et c'est très bien ainsi. Chiffres tabulaires partout, interlettrage resserré
+  à mesure que le corps grandit.
+- **Matière** : élévation sur trois niveaux, filet de lumière sur l'arête haute
+  des surfaces, bouton principal en dégradé plutôt qu'en aplat, barre de
+  navigation translucide à flou d'arrière-plan (avec repli opaque si le
+  navigateur ne floute pas).
+- **Mouvement**, sous les règles de la maison : entrées en `ease-out` fort
+  (`cubic-bezier(.23,1,.32,1)`), jamais depuis `scale(0)`, jamais plus de 300 ms.
+  Rangées de la liste et cartes de la vue d'ensemble en cascade (28 ms d'écart),
+  barres du graphe qui poussent depuis l'axe, dialogues qui apparaissent en
+  `scale(.96)`, retour d'appui `scale(.97)` sur tout ce qui se presse. Le survol
+  est derrière `@media (hover: hover)`, et `prefers-reduced-motion` garde les
+  fondus en supprimant tout déplacement.
+- **Squelettes de chargement** sur la vue d'ensemble : la forme de la réponse
+  arrive avant la réponse.
+- Barres d'échelle et **légende** sur le graphe d'activité, ligne de synthèse
+  sous la répartition (« 10 retours encore ouverts, soit 83 % de tout ce qui a
+  été reçu »).
+- Ascenseurs discrets, et le bouton « Liste » du détail ne s'affiche plus que sur
+  mobile, là où il veut dire quelque chose.
+
+### Modifié
+
+- **Rupture (visuel)** : la rampe de gris est refaite (neutres légèrement plus
+  froids), les rayons, les ombres et les graisses avec elle. Le monochrome reste
+  la règle — c'est la matière qui a changé, pas la couleur.
+- Le retour sélectionné dans la liste est une carte surélevée, plus un simple
+  fond teinté.
+
 ## [4.0.0] — 2026-09-12
 
 ### Ajouté
@@ -258,7 +297,8 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v4.0.0...HEAD
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v5.0.0
 [4.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v4.0.0
 [3.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v3.0.0
 [2.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v2.0.0
