@@ -47,6 +47,9 @@
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 5v14M5 12h14"/>
   </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m4.5 12.5 5 5 10-11"/>
+  </symbol>
   <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 20V4M4 20h16"/><rect x="8" y="11" width="3" height="6"/><rect x="14" y="7" width="3" height="10"/>
   </symbol>
@@ -205,27 +208,46 @@
 </dialog>
 
 <dialog id="agent-dialog">
-  <div class="dialog-body">
-    <h2>Accès agents IA</h2>
-    <p>Un jeton ouvre l’API agent : lire les retours, les commenter, changer leur statut. Il n’est affiché qu’une fois, à sa création, et se révoque à tout moment. Il ne donne accès ni à l’administration ni aux projets.</p>
-    <form id="agent-form">
-      <label>Libellé<input name="label" placeholder="Claude Code — poste d’Alexis" maxlength="80"></label>
-      <label>Portée
-        <select name="projectId" id="agent-project"><option value="">Tous les projets</option></select>
-      </label>
-      <label>Droits
-        <select name="scope">
-          <option value="write">Lecture et écriture (statuts, commentaires)</option>
-          <option value="read">Lecture seule</option>
-        </select>
-      </label>
-      <button id="new-agent-token" class="btn btn-primary">Générer un jeton</button>
-    </form>
-    <textarea id="agent-output" readonly placeholder="Le jeton et la configuration MCP apparaîtront ici."></textarea>
-    <h3>Jetons existants</h3>
-    <div id="agent-list"></div>
+  <div class="dialog-body wizard">
+    <div class="wizard-head">
+      <h2 id="wizard-title">Connecter un agent IA</h2>
+      <ol class="steps" id="wizard-steps">
+        <li data-step="1">Agent</li>
+        <li data-step="2">Portée</li>
+        <li data-step="3">Connexion</li>
+      </ol>
+    </div>
+
+    <section class="wizard-step" data-step="1">
+      <p>Choisissez l’outil qui va lire les retours, les traiter et rendre compte. La configuration sera écrite pour lui, prête à coller.</p>
+      <div class="agent-picker" id="agent-picker" role="radiogroup" aria-label="Agent à connecter"></div>
+      <div id="agent-existing"></div>
+    </section>
+
+    <section class="wizard-step" data-step="2" hidden>
+      <form id="agent-form">
+        <label>Libellé du jeton<input name="label" placeholder="Claude Code — poste d’Alexis" maxlength="80"></label>
+        <label>Ce que l’agent voit
+          <select name="projectId" id="agent-project"><option value="">Tous les projets</option></select>
+        </label>
+        <label>Ce que l’agent peut faire
+          <select name="scope">
+            <option value="write">Lire, commenter et changer les statuts</option>
+            <option value="read">Lire seulement</option>
+          </select>
+        </label>
+      </form>
+      <p class="note" id="agent-scope-note"></p>
+    </section>
+
+    <section class="wizard-step" data-step="3" hidden>
+      <div id="agent-result"></div>
+    </section>
+
     <div class="dialog-actions">
-      <button class="quiet close">Fermer</button>
+      <button type="button" class="quiet" id="wizard-back" hidden>Retour</button>
+      <button type="button" class="quiet close">Fermer</button>
+      <button type="button" class="btn btn-primary" id="wizard-next">Continuer</button>
     </div>
   </div>
 </dialog>

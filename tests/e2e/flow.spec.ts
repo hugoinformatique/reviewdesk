@@ -13,7 +13,7 @@ async function login(page: Page) {
   await expect(page.getByRole('heading', { name: 'Tous les retours' })).toBeVisible();
 }
 
-test('a reviewer on another origin files an anchored ticket that the admin triages and can revoke', async ({ page }) => {
+test('a reviewer on another origin files an anchored ticket that the admin triages and can revoke', async ({ page, request }) => {
   const projectName = `DEMO Atelier ${Date.now()}`;
   await login(page);
 
@@ -125,20 +125,41 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.getByRole('button', { name: 'Retours', exact: true }).click();
   await expect(page.locator('.ticket')).toHaveCount(1);
 
-  // -------------------------------------------------- an agent token to mint
+  // ------------------------------------ connect an agent, for real this time
 
   await page.getByRole('button', { name: 'Accès agents' }).click();
-  await page.getByLabel('Libellé').fill('Claude Code — E2E');
-  await page.getByRole('button', { name: 'Générer un jeton' }).click();
-  const agentOutput = page.locator('#agent-output');
-  await expect(agentOutput).toHaveValue(/rda_/);
-  const mcpConfig = await agentOutput.inputValue();
-  expect(mcpConfig).toContain('claude mcp add reviewdesk');
-  expect(mcpConfig).toContain('/api/agent/tickets?status=TODO');
-  await expect(page.locator('#agent-list')).toContainText('Claude Code — E2E');
-  await page.locator('#agent-list').getByRole('button', { name: 'Révoquer' }).click();
-  await expect(page.locator('#agent-list')).toContainText('révoqué');
-  await page.locator('#agent-dialog').getByRole('button', { name: 'Fermer' }).click();
+  await expect(page.getByRole('heading', { name: 'Connecter un agent IA' })).toBeVisible();
+
+  // Step 1: the client decides which configuration gets written.
+  await page.getByRole('radio', { name: 'Claude Code' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
+
+  // Step 2: the scope is stated in words before anything is minted.
+  await page.getByLabel('Libellé du jeton').fill('Claude Code — E2E');
+  await expect(page.locator('#agent-scope-note')).toContainText('Claude Code verra');
+  await page.getByRole('button', { name: 'Générer le jeton' }).click();
+
+  // Step 3: the secret, the exact command for that client, and a live check.
+  const secret = page.locator('.secret-field code');
+  await expect(secret).toHaveText(/^rda_/);
+  const agentToken = (await secret.textContent())!;
+  const snippet = page.locator('.code').first();
+  await expect(snippet).toContainText('claude mcp add reviewdesk');
+  await expect(snippet).toContainText(agentToken);
+  await expect(page.locator('.connection')).toContainText('En attente de votre agent');
+
+  // The agent calls the API for real; the wizard must notice on its own.
+  const answered = await request.get('/api/agent/context', {
+    headers: { authorization: `Bearer ${agentToken}` },
+  });
+  expect(answered.status()).toBe(200);
+  await expect(page.locator('.connection.connected')).toContainText('Agent connecté', { timeout: 15_000 });
+  await page.getByRole('button', { name: 'Terminé' }).click();
+
+  // Connecting the agent was the last unfinished step of the checklist.
+  await page.getByRole('button', { name: 'Vue d’ensemble' }).click();
+  await expect(page.locator('.onboarding')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Retours', exact: true }).click();
 
   // The ticket stayed selected behind the dialogs; triage it from there.
   await page.locator('#ticket-status').selectOption('REVIEW');

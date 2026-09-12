@@ -745,6 +745,33 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     return { id, status: row.status, response: row.response, replyText: row.replyText };
   });
 
+  // ------------------------------------------------------------ onboarding
+
+  /**
+   * How far this instance is from being set up, in one cheap request. Derived
+   * entirely from what already exists — nothing is stored about progress, so a
+   * reset instance tells the truth and a finished one never nags.
+   */
+  app.get('/api/onboarding', { preHandler: requireAdmin }, async () => {
+    const rows = await db.query<Record<string, string>>(
+      `SELECT
+         (SELECT COUNT(*) FROM projects) AS projects,
+         (SELECT COUNT(*) FROM review_links WHERE revoked_at IS NULL) AS "reviewLinks",
+         (SELECT COUNT(*) FROM tickets) AS tickets,
+         (SELECT COUNT(*) FROM agent_tokens WHERE revoked_at IS NULL) AS "agentTokens",
+         (SELECT COUNT(*) FROM agent_tokens WHERE revoked_at IS NULL AND last_used_at IS NOT NULL) AS "connectedAgents"`,
+    );
+    const row = rows.rows[0] ?? {};
+    const count = (key: string) => Number(row[key] ?? 0);
+    return {
+      projects: count('projects'),
+      reviewLinks: count('reviewLinks'),
+      tickets: count('tickets'),
+      agentTokens: count('agentTokens'),
+      connectedAgents: count('connectedAgents'),
+    };
+  });
+
   // ----------------------------------------------------------------- stats
 
   /**

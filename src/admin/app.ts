@@ -178,6 +178,10 @@ async function load() {
   showApp();
   renderProjects();
   await loadTickets();
+  await refreshOnboarding();
+  // A fresh instance has nothing to triage and everything to set up: start on
+  // the overview, where the checklist is.
+  if (onboarding && onboarding.tickets === 0 && onboarding.connectedAgents === 0) await showOverview();
 }
 
 /**
@@ -811,6 +815,14 @@ function renderOverview(stats: Stats) {
   );
 
   const grid = el('div', 'panel-grid');
+  // The checklist sits above everything until the instance is genuinely set up,
+  // then vanishes without leaving a trace of itself.
+  if (onboarding && onboarding.connectedAgents === 0) grid.append(onboardingPanel(onboarding));
+  // Nothing has happened yet: a wall of zeros teaches less than the checklist.
+  if (onboarding && onboarding.tickets === 0) {
+    host.append(grid);
+    return;
+  }
   grid.append(
     panel('Activité', `reçus et traités, ${stats.days} derniers jours`, activityChart(stats), 'chart'),
     panel('Répartition', `${stats.total} retour${stats.total === 1 ? '' : 's'} au total`, statusBreakdown(stats), 'breakdown'),
@@ -1201,105 +1213,483 @@ $('#new-link').addEventListener('click', async () => {
 
 // ------------------------------------------------------------ agent access
 
+/**
+ * Every client the wizard knows how to configure. `install` returns the block a
+ * person pastes, and `where` says what to paste it into — the two questions
+ * someone actually has when connecting a tool for the first time.
+ */
+type AgentTarget = {
+  id: string;
+  name: string;
+  hint: string;
+  glyph: string;
+  where: string;
+  language: string;
+  install: (context: { token: string; origin: string; server: string }) => string;
+};
+
+const MCP_JSON = (key: string) => (context: { token: string; origin: string; server: string }) =>
+  JSON.stringify(
+    {
+      [key]: {
+        reviewdesk: {
+          command: 'node',
+          args: [context.server],
+          env: { REVIEWDESK_URL: context.origin, REVIEWDESK_TOKEN: context.token },
+        },
+      },
+    },
+    null,
+    2,
+  );
+
+const AGENT_TARGETS: AgentTarget[] = [
+  {
+    id: 'claude-code',
+    name: 'Claude Code',
+    hint: 'CLI, une commande',
+    glyph: '⌘',
+    where: 'À lancer dans un terminal, depuis le dépôt de votre site.',
+    language: 'bash',
+    install: ({ token, origin, server }) =>
+      `claude mcp add reviewdesk \\\n  --env REVIEWDESK_URL=${origin} \\\n  --env REVIEWDESK_TOKEN=${token} \\\n  -- node ${server}`,
+  },
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    hint: '~/.codex/config.toml',
+    glyph: '▸',
+    where: 'À ajouter à la fin de ~/.codex/config.toml.',
+    language: 'toml',
+    install: ({ token, origin, server }) =>
+      `[mcp_servers.reviewdesk]\ncommand = "node"\nargs = ["${server}"]\nenv = { REVIEWDESK_URL = "${origin}", REVIEWDESK_TOKEN = "${token}" }`,
+  },
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    hint: '.cursor/mcp.json',
+    glyph: '◆',
+    where: 'À créer à la racine du projet, dans .cursor/mcp.json.',
+    language: 'json',
+    install: MCP_JSON('mcpServers'),
+  },
+  {
+    id: 'claude-desktop',
+    name: 'Claude Desktop',
+    hint: 'claude_desktop_config.json',
+    glyph: '◼',
+    where: 'Réglages → Développeur → Modifier la configuration, puis redémarrer l’application.',
+    language: 'json',
+    install: MCP_JSON('mcpServers'),
+  },
+  {
+    id: 'vscode',
+    name: 'VS Code',
+    hint: '.vscode/mcp.json',
+    glyph: '⬓',
+    where: 'À créer à la racine du projet, dans .vscode/mcp.json.',
+    language: 'json',
+    install: MCP_JSON('servers'),
+  },
+  {
+    id: 'api',
+    name: 'Autre outil',
+    hint: 'API HTTP, script, n8n…',
+    glyph: '∞',
+    where: 'N’importe quel client HTTP. Le jeton part en en-tête Authorization.',
+    language: 'bash',
+    install: ({ token, origin }) =>
+      `# Les retours à traiter\ncurl -H "Authorization: Bearer ${token}" \\\n  "${origin}/api/agent/tickets?status=TODO"\n\n` +
+      `# Traiter un retour et rendre compte\ncurl -X PATCH "${origin}/api/agent/tickets/UUID" \\\n  -H "Authorization: Bearer ${token}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"status":"DONE","comment":"Contraste corrigé.","visibility":"reviewer"}'`,
+  },
+];
+
+/** The prompt someone pastes into the agent once it is connected. */
+const STARTER_PROMPT =
+  'Tu es connecté à ReviewDesk (MCP). Liste les retours à traiter, ouvre-les un par un pour ' +
+  'voir l’élément visé et la capture, corrige-les dans le code, puis passe chaque ticket à ' +
+  '« À valider » en expliquant ce que tu as changé. Si la réponse intéresse le client, publie ' +
+  'le commentaire en visibility "reviewer".';
+
+const SERVER_PATH_KEY = 'reviewdesk-mcp-path';
+const DEFAULT_SERVER_PATH = '/chemin/vers/reviewdesk/dist/mcp.js';
+
+let wizardStep = 1;
+let wizardTarget: AgentTarget = AGENT_TARGETS[0]!;
+let wizardToken = '';
+let wizardTokenId = '';
+let connectionTimer: ReturnType<typeof setTimeout> | undefined;
+
+function serverPath(): string {
+  try {
+    return localStorage.getItem(SERVER_PATH_KEY) || DEFAULT_SERVER_PATH;
+  } catch {
+    return DEFAULT_SERVER_PATH;
+  }
+}
+
+/** Copy with a confirmation on the button itself, not in a toast far away. */
+async function copyButton(label: string, value: () => string) {
+  const button = el('button', 'btn btn-ghost copy');
+  button.type = 'button';
+  button.append(icon('i-copy'), document.createTextNode(label));
+  button.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(value());
+      button.classList.add('copied');
+      button.replaceChildren(icon('i-check'), document.createTextNode('Copié'));
+      setTimeout(() => {
+        button.classList.remove('copied');
+        button.replaceChildren(icon('i-copy'), document.createTextNode(label));
+      }, 1600);
+    } catch {
+      toast('Copie refusée par le navigateur. Sélectionnez le texte.', 'error');
+    }
+  };
+  return button;
+}
+
+function codeBlock(text: string, copyLabel = 'Copier') {
+  const block = el('div', 'code-block');
+  const pre = el('pre', 'code');
+  pre.textContent = text;
+  block.append(pre);
+  void copyButton(copyLabel, () => text).then((button) => block.append(button));
+  return block;
+}
+
+function renderAgentPicker() {
+  const host = $('#agent-picker');
+  host.replaceChildren();
+  for (const target of AGENT_TARGETS) {
+    const card = el('button', `agent-card ${wizardTarget.id === target.id ? 'active' : ''}`);
+    card.type = 'button';
+    card.setAttribute('role', 'radio');
+    card.setAttribute('aria-checked', String(wizardTarget.id === target.id));
+    card.append(el('span', 'agent-glyph', target.glyph), el('strong', '', target.name), el('span', 'agent-hint', target.hint));
+    card.onclick = () => {
+      wizardTarget = target;
+      renderAgentPicker();
+    };
+    host.append(card);
+  }
+}
+
 async function renderAgentTokens() {
-  const container = $('#agent-list');
+  const container = $('#agent-existing');
   container.replaceChildren();
   const { tokens } = (await api('/api/agent-tokens')) as { tokens: AgentToken[] };
-  if (!tokens.length) {
-    const empty = document.createElement('p');
-    empty.textContent = 'Aucun jeton agent.';
-    container.append(empty);
-    return;
-  }
-  for (const token of tokens) {
-    const row = document.createElement('div');
-    row.className = 'link-row';
-    const description = document.createElement('span');
+  const live = tokens.filter((token) => !token.revokedAt);
+  if (!live.length) return;
+
+  const title = el('h3', '', 'Agents déjà connectés');
+  container.append(title);
+  for (const token of live) {
+    const row = el('div', 'link-row');
+    const description = el('span');
     const scope = token.scope === 'read' ? 'lecture seule' : 'lecture/écriture';
     const where = token.projectName ?? 'tous les projets';
-    const used = token.lastUsedAt ? `utilisé ${formatAge(token.lastUsedAt)}` : 'jamais utilisé';
-    description.textContent = token.revokedAt
-      ? `${token.label || 'Sans libellé'} — révoqué ${formatDate(token.revokedAt)}`
-      : `${token.label || 'Sans libellé'} — ${scope} · ${where} · ${used}`;
-    row.append(description);
-    if (!token.revokedAt) {
-      const revoke = document.createElement('button');
-      revoke.type = 'button';
-      revoke.className = 'btn btn-danger';
-      revoke.textContent = 'Révoquer';
-      revoke.onclick = async () => {
-        revoke.disabled = true;
-        await api(`/api/agent-tokens/${token.id}/revoke`, { method: 'POST' });
-        await renderAgentTokens();
-      };
-      row.append(revoke);
-    }
+    const used = token.lastUsedAt ? `actif ${formatAge(token.lastUsedAt)}` : 'jamais utilisé';
+    description.append(el('strong', '', token.label || 'Sans libellé'), el('span', 'muted', `${scope} · ${where} · ${used}`));
+    const revoke = el('button', 'btn btn-danger', 'Révoquer');
+    revoke.type = 'button';
+    revoke.onclick = async () => {
+      revoke.disabled = true;
+      await api(`/api/agent-tokens/${token.id}/revoke`, { method: 'POST' });
+      await renderAgentTokens();
+      await refreshOnboarding();
+    };
+    row.append(description, revoke);
     container.append(row);
   }
 }
 
 /**
- * Paste-ready MCP configuration, so connecting an agent is copy, paste, done.
- * The server runs from a checkout of this repository (`npm run build`), which is
- * why the command is a path rather than a published package name.
+ * The moment that makes the whole thing believable: the page waits for the
+ * agent's very first call and says so when it lands. Polling stops as soon as
+ * it connects, when the dialog closes, or after two minutes.
  */
-function mcpInstructions(token: string): string {
-  const server = '/chemin/vers/reviewdesk/dist/mcp.js';
-  const config = {
-    mcpServers: {
-      reviewdesk: {
-        command: 'node',
-        args: [server],
-        env: { REVIEWDESK_URL: location.origin, REVIEWDESK_TOKEN: token },
-      },
-    },
+function watchConnection(status: HTMLElement) {
+  const started = Date.now();
+  const poll = async () => {
+    if (!$<HTMLDialogElement>('#agent-dialog').open) return;
+    let connected = false;
+    try {
+      const { tokens } = (await api('/api/agent-tokens')) as { tokens: AgentToken[] };
+      const mine = tokens.find((token) => token.id === wizardTokenId);
+      connected = Boolean(mine?.lastUsedAt);
+      if (connected) {
+        status.className = 'connection connected';
+        status.replaceChildren(
+          icon('i-check'),
+          el('strong', '', 'Agent connecté'),
+          el('span', '', `première requête ${formatAge(mine!.lastUsedAt!)}`),
+        );
+        await refreshOnboarding();
+        return;
+      }
+    } catch {
+      // A failed poll is not a failed connection; keep waiting quietly.
+    }
+    if (Date.now() - started > 120_000) {
+      status.className = 'connection idle';
+      status.replaceChildren(
+        el('strong', '', 'Toujours pas de requête'),
+        el('span', '', 'La configuration reste valable : relancez votre agent, il apparaîtra ici.'),
+      );
+      return;
+    }
+    connectionTimer = setTimeout(() => void poll(), 2_500);
   };
-  return (
-    `Jeton (affiché une seule fois) :\n${token}\n\n` +
-    `Remplacez ${server} par le chemin du dépôt ReviewDesk, après un « npm run build ».\n\n` +
-    `Claude Code, en une commande :\n` +
-    `claude mcp add reviewdesk --env REVIEWDESK_URL=${location.origin} --env REVIEWDESK_TOKEN=${token} -- node ${server}\n\n` +
-    `Ou dans .mcp.json / claude_desktop_config.json :\n${JSON.stringify(config, null, 2)}\n\n` +
-    `Sans MCP, l'API directement :\n` +
-    `curl -H "Authorization: Bearer ${token}" "${location.origin}/api/agent/tickets?status=TODO"`
+  connectionTimer = setTimeout(() => void poll(), 1_500);
+}
+
+function renderAgentResult() {
+  const host = $('#agent-result');
+  host.replaceChildren();
+  const origin = location.origin;
+  const target = wizardTarget;
+
+  const secret = el('div', 'secret');
+  secret.append(el('span', 'secret-label', 'Jeton — affiché une seule fois'));
+  const field = el('div', 'secret-field');
+  field.append(el('code', '', wizardToken));
+  secret.append(field);
+  void copyButton('Copier le jeton', () => wizardToken).then((button) => secret.append(button));
+  host.append(secret);
+
+  // Only the local clients need a path, and the person is the only one who
+  // knows it — so they type it once and every snippet follows.
+  if (target.id !== 'api') {
+    const pathLabel = el('label', 'path-field');
+    pathLabel.append(document.createTextNode('Chemin du serveur MCP sur votre machine'));
+    const input = document.createElement('input');
+    input.value = serverPath();
+    input.spellcheck = false;
+    pathLabel.append(input);
+    const small = el('small', '', 'Le dépôt ReviewDesk après « npm run build ». Mémorisé pour la prochaine fois.');
+    pathLabel.append(small);
+    input.oninput = () => {
+      try {
+        localStorage.setItem(SERVER_PATH_KEY, input.value.trim() || DEFAULT_SERVER_PATH);
+      } catch {
+        // Private mode: the value simply lasts for this dialog.
+      }
+      renderSnippet();
+    };
+    host.append(pathLabel);
+  }
+
+  const where = el('p', 'note', target.where);
+  host.append(where);
+  const snippetHost = el('div', 'snippet');
+  host.append(snippetHost);
+
+  function renderSnippet() {
+    const text = target.install({ token: wizardToken, origin, server: serverPath() });
+    snippetHost.replaceChildren(codeBlock(text, 'Copier la configuration'));
+  }
+  renderSnippet();
+
+  const status = el('div', 'connection waiting');
+  status.append(
+    el('span', 'pulse'),
+    el('strong', '', 'En attente de votre agent…'),
+    el('span', '', 'Cette fenêtre le détecte dès sa première requête.'),
   );
+  host.append(status);
+  watchConnection(status);
+
+  const promptTitle = el('h3', '', 'Puis, dans votre agent');
+  host.append(promptTitle, codeBlock(STARTER_PROMPT, 'Copier le prompt'));
+}
+
+function applyWizardStep() {
+  for (const section of document.querySelectorAll<HTMLElement>('.wizard-step')) {
+    section.hidden = Number(section.dataset.step) !== wizardStep;
+  }
+  for (const item of document.querySelectorAll<HTMLElement>('#wizard-steps li')) {
+    const step = Number(item.dataset.step);
+    item.classList.toggle('done', step < wizardStep);
+    item.classList.toggle('current', step === wizardStep);
+  }
+  $<HTMLElement>('#wizard-back').hidden = wizardStep === 1 || wizardStep === 3;
+  // A wizard ends on a positive action: once the token exists, "Terminé" is the
+  // only button left, because closing and finishing are the same thing here.
+  $<HTMLElement>('#agent-dialog .close').hidden = wizardStep === 3;
+  const next = $<HTMLButtonElement>('#wizard-next');
+  next.textContent = wizardStep === 3 ? 'Terminé' : wizardStep === 2 ? 'Générer le jeton' : 'Continuer';
+  $('#wizard-title').textContent =
+    wizardStep === 3 ? `Connecter ${wizardTarget.name}` : 'Connecter un agent IA';
+}
+
+function describeScope() {
+  const form = $<HTMLFormElement>('#agent-form');
+  const fields = new FormData(form);
+  const projectId = String(fields.get('projectId') ?? '');
+  const project = projects.find((candidate) => candidate.id === projectId);
+  const readOnly = fields.get('scope') === 'read';
+  $('#agent-scope-note').textContent =
+    `${wizardTarget.name} verra ${project ? `les retours de « ${project.name} »` : 'les retours de tous les projets'}` +
+    `${readOnly ? ', sans pouvoir rien y changer.' : ', et pourra les commenter et changer leur statut.'} ` +
+    'Ce jeton n’ouvre ni l’administration, ni les projets, ni les liens reviewer, et se révoque en un clic.';
 }
 
 $('#agent-access').addEventListener('click', async () => {
-  $<HTMLTextAreaElement>('#agent-output').value = '';
+  wizardStep = 1;
+  wizardToken = '';
+  wizardTokenId = '';
+  clearTimeout(connectionTimer);
   const select = $<HTMLSelectElement>('#agent-project');
   select.replaceChildren(new Option('Tous les projets', ''));
   for (const project of projects) select.append(new Option(project.name, project.id));
   select.value = selectedProject;
-  $('#agent-list').replaceChildren();
-  await renderAgentTokens();
+  $<HTMLFormElement>('#agent-form').reset();
+  select.value = selectedProject;
+  renderAgentPicker();
+  applyWizardStep();
+  $('#agent-existing').replaceChildren();
   $<HTMLDialogElement>('#agent-dialog').showModal();
+  await renderAgentTokens();
 });
 
-$('#agent-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget as HTMLFormElement;
-  const button = $<HTMLButtonElement>('#new-agent-token');
-  const fields = new FormData(form);
+$('#wizard-back').addEventListener('click', () => {
+  wizardStep = Math.max(1, wizardStep - 1);
+  applyWizardStep();
+});
+
+$('#wizard-next').addEventListener('click', async () => {
+  if (wizardStep === 3) {
+    $<HTMLDialogElement>('#agent-dialog').close();
+    return;
+  }
+  if (wizardStep === 1) {
+    wizardStep = 2;
+    applyWizardStep();
+    describeScope();
+    return;
+  }
+  const button = $<HTMLButtonElement>('#wizard-next');
+  const fields = new FormData($<HTMLFormElement>('#agent-form'));
   const projectId = String(fields.get('projectId') ?? '');
   button.disabled = true;
   try {
     const created = (await api('/api/agent-tokens', {
       method: 'POST',
       body: JSON.stringify({
-        label: String(fields.get('label') ?? '').trim(),
+        label: String(fields.get('label') ?? '').trim() || wizardTarget.name,
         scope: fields.get('scope'),
         ...(projectId ? { projectId } : {}),
       }),
-    })) as { token: string };
-    $<HTMLTextAreaElement>('#agent-output').value = mcpInstructions(created.token);
-    await renderAgentTokens();
+    })) as { id: string; token: string };
+    wizardToken = created.token;
+    wizardTokenId = created.id;
+    wizardStep = 3;
+    applyWizardStep();
+    renderAgentResult();
+    await refreshOnboarding();
   } catch {
     toast('Création du jeton impossible.', 'error');
   } finally {
     button.disabled = false;
   }
 });
+
+$('#agent-form').addEventListener('change', describeScope);
+$('#agent-dialog').addEventListener('close', () => clearTimeout(connectionTimer));
+
+// ------------------------------------------------------------- onboarding
+
+type Onboarding = {
+  projects: number;
+  reviewLinks: number;
+  tickets: number;
+  agentTokens: number;
+  connectedAgents: number;
+};
+
+let onboarding: Onboarding | null = null;
+
+/**
+ * The first-run checklist. It is derived from the data, never stored, so it
+ * disappears on its own once the instance is genuinely set up — and comes back
+ * honestly if someone revokes everything.
+ */
+function onboardingPanel(state: Onboarding) {
+  const steps = [
+    {
+      done: state.projects > 0,
+      title: 'Créer un projet',
+      body: 'Un projet porte le nom du client et la liste exacte des origines autorisées.',
+      action: 'Nouveau projet',
+      run: () => openProjectDialog(null),
+    },
+    {
+      done: state.reviewLinks > 0,
+      title: 'Installer le widget sur la préproduction',
+      body: 'Un lien reviewer, une ligne de script à coller avant </body>. Le client n’a rien à créer.',
+      action: 'Générer un lien',
+      run: () => $<HTMLButtonElement>('#review-link').click(),
+    },
+    {
+      done: state.tickets > 0,
+      title: 'Recevoir un premier retour',
+      body: 'Le client clique l’élément qui cloche et écrit une phrase. Le ticket arrive ancré à cet élément.',
+      action: 'Voir les retours',
+      run: () => void showTickets(),
+    },
+    {
+      done: state.connectedAgents > 0,
+      title: 'Connecter un agent IA',
+      body: 'Claude Code, Codex, Cursor… il lit les retours, les corrige et rend compte dans le journal.',
+      action: state.agentTokens > 0 ? 'Terminer la connexion' : 'Connecter un agent',
+      run: () => $<HTMLButtonElement>('#agent-access').click(),
+    },
+  ];
+  const done = steps.filter((step) => step.done).length;
+
+  const section = el('section', 'panel onboarding');
+  const head = el('div', 'panel-head');
+  head.append(el('h2', '', 'Démarrage'), el('span', 'panel-hint', `${done} sur ${steps.length}`));
+  section.append(head);
+
+  const track = el('div', 'onboarding-track');
+  const fill = el('span', 'onboarding-fill');
+  fill.style.width = `${(done / steps.length) * 100}%`;
+  track.append(fill);
+  section.append(track);
+
+  const list = el('div', 'onboarding-steps');
+  for (const [index, step] of steps.entries()) {
+    const row = el('div', `onboarding-step ${step.done ? 'done' : ''}`);
+    const mark = el('span', 'onboarding-mark');
+    if (step.done) mark.append(icon('i-check'));
+    else mark.textContent = String(index + 1);
+    const text = el('div', 'onboarding-text');
+    text.append(el('strong', '', step.title), el('span', '', step.body));
+    row.append(mark, text);
+    // The first unfinished step is the one that gets the button: a checklist
+    // with four calls to action has none.
+    if (!step.done && steps.slice(0, index).every((previous) => previous.done)) {
+      const action = el('button', 'btn btn-primary', step.action);
+      action.type = 'button';
+      action.onclick = step.run;
+      row.append(action);
+    }
+    list.append(row);
+  }
+  section.append(list);
+  return section;
+}
+
+async function refreshOnboarding() {
+  try {
+    onboarding = (await api('/api/onboarding')) as Onboarding;
+  } catch {
+    onboarding = null;
+  }
+  if (view === 'overview') await loadStats();
+}
 
 // ------------------------------------------------------------------ wiring
 

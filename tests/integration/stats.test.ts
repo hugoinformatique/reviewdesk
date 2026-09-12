@@ -119,3 +119,43 @@ test('the overview shows the work log, and refuses a period it cannot answer for
   }
   assert.equal((await app.inject({ method: 'GET', url: '/api/stats' })).statusCode, 401, 'stats are admin-only');
 });
+
+test('the onboarding state is derived from the instance, never stored', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+
+  const fresh = await app.inject({ method: 'GET', url: '/api/onboarding', headers: auth.read });
+  assert.equal(fresh.statusCode, 200, fresh.body);
+  assert.deepEqual(fresh.json(), { projects: 0, reviewLinks: 0, tickets: 0, agentTokens: 0, connectedAgents: 0 });
+
+  const { atelier } = await seed(app, auth);
+  const minted = await app.inject({
+    method: 'POST',
+    url: '/api/agent-tokens',
+    headers: auth.write,
+    payload: { label: 'Claude Code', projectId: atelier.id },
+  });
+  const token = minted.json().token as string;
+
+  const configured = (await app.inject({ method: 'GET', url: '/api/onboarding', headers: auth.read })).json();
+  assert.equal(configured.projects, 2);
+  assert.equal(configured.reviewLinks, 2);
+  assert.equal(configured.tickets, 3);
+  assert.equal(configured.agentTokens, 1);
+  // A token that exists is not a token that works: only a real call counts.
+  assert.equal(configured.connectedAgents, 0);
+
+  await app.inject({ method: 'GET', url: '/api/agent/context', headers: { authorization: `Bearer ${token}` } });
+  const connected = (await app.inject({ method: 'GET', url: '/api/onboarding', headers: auth.read })).json();
+  assert.equal(connected.connectedAgents, 1);
+
+  // Revoking takes it back out: the checklist tells the truth, not a stored flag.
+  const tokens = await app.inject({ method: 'GET', url: '/api/agent-tokens', headers: auth.read });
+  const id = (tokens.json().tokens as { id: string }[])[0]!.id;
+  await app.inject({ method: 'POST', url: `/api/agent-tokens/${id}/revoke`, headers: auth.write });
+  const revoked = (await app.inject({ method: 'GET', url: '/api/onboarding', headers: auth.read })).json();
+  assert.equal(revoked.agentTokens, 0);
+  assert.equal(revoked.connectedAgents, 0);
+
+  assert.equal((await app.inject({ method: 'GET', url: '/api/onboarding' })).statusCode, 401);
+});
