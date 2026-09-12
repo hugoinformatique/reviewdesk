@@ -1,9 +1,35 @@
 /* ReviewDesk — "Paper & Ink"
    Monochrome by construction: the palette holds no hue except the red kept for
-   errors and destructive actions. Hierarchy is carried by weight, size, spacing
-   and one neutral ramp — never by colour. Token names still mirror the
-   shadcn/21st.dev contract, so a themed palette can be dropped over :root /
-   [data-theme=dark] without touching a single rule below. */
+   errors and destructive actions. What carries the design instead is material —
+   a real typeface, layered elevation, hairline highlights — and motion. Token
+   names still mirror the shadcn/21st.dev contract, so a themed palette can be
+   dropped over :root / [data-theme=dark] without touching a single rule below. */
+
+/* ------------------------------------------------------------------- fonts
+   Self-hosted on purpose: the admin's CSP allows font-src 'self' only, so no
+   CDN is reachable — and a webfont that has to be fetched from a third party is
+   a webfont that sometimes does not arrive. Geist is SIL OFL 1.1; the licence
+   travels with the files in public/fonts/. */
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ------------------------------------------------------------------ tokens */
 
@@ -11,113 +37,126 @@
   color-scheme: light;
 
   --bg: #ffffff;
-  --bg-sunken: #fafafa;
+  --bg-sunken: #f6f6f7;
   --surface: #ffffff;
-  --surface-2: #f7f7f7;
-  --surface-hover: #f2f2f2;
-  --surface-active: #e9e9e9;
+  --surface-2: #f4f4f5;
+  --surface-hover: #f1f1f3;
+  --surface-active: #e7e7ea;
 
-  --text: #111111;
-  --text-2: #5b5b5b;
-  --text-3: #8e8e8e;
+  --text: #09090b;
+  --text-2: #52525b;
+  --text-3: #8c8c96;
 
-  --border: #e6e6e6;
-  --border-2: #d2d2d2;
+  --border: #eaeaec;
+  --border-2: #dadade;
 
   /* The "accent" is ink: a primary button is black on white, and inverts in
      dark mode. Nothing in this interface is coloured to attract attention. */
-  --accent: #111111;
-  --accent-hover: #000000;
-  --accent-text: #111111;
-  --accent-soft: #f0f0f0;
+  --accent: #18181b;
+  --accent-hover: #09090b;
+  --accent-text: #09090b;
+  --accent-soft: #f1f1f3;
   --accent-fg: #ffffff;
-  --ring: #1111112e;
+  --ring: #09090b26;
 
   /* The only hue left, and only where being wrong costs something. */
   --danger: #b42318;
   --danger-soft: #fdf3f2;
 
-  --r-sm: 5px;
-  --r: 8px;
-  --r-lg: 12px;
+  /* Material: a hairline of light along the top edge is what separates a raised
+     surface from a painted rectangle. */
+  --edge: inset 0 1px 0 #ffffffb3;
+  --edge-strong: inset 0 1px 0 #ffffff40, inset 0 0 0 1px #ffffff14;
+
+  --r-sm: 6px;
+  --r: 9px;
+  --r-lg: 13px;
   --r-full: 999px;
 
-  --shadow-1: 0 1px 2px #11111110;
-  --shadow-2: 0 4px 12px #11111114;
-  --shadow-3: 0 24px 60px #1111112e, 0 4px 12px #11111114;
+  --shadow-1: 0 1px 1px #09090b0a, 0 2px 4px -1px #09090b0a;
+  --shadow-2: 0 1px 2px #09090b0d, 0 6px 16px -4px #09090b14;
+  --shadow-3: 0 8px 24px -6px #09090b1f, 0 24px 64px -12px #09090b2e;
 
-  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: 'Geist', Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --sidebar-w: 232px;
   --nav-h: 52px;
-  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Stronger than the CSS built-ins, which are too weak to read as intentional. */
+  --ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --bg: #0a0a0a;
-    --bg-sunken: #070707;
-    --surface: #121212;
-    --surface-2: #171717;
-    --surface-hover: #1e1e1e;
-    --surface-active: #272727;
+    --bg: #0b0b0c;
+    --bg-sunken: #080809;
+    --surface: #141416;
+    --surface-2: #19191c;
+    --surface-hover: #202024;
+    --surface-active: #29292e;
 
-    --text: #f5f5f5;
-    --text-2: #a1a1a1;
-    --text-3: #767676;
+    --text: #fafafa;
+    --text-2: #a1a1aa;
+    --text-3: #71717a;
 
-    --border: #242424;
-    --border-2: #363636;
+    --border: #232327;
+    --border-2: #32323a;
 
-    --accent: #f5f5f5;
+    --accent: #fafafa;
     --accent-hover: #ffffff;
-    --accent-text: #f5f5f5;
-    --accent-soft: #1e1e1e;
-    --accent-fg: #0a0a0a;
-    --ring: #f5f5f545;
+    --accent-text: #fafafa;
+    --accent-soft: #202024;
+    --accent-fg: #09090b;
+    --ring: #fafafa3d;
 
     --danger: #f87171;
     --danger-soft: #2a1212;
 
-    --shadow-1: 0 1px 2px #0008;
-    --shadow-2: 0 4px 14px #0009;
-    --shadow-3: 0 24px 60px #000c, 0 4px 12px #0008;
+    --edge: inset 0 1px 0 #ffffff0f;
+    --edge-strong: inset 0 1px 0 #ffffff1f;
+
+    --shadow-1: 0 1px 2px #00000059;
+    --shadow-2: 0 2px 4px #0000005c, 0 8px 20px -6px #00000080;
+    --shadow-3: 0 12px 32px -8px #000000a6, 0 32px 72px -16px #000000cc;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #0a0a0a;
-  --bg-sunken: #070707;
-  --surface: #121212;
-  --surface-2: #171717;
-  --surface-hover: #1e1e1e;
-  --surface-active: #272727;
+  --bg: #0b0b0c;
+  --bg-sunken: #080809;
+  --surface: #141416;
+  --surface-2: #19191c;
+  --surface-hover: #202024;
+  --surface-active: #29292e;
 
-  --text: #f5f5f5;
-  --text-2: #a1a1a1;
-  --text-3: #767676;
+  --text: #fafafa;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
 
-  --border: #242424;
-  --border-2: #363636;
+  --border: #232327;
+  --border-2: #32323a;
 
-  --accent: #f5f5f5;
+  --accent: #fafafa;
   --accent-hover: #ffffff;
-  --accent-text: #f5f5f5;
-  --accent-soft: #1e1e1e;
-  --accent-fg: #0a0a0a;
-  --ring: #f5f5f545;
+  --accent-text: #fafafa;
+  --accent-soft: #202024;
+  --accent-fg: #09090b;
+  --ring: #fafafa3d;
 
   --danger: #f87171;
   --danger-soft: #2a1212;
 
-  --shadow-1: 0 1px 2px #0008;
-  --shadow-2: 0 4px 14px #0009;
-  --shadow-3: 0 24px 60px #000c, 0 4px 12px #0008;
+  --edge: inset 0 1px 0 #ffffff0f;
+  --edge-strong: inset 0 1px 0 #ffffff1f;
+
+  --shadow-1: 0 1px 2px #00000059;
+  --shadow-2: 0 2px 4px #0000005c, 0 8px 20px -6px #00000080;
+  --shadow-3: 0 12px 32px -8px #000000a6, 0 32px 72px -16px #000000cc;
 }
 
 /* ------------------------------------------------------------------- reset */
@@ -132,16 +171,21 @@ body {
   font-family: var(--sans);
   font-size: 13.5px;
   line-height: 1.5;
+  letter-spacing: -0.005em;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Figures line up in columns everywhere; a dashboard is mostly numbers. */
+  font-variant-numeric: tabular-nums;
+  font-optical-sizing: auto;
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
-h1, h2, h3 { margin: 0; letter-spacing: -0.015em; font-weight: 620; }
+/* Tracking tightens as type grows: the same optical density at every size. */
+h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 600; }
 
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -184,34 +228,53 @@ button.quiet,
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   font-size: 13px;
-  font-weight: 530;
+  font-weight: 520;
   white-space: nowrap;
-  transition: background 0.12s var(--ease), border-color 0.12s var(--ease), color 0.12s var(--ease);
+  transition: background 0.14s var(--ease), border-color 0.14s var(--ease), color 0.14s var(--ease),
+              box-shadow 0.14s var(--ease), transform 0.16s var(--ease);
 }
 
+/* Every pressable thing answers the press. 160ms, scale 0.97: enough to feel,
+   too little to see. */
+.btn:active,
+button.quiet:active,
+.icon-btn:active,
+#project-form button:active,
+.login button:active { transform: scale(0.97); }
+
+/* A flat black rectangle reads as a placeholder. The gradient and the inner
+   highlight are what make it read as a raised, finished control. */
 .btn-primary,
 #project-form button:not(.quiet),
 .login button {
-  background: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #ffffff), var(--accent));
   color: var(--accent-fg);
   border-color: var(--accent);
+  box-shadow: var(--edge-strong), var(--shadow-1);
 }
 
-.btn-primary:hover,
-#project-form button:not(.quiet):hover,
-.login button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-
-.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 button.quiet,
 .btn-ghost {
-  background: transparent;
+  background: var(--surface);
   color: var(--text-2);
   border-color: var(--border-2);
+  box-shadow: var(--edge), var(--shadow-1);
 }
 
-button.quiet:hover,
-.btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover,
+  #project-form button:not(.quiet):hover,
+  .login button:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    box-shadow: var(--edge-strong), var(--shadow-2);
+  }
+
+  button.quiet:hover,
+  .btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+}
 
 .btn-danger { background: transparent; color: var(--danger); border-color: transparent; }
 .btn-danger:hover { background: var(--danger-soft); }
@@ -230,7 +293,9 @@ button.quiet:hover,
   transition: background 0.12s var(--ease), color 0.12s var(--ease);
 }
 
-.icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+}
 
 /* Fields ------------------------------------------------------------------- */
 
@@ -282,7 +347,7 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   border: 1px solid var(--border);
   padding: 30px;
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--edge), var(--shadow-3);
 }
 
 .mark {
@@ -291,8 +356,9 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   width: 34px;
   height: 34px;
   border-radius: var(--r-sm);
-  background: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #ffffff), var(--accent));
   color: var(--accent-fg);
+  box-shadow: var(--edge-strong), var(--shadow-1);
 }
 
 .mark .icon { width: 18px; height: 18px; }
@@ -335,10 +401,17 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   height: var(--nav-h);
   padding: 0 14px 0 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  /* Translucent rather than painted: content scrolling under the bar stays
+     faintly present, which is what tells the eye the bar floats above it. */
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
   position: sticky;
   top: 0;
   z-index: 40;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .nav { background: var(--bg); }
 }
 
 .brand {
@@ -473,7 +546,11 @@ aside {
   transition: background 0.12s var(--ease), color 0.12s var(--ease);
 }
 
-.project:hover { background: var(--surface-hover); color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  .project:hover { background: var(--surface-hover); color: var(--text); }
+}
+
+.project:active { transform: scale(0.99); }
 
 /* Selection is a rule of ink on the left edge, not a coloured slab. */
 .project.active { background: var(--surface-hover); color: var(--text); }
@@ -629,12 +706,22 @@ aside {
   border-radius: var(--r);
   padding: 10px 12px;
   position: relative;
-  transition: background 0.12s var(--ease);
+  transition: background 0.14s var(--ease), box-shadow 0.14s var(--ease), transform 0.16s var(--ease),
+              border-color 0.14s var(--ease);
 }
 
-.ticket:hover { background: var(--surface-hover); }
+@media (hover: hover) and (pointer: fine) {
+  .ticket:hover { background: var(--surface-hover); }
+}
 
-.ticket.active { background: var(--surface-hover); }
+.ticket:active { transform: scale(0.995); }
+
+/* The selected row is lifted, not just tinted: it is the one being worked on. */
+.ticket.active {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--edge), var(--shadow-1);
+}
 
 .ticket.active::before {
   content: '';
@@ -732,14 +819,15 @@ aside {
   display: grid;
   gap: 3px;
   align-content: start;
-  padding: 14px 16px;
+  padding: 15px 16px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
+  box-shadow: var(--edge), var(--shadow-1);
 }
 
-.kpi-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
-.kpi-value { font-size: 27px; font-weight: 620; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-label { font-size: 10.5px; font-weight: 560; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-3); }
+.kpi-value { font-size: 29px; font-weight: 560; line-height: 1.1; letter-spacing: -0.035em; }
 .kpi-note { font-size: 11.5px; color: var(--text-3); }
 /* A rise in what arrives is not good news and a fall is not bad: both are just
    movement, so neither gets a colour — only a slightly firmer grey. */
@@ -773,6 +861,7 @@ aside {
   border-radius: var(--r);
   padding: 14px 16px 16px;
   min-width: 0;
+  box-shadow: var(--edge), var(--shadow-1);
 }
 
 .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -793,8 +882,22 @@ aside {
 .bar-received { fill: var(--text); }
 .bar-resolved { fill: var(--border-2); }
 .chart-axis { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); padding-left: 26px; }
+.chart-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-legend { display: flex; gap: 14px; padding-left: 26px; font-size: 11px; color: var(--text-3); }
+.chart-key { display: inline-flex; align-items: center; gap: 6px; }
+.key-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.key-swatch.key-received { background: var(--text); }
+.key-swatch.key-resolved { background: var(--border-2); }
 
-.breakdown { display: grid; gap: 9px; }
+.breakdown { display: grid; gap: 9px; align-content: start; }
+.breakdown-note {
+  margin: 6px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
 .breakdown-row { display: grid; grid-template-columns: 92px minmax(0, 1fr) 34px; align-items: center; gap: 10px; }
 .breakdown-track { height: 6px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; }
 .breakdown-fill { display: block; height: 100%; background: var(--text-3); }
@@ -819,7 +922,9 @@ aside {
 .stat-table th.num, .stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; padding-left: 10px; }
 .stat-table td { padding: 8px 0; border-top: 1px solid var(--border); }
 .stat-table tbody tr { cursor: pointer; }
-.stat-table tbody tr:hover td { background: var(--surface-hover); }
+@media (hover: hover) and (pointer: fine) {
+  .stat-table tbody tr:hover td { background: var(--surface-hover); }
+}
 .stat-table td strong { display: block; font-weight: 560; }
 .stat-table td:first-child { min-width: 150px; }
 .stat-table td .muted { font-size: 11px; color: var(--text-3); }
@@ -877,6 +982,8 @@ aside {
 .detail-side { grid-area: side; display: grid; gap: 12px; align-content: start; justify-items: stretch; }
 
 .detail-main > button:not(.quiet) { justify-self: start; }
+/* Both panes are on screen at once here, so "back to the list" means nothing. */
+.detail-head > .quiet { display: none; }
 .detail-side > .anchor-link { justify-self: start; }
 
 .detail h2 {
@@ -956,6 +1063,7 @@ aside {
   border-radius: var(--r);
   padding: 10px 12px;
   background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-1);
 }
 
 /* An agent's entry is marked, so a human never mistakes it for a colleague's. */
@@ -1030,7 +1138,7 @@ dialog {
   box-shadow: var(--shadow-3);
 }
 
-dialog::backdrop { background: #11111159; backdrop-filter: blur(2px); }
+dialog::backdrop { background: #09090b5c; backdrop-filter: blur(3px); }
 
 dialog > form, .dialog-body { padding: 22px; }
 
@@ -1223,12 +1331,115 @@ button.mobile-only, .scrim { display: none; }
     padding: 16px 16px 40px;
   }
   .detail.empty { display: none; }
+  .detail-head > .quiet { display: inline-flex; }
 }
 
+
+/* Motion --------------------------------------------------------------------
+   Rules of the house: enter with a strong ease-out, never from scale(0), stay
+   under 300ms, never animate something a keyboard repeats, and let hover live
+   behind a pointer query. Everything below is a transition or a short entrance
+   — nothing loops, nothing pulses. */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Switching view is a keyboard-speed action once you know the app, so it fades
+   rather than travels: 160ms, opacity only. */
+#overview:not([hidden]), #tickets-view:not([hidden]) { animation: fade 0.16s var(--ease) both; }
+
+/* A list that lands all at once reads as a screenshot. Staggering the first
+   rows — and only the first rows — makes it read as arriving. */
+.ticket { animation: rise 0.26s var(--ease) backwards; }
+.ticket:nth-child(1) { animation-delay: 0ms; }
+.ticket:nth-child(2) { animation-delay: 28ms; }
+.ticket:nth-child(3) { animation-delay: 56ms; }
+.ticket:nth-child(4) { animation-delay: 84ms; }
+.ticket:nth-child(5) { animation-delay: 112ms; }
+.ticket:nth-child(n + 6) { animation-delay: 140ms; }
+
+.kpi { animation: rise 0.3s var(--ease) backwards; }
+.kpi:nth-child(2) { animation-delay: 30ms; }
+.kpi:nth-child(3) { animation-delay: 60ms; }
+.kpi:nth-child(4) { animation-delay: 90ms; }
+.kpi:nth-child(5) { animation-delay: 120ms; }
+
+.panel { animation: rise 0.3s var(--ease) backwards; animation-delay: 60ms; }
+.panel-breakdown, .panel-projects { animation-delay: 90ms; }
+.panel-pages, .panel-feed { animation-delay: 120ms; }
+
+/* The bars grow from the axis; a chart that fades in looks like an image. */
+.chart rect { transform-origin: bottom; animation: grow 0.4s var(--ease) backwards; }
+@keyframes grow { from { transform: scaleY(0.02); } to { transform: scaleY(1); } }
+
+.detail:not(.empty) { animation: fade 0.18s var(--ease) both; }
+.detail-head, .detail-main, .detail-side { animation: rise 0.24s var(--ease) backwards; }
+.detail-main { animation-delay: 30ms; }
+.detail-side { animation-delay: 60ms; }
+
+/* Modals scale from their own centre: they are not anchored to a trigger. */
+dialog[open] { animation: pop 0.2s var(--ease); }
+dialog[open]::backdrop { animation: fade 0.2s var(--ease); }
+
+.comment { animation: rise 0.24s var(--ease) backwards; }
+
+/* Scrollbars ---------------------------------------------------------------- */
+
+.tickets, .detail, .overview, #projects { scrollbar-color: var(--border-2) transparent; }
+.tickets::-webkit-scrollbar, .detail::-webkit-scrollbar,
+.overview::-webkit-scrollbar, #projects::-webkit-scrollbar { width: 10px; height: 10px; }
+.tickets::-webkit-scrollbar-thumb, .detail::-webkit-scrollbar-thumb,
+.overview::-webkit-scrollbar-thumb, #projects::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--r-full);
+}
+.tickets::-webkit-scrollbar-track, .detail::-webkit-scrollbar-track,
+.overview::-webkit-scrollbar-track, #projects::-webkit-scrollbar-track { background: transparent; }
+
+/* Loading ------------------------------------------------------------------- */
+
+/* Shown while the overview is being fetched: the shape of the answer arrives
+   before the answer, so the page never blinks from empty to full. */
+.skeleton {
+  border-radius: var(--r);
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-hover), var(--surface-2));
+  background-size: 200% 100%;
+  animation: sweep 1.3s linear infinite;
+}
+
+@keyframes sweep { to { background-position: -200% 0; } }
+
+.skeleton-kpi { height: 92px; }
+.skeleton-panel { height: 196px; }
+
+/* Reduced motion means gentler, not none: the fades that explain what replaced
+   what stay, everything that travels or scales is dropped. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  #overview:not([hidden]), #tickets-view:not([hidden]), .detail:not(.empty), dialog[open] {
+    animation: fade 0.15s linear both !important;
+  }
+
+  .btn:active, button.quiet:active, .icon-btn:active, .ticket:active, .project:active { transform: none; }
+  .skeleton { animation: none; }
 }

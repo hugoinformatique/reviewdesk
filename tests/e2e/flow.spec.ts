@@ -114,6 +114,9 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('.panel-feed')).toContainText('Équipe');
   await expect(page.locator('.panel-feed')).toContainText('Rendre ce bouton plus visible sur mobile');
   await expect(page.locator('.chart rect')).not.toHaveCount(0);
+  // Two shades of grey need a key, or they are just two shades of grey.
+  await expect(page.locator('.chart-legend')).toContainText('reçus');
+  await expect(page.locator('.chart-legend')).toContainText('traités');
 
   // The period is part of the question asked, so changing it re-asks it.
   await page.locator('#period').selectOption('7');

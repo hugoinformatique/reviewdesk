@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-4.0.0-111111)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-5.0.0-09090b)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -96,6 +96,9 @@ au même endroit.
 - **vue d'ensemble** : ce qui attend, ce qui a bougé sur 7/30/90 jours, la
   répartition par statut, le classement des projets et des pages, et le journal
   des derniers mouvements — humains et agents ;
+- **typographie Geist**, auto-hébergée (52 Ko pour les deux graisses variables) :
+  la CSP n'autorise aucun CDN de polices, et une police qui doit arriver d'un
+  tiers est une police qui parfois n'arrive pas ;
 - **interface monochrome** : barre de navigation, barre de configuration, rail
   projets ; aucune couleur décorative, le statut se lit à un disque qui se vide ;
 - interface utilisable de 390 px à un 21:9 de 3440 px ;
@@ -333,6 +336,7 @@ l'appeler à la place de l'agent.
 ```text
 public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
 public/admin.js    interface d'administration (build de src/admin/app.ts)
+public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
 src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF
 src/mcp/server.ts  serveur MCP stdio (build de dist/mcp.js), adaptateur de l'API agent
 src/db/            PostgreSQL (prod) ou PGlite (dev), migrations idempotentes
@@ -521,7 +525,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **4.0.0**.
+Keep a Changelog. Version courante : **5.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
