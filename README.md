@@ -9,7 +9,7 @@ phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
 capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
 capture d'écran annotée par mail.
 
-[![version](https://img.shields.io/badge/version-1.2.0-4f46e5)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.0.0-4f46e5)](CHANGELOG.md)
 [![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
 [![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
 
@@ -29,6 +29,7 @@ capture d'écran annotée par mail.
 - [Intégrer le widget sur un site](#intégrer-le-widget-sur-un-site)
 - [Le parcours du reviewer](#le-parcours-du-reviewer)
 - [L'administration](#ladministration)
+- [Brancher un agent IA (MCP)](#brancher-un-agent-ia-mcp)
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Déploiement sur Vercel](#déploiement-sur-vercel)
@@ -86,6 +87,11 @@ au même endroit.
 - **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
   avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un
   agent de code ;
+- **serveur MCP + API agent** : un agent IA lit les retours, les commente,
+  change leur statut et publie la réponse au client, avec un jeton révocable,
+  scopé à un projet et en lecture seule si besoin ;
+- **journal par retour** : chaque commentaire, humain ou agent, horodaté et
+  rattaché au changement de statut qui l'accompagne ;
 - **notification sortante** par projet : un POST JSON à chaque nouveau retour ;
 - interface utilisable de 390 px à un 21:9 de 3440 px ;
 - téléchargements privés servis seulement après authentification admin.
@@ -220,12 +226,91 @@ rejeu ne contient **aucun secret** : c'est le snippet de la page qui porte le
 token, et l'ancre voyage dans le fragment d'URL, que le navigateur n'envoie
 jamais au serveur du client.
 
+## Brancher un agent IA (MCP)
+
+Un agent de code (Claude Code, Claude Desktop, ou tout client MCP) peut lire les
+retours, les traiter et rendre compte — sans qu'on lui recopie quoi que ce soit.
+
+### 1. Créer un jeton
+
+Administration → **Accès agents** → libellé, portée (un projet ou tous), droits
+(lecture seule ou lecture/écriture) → **Générer un jeton**. Le secret `rda_…`
+n'est affiché **qu'une fois**, avec la configuration MCP déjà remplie. Il est
+révocable à tout moment, et ne donne accès ni à l'administration, ni aux
+projets, ni aux liens reviewer.
+
+### 2. Déclarer le serveur MCP
+
+Le serveur MCP tourne depuis une copie de ce dépôt (`npm run build`, qui produit
+`dist/mcp.js`). Pour Claude Code :
+
+```bash
+claude mcp add reviewdesk \
+  --env REVIEWDESK_URL=https://reviewdesk.example \
+  --env REVIEWDESK_TOKEN=rda_… \
+  -- node /chemin/vers/reviewdesk/dist/mcp.js
+```
+
+Ou, dans un `.mcp.json` / `claude_desktop_config.json` :
+
+```json
+{
+  "mcpServers": {
+    "reviewdesk": {
+      "command": "node",
+      "args": ["/chemin/vers/reviewdesk/dist/mcp.js"],
+      "env": {
+        "REVIEWDESK_URL": "https://reviewdesk.example",
+        "REVIEWDESK_TOKEN": "rda_…"
+      }
+    }
+  }
+}
+```
+
+### 3. Ce que l'agent peut faire
+
+| Outil | Effet |
+| --- | --- |
+| `list_projects` | Les projets visibles par le jeton, et le reste à faire par statut. |
+| `list_tickets` | Les retours, filtrés par statut, projet, page ou format. |
+| `get_ticket` | Le détail : élément visé, page, écran, diagnostics, journal. |
+| `get_screenshot` | La capture jointe par le client, comme image. |
+| `comment_ticket` | Un commentaire, interne ou **publié au client**. |
+| `update_ticket` | Le statut **et** le compte rendu, en un seul appel. |
+
+Une boucle typique : « regarde les retours à traiter du projet X, corrige-les,
+et passe chaque ticket à `À valider` en expliquant ce que tu as changé ». Un
+commentaire en `visibility: "reviewer"` devient la réponse que le client lit
+dans son widget ; sinon il reste dans le journal, côté équipe.
+
+Le journal de chaque retour est visible dans l'administration, sous la réponse :
+les entrées d'un agent y sont distinguées de celles de l'équipe.
+
+### Sans MCP
+
+L'API agent est une API HTTP ordinaire, utilisable depuis n'importe quel script :
+
+```bash
+curl -H "Authorization: Bearer rda_…" \
+  "https://reviewdesk.example/api/agent/tickets?status=TODO"
+
+curl -X PATCH -H "Authorization: Bearer rda_…" -H "Content-Type: application/json" \
+  -d '{"status":"DONE","comment":"Contraste corrigé.","visibility":"reviewer"}' \
+  "https://reviewdesk.example/api/agent/tickets/UUID"
+```
+
+Elle s'authentifie par en-tête uniquement : pas de cookie, donc pas de surface
+CSRF, et aucune origine n'est autorisée en CORS — un navigateur tiers ne peut pas
+l'appeler à la place de l'agent.
+
 ## Architecture
 
 ```text
 public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
 public/admin.js    interface d'administration (build de src/admin/app.ts)
 src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF
+src/mcp/server.ts  serveur MCP stdio (build de dist/mcp.js), adaptateur de l'API agent
 src/db/            PostgreSQL (prod) ou PGlite (dev), migrations idempotentes
 src/storage/       S3-compatible, Supabase Storage ou fichiers locaux (dev)
 api/index.ts       handler serverless (Vercel)
@@ -258,6 +343,7 @@ Toutes les variables et leurs valeurs locales sont commentées dans
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | — | Identifiants limités à ce bucket. |
 | `UPLOAD_MAX_BYTES` | `4000000` | Sous la limite de 4,5 Mo d'un corps de requête Vercel. |
 | `SUBMISSIONS_PER_MINUTE` | `20` | Limite persistante par lien reviewer. |
+| `AGENT_REQUESTS_PER_MINUTE` | `120` | Limite persistante par jeton agent. |
 | `SESSION_TTL_SECONDS` | `28800` | Durée de la session admin. |
 | `WEBHOOK_TIMEOUT_MS` | `3000` | Budget de la notification sortante, attendue avant la réponse. |
 | `LOG_LEVEL` | `warn` | Journalisation, secrets expurgés. |
@@ -327,6 +413,14 @@ une origine exacte ; CORS ne sert jamais d'authentification. Le secret du lien
 n'est stocké que sous forme de SHA-256. Les mutations admin exigent un cookie
 `HttpOnly`/`SameSite=Strict` et un jeton CSRF.
 
+**Jetons agents.** Un secret machine `rda_…`, stocké en SHA-256 uniquement,
+révocable, limité à un projet ou à tous, et en lecture seule si on le souhaite —
+une tentative d'écriture renvoie alors `403 READ_ONLY_TOKEN`. Il n'ouvre ni
+l'administration, ni la création de projets, ni les liens reviewer. L'API agent
+s'authentifie par en-tête seul : aucun cookie, donc pas de CSRF, et aucune
+origine n'est renvoyée en CORS. La limite est de 120 requêtes par minute et par
+jeton, persistée comme les autres.
+
 **Uploads.** Limités à 4 000 000 octets par défaut, vérifiés par signature de
 fichier, SVG refusé, objets non publics. Les réponses privées portent
 `no-store` et la journalisation expurge les secrets.
@@ -357,8 +451,22 @@ Administration — cookie de session + jeton CSRF sur les mutations :
 | `POST` | `/api/projects/:projectId/review-links/:linkId/revoke` | Révocation. |
 | `GET` | `/api/tickets` | Triage filtré, pagination par curseur. |
 | `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
+| `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
 | `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
+| `GET` `POST` | `/api/agent-tokens` | Jetons agents (le secret n'est montré qu'une fois). |
+| `POST` | `/api/agent-tokens/:id/revoke` | Révocation d'un jeton agent. |
 | `GET` | `/health` | Sonde de disponibilité, sans métadonnée d'infrastructure. |
+
+Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
+
+| Méthode | Route | Effet |
+| --- | --- | --- |
+| `GET` | `/api/agent/context` | Portée du jeton et projets visibles, avec le compte par statut. |
+| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `limit`, `cursor`). |
+| `GET` | `/api/agent/tickets/:id` | Détail d'un retour et son journal. |
+| `POST` | `/api/agent/tickets/:id/comments` | Commentaire interne ou publié au client. |
+| `PATCH` | `/api/agent/tickets/:id` | Statut et commentaire, en un appel. |
+| `GET` | `/api/agent/uploads/:id` | Capture d'un retour du projet du jeton. |
 
 ## Développer et vérifier
 
@@ -373,10 +481,14 @@ npm run test:e2e     # E2E Playwright, admin :4310 et preview :4311
 npm run check        # tout l'enchaînement ci-dessus + npm audit --omit=dev
 ```
 
-`npm run check` est la porte d'entrée : lint, typecheck, **67 tests Node**
+`npm run check` est la porte d'entrée : lint, typecheck, **72 tests Node**
 (unitaires et intégration adversariale contre PostgreSQL + MinIO Docker
 jetables — 3 d'entre eux sont sautés sans Docker), build, **3 E2E Playwright**
 sur une origine réellement distincte, puis `npm audit --omit=dev`.
+
+Le serveur MCP est testé comme un agent l'utilise : un vrai processus fils, du
+vrai JSON-RPC sur stdio, contre une instance ReviewDesk qui écoute (voir
+`tests/integration/mcp.test.ts`).
 
 Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 `public/widget.js`, puis `npm run build:widget`.
@@ -384,7 +496,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **1.2.0**.
+Keep a Changelog. Version courante : **2.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,

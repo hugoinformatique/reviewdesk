@@ -84,12 +84,36 @@ const ticketPatch = z
     'empty patch',
   );
 
+const commentInput = z.object({
+  body: z.string().trim().min(1).max(4_000),
+  visibility: z.enum(['internal', 'reviewer']).optional(),
+});
+/** An agent may change the status and log what it did in a single call. */
+const agentTicketPatch = z
+  .object({
+    status: z.enum(STATUSES).optional(),
+    comment: z.string().trim().max(4_000).optional(),
+    visibility: z.enum(['internal', 'reviewer']).optional(),
+  })
+  .refine((value) => value.status !== undefined || (value.comment ?? '') !== '', 'empty patch');
+const agentTokenInput = z.object({
+  label: z.string().trim().max(80).optional(),
+  projectId: uuid.optional(),
+  scope: z.enum(['read', 'write']).optional(),
+});
+
+/** A ticket row as both the admin list and the agent API return it. */
+type TicketRow = { id: string; createdAt: string; commentCount?: number | string; [key: string]: unknown };
+
 type AdminSession = { tokenHash: string; csrfToken: string };
 type ReviewerGrant = { projectId: string; origin: string; tokenHash: string };
+/** `projectId: null` means the token sees every project on the instance. */
+type AgentGrant = { id: string; projectId: string | null; scope: 'read' | 'write'; label: string; tokenHash: string };
 
 declare module 'fastify' {
   interface FastifyRequest {
     adminSession?: AdminSession;
+    agentGrant?: AgentGrant;
   }
 }
 
@@ -594,8 +618,16 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       .send(object.body);
   });
 
-  app.get('/api/tickets', { preHandler: requireAdmin }, async (req, reply) => {
-    const query = req.query as Record<string, unknown>;
+  /**
+   * One filtered, keyset-paginated page of tickets. Shared by the admin list and
+   * by the agent API so both answer the same filters with the same semantics;
+   * `restrictProjectId` is the caller's own scope and is never overridable by a
+   * query parameter.
+   */
+  async function ticketPage(
+    query: Record<string, unknown>,
+    restrictProjectId: string | null,
+  ): Promise<{ error: string } | { tickets: TicketRow[]; total: number; nextCursor: string | null }> {
     const clauses: string[] = [];
     const values: unknown[] = [];
     const add = (sql: string, value: unknown) => {
@@ -609,30 +641,32 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       return value;
     };
 
+    // The caller's own scope first: a project-scoped agent token cannot widen
+    // itself by passing a projectId of its choosing.
+    if (restrictProjectId) add('t.project_id = ?', restrictProjectId);
     const projectId = text('projectId', 40);
-    if (projectId === null || (projectId && !uuid.safeParse(projectId).success)) {
-      return reply.code(400).send({ error: 'INVALID_FILTER' });
+    if (projectId === null || (projectId && !uuid.safeParse(projectId).success)) return { error: 'INVALID_FILTER' };
+    if (projectId && projectId !== restrictProjectId) {
+      if (restrictProjectId) return { error: 'FORBIDDEN_PROJECT' };
+      add('t.project_id = ?', projectId);
     }
-    if (projectId) add('t.project_id = ?', projectId);
 
     const status = text('status', 20);
     if (status === null || (status && !STATUSES.includes(status as (typeof STATUSES)[number]))) {
-      return reply.code(400).send({ error: 'INVALID_FILTER' });
+      return { error: 'INVALID_FILTER' };
     }
     if (status) add('t.status = ?', status);
 
     const client = text('client', 80);
-    if (client === null) return reply.code(400).send({ error: 'INVALID_FILTER' });
+    if (client === null) return { error: 'INVALID_FILTER' };
     if (client) add('p.client_label = ?', client);
 
     const page = text('page', 120);
-    if (page === null) return reply.code(400).send({ error: 'INVALID_FILTER' });
+    if (page === null) return { error: 'INVALID_FILTER' };
     if (page) add("t.page_url ILIKE '%' || ? || '%' ESCAPE '\\'", escapeLikePattern(page));
 
     const format = text('format', 10);
-    if (format === null || (format && format !== 'mobile' && format !== 'desktop')) {
-      return reply.code(400).send({ error: 'INVALID_FILTER' });
-    }
+    if (format === null || (format && format !== 'mobile' && format !== 'desktop')) return { error: 'INVALID_FILTER' };
     if (format === 'mobile') clauses.push('t.viewport_width < 768');
     if (format === 'desktop') clauses.push('t.viewport_width >= 768');
 
@@ -649,23 +683,24 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     // Keyset rather than OFFSET: a ticket filed while the operator pages must
     // not shift the window and hide a row.
     const cursor = text('cursor', 80);
-    if (cursor === null) return reply.code(400).send({ error: 'INVALID_FILTER' });
+    if (cursor === null) return { error: 'INVALID_FILTER' };
     const paged = [...clauses];
     if (cursor) {
       const [createdAt, id] = cursor.split('|');
       if (!createdAt || !id || Number.isNaN(Date.parse(createdAt)) || !uuid.safeParse(id).success) {
-        return reply.code(400).send({ error: 'INVALID_FILTER' });
+        return { error: 'INVALID_FILTER' };
       }
       values.push(createdAt, id);
       paged.push(`(t.created_at, t.id) < ($${values.length - 1}::timestamptz, $${values.length})`);
     }
 
     values.push(limit + 1);
-    const rows = await db.query<{ id: string; createdAt: string }>(
+    const rows = await db.query<TicketRow>(
       `SELECT t.id, t.project_id AS "projectId", p.name AS "projectName", p.client_label AS "clientLabel",
               t.text, t.response, t.reply_text AS "replyText", t.status, t.page_url AS "pageUrl", t.anchor,
               t.viewport_width AS "viewportWidth", t.diagnostics, t.screenshot_id AS "screenshotId",
-              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              (SELECT COUNT(*) FROM ticket_comments c WHERE c.ticket_id = t.id) AS "commentCount"
        FROM tickets t JOIN projects p ON p.id = t.project_id
        ${paged.length ? `WHERE ${paged.join(' AND ')}` : ''}
        ORDER BY t.created_at DESC, t.id DESC
@@ -675,13 +710,22 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
 
     // One row over the limit is fetched purely to know whether more exist.
     const hasMore = rows.rows.length > limit;
-    const tickets = hasMore ? rows.rows.slice(0, limit) : rows.rows;
+    const tickets = (hasMore ? rows.rows.slice(0, limit) : rows.rows).map((row) => ({
+      ...row,
+      commentCount: Number(row.commentCount ?? 0),
+    }));
     const last = tickets[tickets.length - 1];
     return {
       tickets,
       total: Number(totals.rows[0]?.total ?? tickets.length),
       nextCursor: hasMore && last ? `${new Date(last.createdAt).toISOString()}|${last.id}` : null,
     };
+  }
+
+  app.get('/api/tickets', { preHandler: requireAdmin }, async (req, reply) => {
+    const page = await ticketPage(req.query as Record<string, unknown>, null);
+    if ('error' in page) return reply.code(400).send({ error: page.error });
+    return page;
   });
 
   app.patch('/api/tickets/:id', { preHandler: requireAdminWrite }, async (req, reply) => {
@@ -699,6 +743,284 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     const row = rows.rows[0];
     if (!row) return reply.code(404).send({ error: 'NOT_FOUND' });
     return { id, status: row.status, response: row.response, replyText: row.replyText };
+  });
+
+  // ------------------------------------------------------- ticket work log
+
+  const COMMENT_COLUMNS = `id, author, author_label AS "authorLabel", body, visibility,
+                           status_from AS "statusFrom", status_to AS "statusTo", created_at AS "createdAt"`;
+
+  async function loadComments(ticketId: string) {
+    const rows = await db.query(
+      `SELECT ${COMMENT_COLUMNS} FROM ticket_comments WHERE ticket_id = $1 ORDER BY created_at, id`,
+      [ticketId],
+    );
+    return rows.rows;
+  }
+
+  /**
+   * Appends one entry to a ticket's work log. A comment marked `reviewer` is
+   * also written to `tickets.reply_text`, which is the single field the widget
+   * reads: publishing an answer stays one deliberate act, and an internal
+   * comment can never become visible after the fact.
+   */
+  async function addComment(input: {
+    ticketId: string;
+    author: 'admin' | 'agent';
+    authorLabel: string;
+    body: string;
+    visibility: 'internal' | 'reviewer';
+    statusFrom?: string | null;
+    statusTo?: string | null;
+  }) {
+    const id = randomUUID();
+    const rows = await db.query(
+      `INSERT INTO ticket_comments(id, ticket_id, author, author_label, body, visibility, status_from, status_to)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING ${COMMENT_COLUMNS}`,
+      [
+        id,
+        input.ticketId,
+        input.author,
+        input.authorLabel,
+        input.body,
+        input.visibility,
+        input.statusFrom ?? null,
+        input.statusTo ?? null,
+      ],
+    );
+    if (input.visibility === 'reviewer') {
+      await db.query('UPDATE tickets SET reply_text = $2, updated_at = now() WHERE id = $1', [
+        input.ticketId,
+        input.body,
+      ]);
+    }
+    return rows.rows[0];
+  }
+
+  /** The ticket as an operator or an agent reads it, or null when out of scope. */
+  async function loadTicket(id: string, restrictProjectId: string | null) {
+    const rows = await db.query<{ id: string; status: string }>(
+      `SELECT t.id, t.project_id AS "projectId", p.name AS "projectName", p.client_label AS "clientLabel",
+              t.text, t.response, t.reply_text AS "replyText", t.status, t.page_url AS "pageUrl", t.anchor,
+              t.viewport_width AS "viewportWidth", t.diagnostics, t.screenshot_id AS "screenshotId",
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+       FROM tickets t JOIN projects p ON p.id = t.project_id
+       WHERE t.id = $1 ${restrictProjectId ? 'AND t.project_id = $2' : ''}`,
+      restrictProjectId ? [id, restrictProjectId] : [id],
+    );
+    return rows.rows[0] ?? null;
+  }
+
+  app.get('/api/tickets/:id/comments', { preHandler: requireAdmin }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    if (!(await loadTicket(id, null))) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return { comments: await loadComments(id) };
+  });
+
+  app.post('/api/tickets/:id/comments', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = commentInput.safeParse(req.body);
+    if (!parsed.success || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    if (!(await loadTicket(id, null))) return reply.code(404).send({ error: 'NOT_FOUND' });
+    const comment = await addComment({
+      ticketId: id,
+      author: 'admin',
+      authorLabel: 'Équipe',
+      body: parsed.data.body,
+      visibility: parsed.data.visibility ?? 'internal',
+    });
+    return reply.code(201).send(comment);
+  });
+
+  // --------------------------------------------------------- agent tokens
+
+  app.get('/api/agent-tokens', { preHandler: requireAdmin }, async () => {
+    const rows = await db.query(
+      `SELECT a.id, a.label, a.scope, a.project_id AS "projectId", p.name AS "projectName",
+              a.created_at AS "createdAt", a.last_used_at AS "lastUsedAt", a.revoked_at AS "revokedAt"
+       FROM agent_tokens a LEFT JOIN projects p ON p.id = a.project_id
+       ORDER BY a.created_at DESC`,
+    );
+    return { tokens: rows.rows };
+  });
+
+  app.post('/api/agent-tokens', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const parsed = agentTokenInput.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    if (parsed.data.projectId) {
+      const project = await db.query('SELECT 1 FROM projects WHERE id = $1', [parsed.data.projectId]);
+      if (!project.rows.length) return reply.code(404).send({ error: 'NOT_FOUND' });
+    }
+    // Prefixed so the secret is recognisable in a config file and greppable in a
+    // leak; only the digest is stored, and the secret is shown exactly once.
+    const token = `rda_${randomBytes(32).toString('base64url')}`;
+    const id = randomUUID();
+    await db.query(
+      'INSERT INTO agent_tokens(id, project_id, token_hash, label, scope) VALUES ($1, $2, $3, $4, $5)',
+      [id, parsed.data.projectId ?? null, hashToken(token), parsed.data.label ?? '', parsed.data.scope ?? 'write'],
+    );
+    return reply.code(201).send({ id, token, scope: parsed.data.scope ?? 'write' });
+  });
+
+  app.post('/api/agent-tokens/:id/revoke', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const rows = await db.query<{ id: string }>(
+      'UPDATE agent_tokens SET revoked_at = COALESCE(revoked_at, now()) WHERE id = $1 RETURNING id',
+      [id],
+    );
+    if (!rows.rows.length) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return reply.code(204).send();
+  });
+
+  // ------------------------------------------------------------- agent API
+
+  /**
+   * Machine callers authenticate with a bearer token and nothing else: no
+   * cookie, so no CSRF surface, and no Origin requirement since an agent is not
+   * a browser. A `read` token is refused on every write, and a project-scoped
+   * token can only ever see its own project's tickets and uploads.
+   */
+  function requireAgent(need: 'read' | 'write') {
+    return async (req: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      const authorization = req.headers.authorization;
+      if (!authorization?.startsWith('Bearer ')) {
+        return reply.code(401).send({ error: 'UNAUTHORIZED' });
+      }
+      const token = authorization.slice('Bearer '.length).trim();
+      if (!token || token.length > 200) return reply.code(401).send({ error: 'UNAUTHORIZED' });
+      const tokenHash = hashToken(token);
+      if (await overLimit(`agent:${tokenHash}`, config.agentRequestsPerMinute)) {
+        return reply.code(429).send({ error: 'RATE_LIMITED' });
+      }
+      const rows = await db.query<{ id: string; project_id: string | null; scope: 'read' | 'write'; label: string }>(
+        `UPDATE agent_tokens SET last_used_at = now()
+         WHERE token_hash = $1 AND revoked_at IS NULL
+         RETURNING id, project_id, scope, label`,
+        [tokenHash],
+      );
+      const row = rows.rows[0];
+      if (!row) return reply.code(401).send({ error: 'UNAUTHORIZED' });
+      if (need === 'write' && row.scope !== 'write') return reply.code(403).send({ error: 'READ_ONLY_TOKEN' });
+      req.agentGrant = { id: row.id, projectId: row.project_id, scope: row.scope, label: row.label, tokenHash };
+    };
+  }
+
+  /** What this token can see: its scope, and the projects with their backlog. */
+  app.get('/api/agent/context', { preHandler: requireAgent('read') }, async (req) => {
+    const grant = req.agentGrant!;
+    const rows = await db.query(
+      `SELECT p.id, p.name, p.client_label AS "clientLabel",
+              COUNT(t.id) FILTER (WHERE t.status = 'TODO') AS "todo",
+              COUNT(t.id) FILTER (WHERE t.status = 'IN_PROGRESS') AS "inProgress",
+              COUNT(t.id) FILTER (WHERE t.status = 'REVIEW') AS "review",
+              COUNT(t.id) FILTER (WHERE t.status = 'DONE') AS "done"
+       FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
+       ${grant.projectId ? 'WHERE p.id = $1' : ''}
+       GROUP BY p.id ORDER BY p.created_at`,
+      grant.projectId ? [grant.projectId] : [],
+    );
+    return {
+      token: { label: grant.label, scope: grant.scope, projectId: grant.projectId },
+      statuses: STATUSES,
+      projects: rows.rows.map((row) => {
+        const counts = row as Record<string, string>;
+        return {
+          ...row,
+          todo: Number(counts.todo),
+          inProgress: Number(counts.inProgress),
+          review: Number(counts.review),
+          done: Number(counts.done),
+        };
+      }),
+    };
+  });
+
+  app.get('/api/agent/tickets', { preHandler: requireAgent('read') }, async (req, reply) => {
+    const page = await ticketPage(req.query as Record<string, unknown>, req.agentGrant!.projectId);
+    if ('error' in page) {
+      return reply.code(page.error === 'FORBIDDEN_PROJECT' ? 403 : 400).send({ error: page.error });
+    }
+    return page;
+  });
+
+  app.get('/api/agent/tickets/:id', { preHandler: requireAgent('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const ticket = await loadTicket(id, req.agentGrant!.projectId);
+    if (!ticket) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return { ...ticket, comments: await loadComments(id) };
+  });
+
+  app.post('/api/agent/tickets/:id/comments', { preHandler: requireAgent('write') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = commentInput.safeParse(req.body);
+    if (!parsed.success || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const grant = req.agentGrant!;
+    if (!(await loadTicket(id, grant.projectId))) return reply.code(404).send({ error: 'NOT_FOUND' });
+    const comment = await addComment({
+      ticketId: id,
+      author: 'agent',
+      authorLabel: grant.label || 'Agent',
+      body: parsed.data.body,
+      visibility: parsed.data.visibility ?? 'internal',
+    });
+    return reply.code(201).send(comment);
+  });
+
+  /**
+   * The call an agent makes when it has finished a ticket: move the status and
+   * say what was done, in one request. The comment is recorded with the status
+   * transition attached, so the log reads as a history rather than a pile of
+   * notes.
+   */
+  app.patch('/api/agent/tickets/:id', { preHandler: requireAgent('write') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = agentTicketPatch.safeParse(req.body);
+    if (!parsed.success || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const grant = req.agentGrant!;
+    const before = await loadTicket(id, grant.projectId);
+    if (!before) return reply.code(404).send({ error: 'NOT_FOUND' });
+    const status = parsed.data.status ?? before.status;
+    if (parsed.data.status && parsed.data.status !== before.status) {
+      await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, parsed.data.status]);
+    }
+    const body = parsed.data.comment?.trim();
+    const comment = body
+      ? await addComment({
+          ticketId: id,
+          author: 'agent',
+          authorLabel: grant.label || 'Agent',
+          body,
+          visibility: parsed.data.visibility ?? 'internal',
+          statusFrom: before.status,
+          statusTo: status,
+        })
+      : null;
+    return { id, status, previousStatus: before.status, comment };
+  });
+
+  app.get('/api/agent/uploads/:id', { preHandler: requireAgent('read') }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const grant = req.agentGrant!;
+    const rows = await db.query<{ storage_key: string; mime: string }>(
+      `SELECT storage_key, mime FROM uploads WHERE id = $1 ${grant.projectId ? 'AND project_id = $2' : ''}`,
+      grant.projectId ? [id, grant.projectId] : [id],
+    );
+    const row = rows.rows[0];
+    if (!row) return reply.code(404).send({ error: 'NOT_FOUND' });
+    let object;
+    try {
+      object = await store.get(row.storage_key);
+    } catch (error) {
+      req.log.error({ err: error }, 'upload fetch failed');
+      return reply.code(502).send({ error: 'STORAGE_UNAVAILABLE' });
+    }
+    if (!object) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return reply.type(row.mime).header('Cache-Control', 'private, no-store').send(object.body);
   });
 
   app.addHook('onClose', async () => {

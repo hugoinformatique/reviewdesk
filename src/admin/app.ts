@@ -25,6 +25,26 @@ type Ticket = {
   createdAt: string;
 };
 type ReviewLink = { id: string; label: string; createdAt: string; revokedAt: string | null; lastUsedAt: string | null };
+type Comment = {
+  id: string;
+  author: 'admin' | 'agent';
+  authorLabel: string;
+  body: string;
+  visibility: 'internal' | 'reviewer';
+  statusFrom: string | null;
+  statusTo: string | null;
+  createdAt: string;
+};
+type AgentToken = {
+  id: string;
+  label: string;
+  scope: 'read' | 'write';
+  projectId: string | null;
+  projectName: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+};
 
 const $ = <T extends Element>(selector: string) => document.querySelector(selector) as T;
 
@@ -377,6 +397,8 @@ function openTicket(id: string) {
     ` · ${viewport.width}×${viewport.height}`;
 
   const select = document.createElement('select');
+  // Identified because the pane now holds a second select (the comment's scope).
+  select.id = 'ticket-status';
   for (const [value, label] of Object.entries(STATUS_LABELS)) {
     const option = document.createElement('option');
     option.value = value;
@@ -451,6 +473,12 @@ function openTicket(id: string) {
   head.className = 'detail-head';
   head.append(close, eyebrow, heading);
 
+  // The work log: what the team and the connected agents have done on this
+  // ticket. Loaded after the pane paints, so opening a ticket stays instant.
+  const thread = document.createElement('div');
+  thread.className = 'thread';
+  void renderThread(ticket.id, thread);
+
   const main = document.createElement('div');
   main.className = 'detail-main';
   main.append(
@@ -458,6 +486,7 @@ function openTicket(id: string) {
     labelled('Réponse visible par le reviewer', reply),
     labelled('Réponse interne', textarea),
     save,
+    thread,
   );
 
   const side = document.createElement('div');
@@ -474,6 +503,101 @@ function openTicket(id: string) {
   }
 
   detail.append(head, main, side);
+}
+
+// --------------------------------------------------------------- work log
+
+/**
+ * One ticket's history: every comment left by the team or by a connected agent,
+ * with the status move that came with it. This is where an operator reads what
+ * an AI agent did without opening the code.
+ */
+async function renderThread(ticketId: string, host: HTMLElement) {
+  const title = document.createElement('div');
+  title.className = 'eyebrow';
+  title.textContent = 'Journal';
+  host.replaceChildren(title);
+
+  let comments: Comment[] = [];
+  try {
+    comments = ((await api(`/api/tickets/${ticketId}/comments`)) as { comments: Comment[] }).comments;
+  } catch {
+    const failed = document.createElement('p');
+    failed.className = 'thread-empty';
+    failed.textContent = 'Journal indisponible.';
+    host.append(failed);
+    return;
+  }
+
+  if (!comments.length) {
+    const empty = document.createElement('p');
+    empty.className = 'thread-empty';
+    empty.textContent = 'Rien encore. Les agents connectés écrivent ici ce qu’ils ont fait.';
+    host.append(empty);
+  }
+  for (const comment of comments) {
+    const entry = document.createElement('article');
+    entry.className = `comment ${comment.author}`;
+    const meta = document.createElement('div');
+    meta.className = 'comment-meta';
+    const who = document.createElement('strong');
+    who.textContent = comment.authorLabel || (comment.author === 'agent' ? 'Agent' : 'Équipe');
+    const when = document.createElement('span');
+    when.textContent = formatAge(comment.createdAt);
+    when.title = formatDate(comment.createdAt);
+    meta.append(who, when);
+    if (comment.visibility === 'reviewer') {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = 'Visible par le client';
+      meta.append(tag);
+    }
+    if (comment.statusTo && comment.statusTo !== comment.statusFrom) {
+      const move = document.createElement('span');
+      move.className = 'tag move';
+      move.textContent = `${STATUS_LABELS[comment.statusFrom ?? ''] ?? comment.statusFrom} → ${STATUS_LABELS[comment.statusTo] ?? comment.statusTo}`;
+      meta.append(move);
+    }
+    const body = document.createElement('p');
+    // textContent, never innerHTML: an agent writes this text.
+    body.textContent = comment.body;
+    entry.append(meta, body);
+    host.append(entry);
+  }
+
+  const draft = document.createElement('textarea');
+  draft.className = 'comment-draft';
+  draft.maxLength = 4000;
+  draft.placeholder = 'Ajouter au journal…';
+  const visibility = document.createElement('select');
+  visibility.append(new Option('Interne', 'internal'), new Option('Visible par le client', 'reviewer'));
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'btn btn-ghost';
+  add.textContent = 'Ajouter';
+  add.onclick = async () => {
+    const body = draft.value.trim();
+    if (!body) return;
+    add.disabled = true;
+    try {
+      await api(`/api/tickets/${ticketId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body, visibility: visibility.value }),
+      });
+      // A published comment becomes the reviewer's reply, so the pane is rebuilt
+      // from the server rather than patched in place.
+      await loadTickets();
+      openTicket(ticketId);
+      toast('Commentaire ajouté.');
+    } catch {
+      toast('Commentaire impossible.', 'error');
+      add.disabled = false;
+    }
+  };
+  const actions = document.createElement('div');
+  actions.className = 'comment-actions';
+  actions.append(visibility, add);
+  host.append(draft, actions);
 }
 
 // ------------------------------------------------------------ prompt export
@@ -671,6 +795,108 @@ $('#new-link').addEventListener('click', async () => {
       `<script src="${location.origin}/widget.js" data-api="${location.origin}" ` +
       `data-project="${selectedProject}" data-token="${link.token}"></script>`;
     await renderReviewLinks();
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// ------------------------------------------------------------ agent access
+
+async function renderAgentTokens() {
+  const container = $('#agent-list');
+  container.replaceChildren();
+  const { tokens } = (await api('/api/agent-tokens')) as { tokens: AgentToken[] };
+  if (!tokens.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'Aucun jeton agent.';
+    container.append(empty);
+    return;
+  }
+  for (const token of tokens) {
+    const row = document.createElement('div');
+    row.className = 'link-row';
+    const description = document.createElement('span');
+    const scope = token.scope === 'read' ? 'lecture seule' : 'lecture/écriture';
+    const where = token.projectName ?? 'tous les projets';
+    const used = token.lastUsedAt ? `utilisé ${formatAge(token.lastUsedAt)}` : 'jamais utilisé';
+    description.textContent = token.revokedAt
+      ? `${token.label || 'Sans libellé'} — révoqué ${formatDate(token.revokedAt)}`
+      : `${token.label || 'Sans libellé'} — ${scope} · ${where} · ${used}`;
+    row.append(description);
+    if (!token.revokedAt) {
+      const revoke = document.createElement('button');
+      revoke.type = 'button';
+      revoke.className = 'btn btn-danger';
+      revoke.textContent = 'Révoquer';
+      revoke.onclick = async () => {
+        revoke.disabled = true;
+        await api(`/api/agent-tokens/${token.id}/revoke`, { method: 'POST' });
+        await renderAgentTokens();
+      };
+      row.append(revoke);
+    }
+    container.append(row);
+  }
+}
+
+/**
+ * Paste-ready MCP configuration, so connecting an agent is copy, paste, done.
+ * The server runs from a checkout of this repository (`npm run build`), which is
+ * why the command is a path rather than a published package name.
+ */
+function mcpInstructions(token: string): string {
+  const server = '/chemin/vers/reviewdesk/dist/mcp.js';
+  const config = {
+    mcpServers: {
+      reviewdesk: {
+        command: 'node',
+        args: [server],
+        env: { REVIEWDESK_URL: location.origin, REVIEWDESK_TOKEN: token },
+      },
+    },
+  };
+  return (
+    `Jeton (affiché une seule fois) :\n${token}\n\n` +
+    `Remplacez ${server} par le chemin du dépôt ReviewDesk, après un « npm run build ».\n\n` +
+    `Claude Code, en une commande :\n` +
+    `claude mcp add reviewdesk --env REVIEWDESK_URL=${location.origin} --env REVIEWDESK_TOKEN=${token} -- node ${server}\n\n` +
+    `Ou dans .mcp.json / claude_desktop_config.json :\n${JSON.stringify(config, null, 2)}\n\n` +
+    `Sans MCP, l'API directement :\n` +
+    `curl -H "Authorization: Bearer ${token}" "${location.origin}/api/agent/tickets?status=TODO"`
+  );
+}
+
+$('#agent-access').addEventListener('click', async () => {
+  $<HTMLTextAreaElement>('#agent-output').value = '';
+  const select = $<HTMLSelectElement>('#agent-project');
+  select.replaceChildren(new Option('Tous les projets', ''));
+  for (const project of projects) select.append(new Option(project.name, project.id));
+  select.value = selectedProject;
+  $('#agent-list').replaceChildren();
+  await renderAgentTokens();
+  $<HTMLDialogElement>('#agent-dialog').showModal();
+});
+
+$('#agent-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget as HTMLFormElement;
+  const button = $<HTMLButtonElement>('#new-agent-token');
+  const fields = new FormData(form);
+  const projectId = String(fields.get('projectId') ?? '');
+  button.disabled = true;
+  try {
+    const created = (await api('/api/agent-tokens', {
+      method: 'POST',
+      body: JSON.stringify({
+        label: String(fields.get('label') ?? '').trim(),
+        scope: fields.get('scope'),
+        ...(projectId ? { projectId } : {}),
+      }),
+    })) as { token: string };
+    $<HTMLTextAreaElement>('#agent-output').value = mcpInstructions(created.token);
+    await renderAgentTokens();
+  } catch {
+    toast('Création du jeton impossible.', 'error');
   } finally {
     button.disabled = false;
   }

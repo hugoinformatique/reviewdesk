@@ -104,6 +104,40 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS tickets_created ON tickets(created_at DESC, id DESC);
     `,
   },
+  {
+    id: '006_agent_access',
+    sql: `
+      -- A machine credential, deliberately separate from both the human admin
+      -- password and the reviewer links: it is revocable on its own, scoped to
+      -- one project or to all of them, and read-only unless granted otherwise.
+      CREATE TABLE IF NOT EXISTS agent_tokens (
+        id text PRIMARY KEY,
+        project_id text REFERENCES projects(id) ON DELETE CASCADE,
+        token_hash text UNIQUE NOT NULL,
+        label text NOT NULL DEFAULT '',
+        scope text NOT NULL DEFAULT 'write' CHECK (scope IN ('read','write')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        last_used_at timestamptz,
+        revoked_at timestamptz
+      );
+      CREATE INDEX IF NOT EXISTS agent_tokens_project ON agent_tokens(project_id, created_at DESC);
+      -- The work log of a ticket. Internal by default; a comment published to
+      -- the reviewer also lands in tickets.reply_text, which is what the widget
+      -- reads, so there is exactly one place the client's answer comes from.
+      CREATE TABLE IF NOT EXISTS ticket_comments (
+        id text PRIMARY KEY,
+        ticket_id text NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+        author text NOT NULL CHECK (author IN ('admin','agent')),
+        author_label text NOT NULL DEFAULT '',
+        body text NOT NULL,
+        visibility text NOT NULL DEFAULT 'internal' CHECK (visibility IN ('internal','reviewer')),
+        status_from text,
+        status_to text,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS ticket_comments_ticket ON ticket_comments(ticket_id, created_at);
+    `,
+  },
 ];
 
 const BOOTSTRAP_SQL = `
