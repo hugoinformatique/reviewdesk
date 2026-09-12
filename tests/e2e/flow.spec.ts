@@ -100,6 +100,28 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('.comment')).toContainText('Vu avec le client');
   await expect(page.locator('.comment-meta')).toContainText('Équipe');
 
+  // ------------------------------------------------------- the overview
+
+  await page.getByRole('button', { name: 'Vue d’ensemble' }).click();
+  const kpis = page.locator('.kpi');
+  await expect(kpis.first()).toContainText('À traiter');
+  // One ticket was filed, none resolved: the figures must say exactly that.
+  await expect(kpis.first().locator('.kpi-value')).toHaveText('1');
+  await expect(kpis.nth(3).locator('.kpi-value')).toHaveText('0');
+  await expect(page.locator('.panel-projects')).toContainText(projectName);
+  await expect(page.locator('.panel-pages')).toContainText('/demo.html');
+  // The feed names who moved and on which ticket, not the comment's prose.
+  await expect(page.locator('.panel-feed')).toContainText('Équipe');
+  await expect(page.locator('.panel-feed')).toContainText('Rendre ce bouton plus visible sur mobile');
+  await expect(page.locator('.chart rect')).not.toHaveCount(0);
+
+  // The period is part of the question asked, so changing it re-asks it.
+  await page.locator('#period').selectOption('7');
+  await expect(page.locator('.panel-chart')).toContainText('7 derniers jours');
+
+  await page.getByRole('button', { name: 'Retours', exact: true }).click();
+  await expect(page.locator('.ticket')).toHaveCount(1);
+
   // -------------------------------------------------- an agent token to mint
 
   await page.getByRole('button', { name: 'Accès agents' }).click();

@@ -745,6 +745,129 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     return { id, status: row.status, response: row.response, replyText: row.replyText };
   });
 
+  // ----------------------------------------------------------------- stats
+
+  /**
+   * Everything the overview draws, in one request. Scoped to a project when the
+   * operator has one selected, so the numbers always describe what the rest of
+   * the screen is about. `days` bounds the period; the same length immediately
+   * before it is measured too, which is what makes a delta meaningful.
+   */
+  app.get('/api/stats', { preHandler: requireAdmin }, async (req, reply) => {
+    const query = req.query as Record<string, unknown>;
+    const projectId = typeof query.projectId === 'string' && query.projectId ? query.projectId : null;
+    if (projectId && !uuid.safeParse(projectId).success) return reply.code(400).send({ error: 'INVALID_FILTER' });
+    const days = Number(query.days ?? 30);
+    if (![7, 30, 90].includes(days)) return reply.code(400).send({ error: 'INVALID_FILTER' });
+
+    const since = new Date(Date.now() - days * 86_400_000);
+    const previousSince = new Date(Date.now() - 2 * days * 86_400_000);
+    // One scope clause, reused: `$1 IS NULL` keeps a single SQL shape for both
+    // "all projects" and one project rather than two branches per query.
+    const scope = 't.project_id = COALESCE($1, t.project_id)';
+    const params = [projectId] as unknown[];
+
+    const statuses = await db.query<{ status: string; count: string }>(
+      `SELECT status, COUNT(*) AS count FROM tickets t WHERE ${scope} GROUP BY status`,
+      params,
+    );
+
+    const totals = await db.query<Record<string, string | null>>(
+      `SELECT
+         COUNT(*) FILTER (WHERE t.created_at >= $2) AS received,
+         COUNT(*) FILTER (WHERE t.created_at >= $3 AND t.created_at < $2) AS "receivedPrevious",
+         COUNT(*) FILTER (WHERE t.status = 'DONE' AND t.updated_at >= $2) AS resolved,
+         COUNT(*) FILTER (WHERE t.status = 'DONE' AND t.updated_at >= $3 AND t.updated_at < $2) AS "resolvedPrevious",
+         AVG(EXTRACT(EPOCH FROM (t.updated_at - t.created_at)))
+           FILTER (WHERE t.status = 'DONE' AND t.updated_at >= $2) AS "resolutionSeconds",
+         COUNT(*) FILTER (WHERE t.status <> 'DONE' AND t.created_at < now() - interval '7 days') AS stale,
+         MIN(t.created_at) FILTER (WHERE t.status = 'TODO') AS "oldestTodo"
+       FROM tickets t WHERE ${scope}`,
+      [...params, since, previousSince],
+    );
+
+    // Two grouped queries rather than a generate_series join: the gaps are
+    // filled client-side, where the chart already knows the calendar it draws.
+    const receivedDaily = await db.query<{ day: string; count: string }>(
+      `SELECT to_char(t.created_at, 'YYYY-MM-DD') AS day, COUNT(*) AS count
+       FROM tickets t WHERE ${scope} AND t.created_at >= $2 GROUP BY 1`,
+      [...params, since],
+    );
+    const resolvedDaily = await db.query<{ day: string; count: string }>(
+      `SELECT to_char(t.updated_at, 'YYYY-MM-DD') AS day, COUNT(*) AS count
+       FROM tickets t WHERE ${scope} AND t.status = 'DONE' AND t.updated_at >= $2 GROUP BY 1`,
+      [...params, since],
+    );
+
+    const projectRows = await db.query<Record<string, string>>(
+      `SELECT p.id, p.name, p.client_label AS "clientLabel",
+              COUNT(t.id) FILTER (WHERE t.status = 'TODO') AS "todo",
+              COUNT(t.id) FILTER (WHERE t.status = 'IN_PROGRESS') AS "inProgress",
+              COUNT(t.id) FILTER (WHERE t.status = 'REVIEW') AS "review",
+              COUNT(t.id) FILTER (WHERE t.status = 'DONE') AS "done",
+              COUNT(t.id) AS "total"
+       FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
+       WHERE p.id = COALESCE($1, p.id)
+       GROUP BY p.id ORDER BY "todo" DESC, "total" DESC, p.name`,
+      params,
+    );
+
+    const pages = await db.query<{ pageUrl: string; count: string; open: string }>(
+      `SELECT t.page_url AS "pageUrl", COUNT(*) AS count,
+              COUNT(*) FILTER (WHERE t.status <> 'DONE') AS open
+       FROM tickets t WHERE ${scope} AND t.created_at >= $2
+       GROUP BY 1 ORDER BY count DESC, 1 LIMIT 6`,
+      [...params, since],
+    );
+
+    const activity = await db.query(
+      `SELECT c.id, c.author, c.author_label AS "authorLabel", c.visibility,
+              c.status_from AS "statusFrom", c.status_to AS "statusTo", c.created_at AS "createdAt",
+              t.id AS "ticketId", t.text AS "ticketText"
+       FROM ticket_comments c JOIN tickets t ON t.id = c.ticket_id
+       WHERE ${scope}
+       ORDER BY c.created_at DESC LIMIT 8`,
+      params,
+    );
+
+    const byStatus = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<string, number>;
+    for (const row of statuses.rows) byStatus[row.status] = Number(row.count);
+    const row = totals.rows[0] ?? {};
+    const number = (value: string | null | undefined) => Number(value ?? 0);
+
+    return {
+      days,
+      projectId,
+      byStatus,
+      total: Object.values(byStatus).reduce((sum, count) => sum + count, 0),
+      received: number(row.received),
+      receivedPrevious: number(row.receivedPrevious),
+      resolved: number(row.resolved),
+      resolvedPrevious: number(row.resolvedPrevious),
+      // Null rather than 0 when nothing was resolved: "no data" and "instant" are
+      // not the same statement, and the card says so.
+      resolutionSeconds: row.resolutionSeconds === null || row.resolutionSeconds === undefined
+        ? null
+        : Math.round(Number(row.resolutionSeconds)),
+      stale: number(row.stale),
+      oldestTodo: row.oldestTodo ?? null,
+      daily: {
+        received: Object.fromEntries(receivedDaily.rows.map((day) => [day.day, Number(day.count)])),
+        resolved: Object.fromEntries(resolvedDaily.rows.map((day) => [day.day, Number(day.count)])),
+      },
+      projects: projectRows.rows.map((project) => ({
+        ...project,
+        todo: Number(project.todo),
+        inProgress: Number(project.inProgress),
+        review: Number(project.review),
+        done: Number(project.done),
+        total: Number(project.total),
+      })),
+      pages: pages.rows.map((page) => ({ ...page, count: Number(page.count), open: Number(page.open) })),
+      activity: activity.rows,
+    };
+  });
+
   // ------------------------------------------------------- ticket work log
 
   const COMMENT_COLUMNS = `id, author, author_label AS "authorLabel", body, visibility,
