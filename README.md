@@ -54,7 +54,7 @@ du DOM** et rejouable : depuis l'administration, un lien rouvre la
 préproduction avec l'épingle reposée exactement au même endroit.
 
 Et côté client, il n'y a rien à installer, rien à comprendre : un bouton
-« Donner mon avis », deux étapes, et il peut relire les réponses de l'équipe
+« Faire un retour », deux étapes, et il peut relire les réponses de l'équipe
 au même endroit.
 
 ## Fonctionnalités
@@ -164,7 +164,7 @@ au moment où vous créez un lien reviewer.
 | `data-api` | `api` | origine du script | Origine de l'API ReviewDesk. |
 | `data-project` | `projectId` | — | UUID du projet. **Requis.** |
 | `data-token` | `token` | — | Secret du lien reviewer. **Requis.** |
-| `data-label` | `label` | `Donner mon avis` | Libellé du bouton flottant. |
+| `data-label` | `label` | `Faire un retour` | Libellé du bouton flottant. |
 | `data-position` | `position` | `bottom-right` | `bottom-right` ou `bottom-left`. |
 | `data-accent` | `accent` | `#4338ca` | Couleur d'accent, pour coller à la charte du site. |
 
@@ -180,7 +180,7 @@ appeler côté client, après le chargement du script :
     api: 'https://reviewdesk.example',
     projectId: 'UUID_DU_PROJET',
     token: 'SECRET_DU_LIEN_REVIEWER',
-    label: 'Donner mon avis',
+    label: 'Faire un retour',
     position: 'bottom-right',
   })
 </script>

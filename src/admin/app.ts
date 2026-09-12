@@ -374,7 +374,7 @@ function renderTickets() {
       const s2Body = el('div', 'empty-step-body');
       s2Body.append(
         el('strong', '', 'Tester l’expérience de review'),
-        el('p', '', 'Le client clique sur « Donner mon avis », pointe un élément et écrit son retour avec tags et captures.'),
+        el('p', '', 'Le client clique sur « Faire un retour », pointe un élément et écrit son retour avec tags et captures.'),
       );
       step2.append(s2Num, s2Body);
 
