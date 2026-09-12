@@ -345,17 +345,54 @@ function renderTickets() {
       const card = el('div', 'empty-onboarding-card');
       card.append(
         icon('i-code'),
-        el('h3', '', 'Installez le widget sur votre site'),
+        el('h3', '', 'Bienvenue sur votre espace de retours'),
         el(
           'p',
           '',
-          'Pour que votre client ou votre équipe puisse déposer des retours, ajoutez la balise script sur votre préproduction ou partagez un lien direct.',
+          'Votre projet est prêt. Suivez ces étapes simples pour lancer la phase de retours avec vos clients :',
         ),
       );
-      const cta = el('button', 'btn btn-primary', 'Installer le widget sur le site →');
-      cta.type = 'button';
-      cta.onclick = () => $<HTMLButtonElement>('#review-link').click();
-      card.append(cta);
+
+      const stepsList = el('div', 'empty-steps-list');
+
+      // Step 1: Install or share link
+      const step1 = el('div', 'empty-step-row');
+      const s1Num = el('span', 'empty-step-num', '1');
+      const s1Body = el('div', 'empty-step-body');
+      s1Body.append(
+        el('strong', '', 'Installer le widget ou partager un lien direct'),
+        el('p', '', 'Ajoutez le script sur votre site (HTML, React, Webflow...) ou envoyez le lien direct.'),
+      );
+      const s1Btn = el('button', 'btn btn-primary', 'Configurer l’installation →');
+      s1Btn.type = 'button';
+      s1Btn.onclick = () => $<HTMLButtonElement>('#review-link').click();
+      step1.append(s1Num, s1Body, s1Btn);
+
+      // Step 2: Test live
+      const step2 = el('div', 'empty-step-row');
+      const s2Num = el('span', 'empty-step-num', '2');
+      const s2Body = el('div', 'empty-step-body');
+      s2Body.append(
+        el('strong', '', 'Tester l’expérience de review'),
+        el('p', '', 'Le client clique sur « Donner mon avis », pointe un élément et écrit son retour avec tags et captures.'),
+      );
+      step2.append(s2Num, s2Body);
+
+      // Step 3: Connect AI agent
+      const step3 = el('div', 'empty-step-row');
+      const s3Num = el('span', 'empty-step-num', '3');
+      const s3Body = el('div', 'empty-step-body');
+      s3Body.append(
+        el('strong', '', 'Automatiser avec un agent IA (optionnel)'),
+        el('p', '', 'Branchez Claude Code, Cursor ou votre agent personnalisé pour traiter les retours.'),
+      );
+      const s3Btn = el('button', 'btn btn-secondary', 'Accès agents →');
+      s3Btn.type = 'button';
+      s3Btn.onclick = () => $<HTMLButtonElement>('#agent-access').click();
+      step3.append(s3Num, s3Body, s3Btn);
+
+      stepsList.append(step1, step2, step3);
+      card.append(stepsList);
       list.append(card);
     } else {
       list.append(
@@ -1501,6 +1538,38 @@ async function renderReviewLinks() {
     container.append(row);
   }
 }
+
+$('#copy-quick-link').addEventListener('click', async () => {
+  hideOnboardingPrompt();
+  if (!selectedProject) {
+    toast('Sélectionnez d’abord un projet dans la colonne de gauche.', 'error');
+    return;
+  }
+  const button = $<HTMLButtonElement>('#copy-quick-link');
+  button.disabled = true;
+  try {
+    let token = activeProjectToken;
+    if (!token) {
+      const link = (await api(`/api/projects/${selectedProject}/review-links`, { method: 'POST', body: '{}' })) as {
+        id: string;
+        token: string;
+        fragment: string;
+      };
+      token = link.token;
+      activeProjectToken = token;
+      activeProjectTokenId = link.id;
+      await refreshOnboarding();
+    }
+    const origin = projects.find((p) => p.id === selectedProject)?.origins[0] || location.origin;
+    const directUrl = `${origin}/#project=${selectedProject}&review=${token}`;
+    await navigator.clipboard.writeText(directUrl);
+    toast('Lien reviewer copié dans le presse-papiers !');
+  } catch {
+    toast('Impossible de copier le lien reviewer.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
 
 // Opening the dialog only reads. Minting a secret is a separate, deliberate
 // action, so revoking a link never requires creating another one first.

@@ -1928,20 +1928,78 @@ button.mobile-only, .scrim { display: none; }
 
 .empty-onboarding-card {
   display: grid;
-  gap: 12px;
-  max-width: 440px;
-  margin: 32px auto;
-  padding: 24px;
+  gap: 14px;
+  max-width: 520px;
+  margin: 28px auto;
+  padding: 28px;
   text-align: center;
   justify-items: center;
   border: 1px dashed var(--border-2);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.empty-onboarding-card .icon { width: 32px; height: 32px; color: var(--text-3); }
-.empty-onboarding-card h3 { margin: 0; font-size: 15px; font-weight: 580; color: var(--text); }
-.empty-onboarding-card p { margin: 0; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.empty-onboarding-card .icon { width: 34px; height: 34px; color: var(--accent); }
+.empty-onboarding-card h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+.empty-onboarding-card > p { margin: 0; font-size: 13px; color: var(--text-2); line-height: 1.5; max-width: 420px; }
+
+.empty-steps-list {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  text-align: left;
+}
+
+.empty-step-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.empty-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.empty-step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty-step-body strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 580;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.empty-step-body p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.empty-step-row .btn {
+  flex: none;
+  font-size: 12px;
+  padding: 6px 12px;
+}
 
 /* Onboarding checklist ------------------------------------------------------ */
 
