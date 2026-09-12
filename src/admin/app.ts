@@ -309,13 +309,37 @@ function renderTickets() {
   const list = $('#tickets');
   list.replaceChildren();
   if (!tickets.length) {
-    list.append(
-      emptyState(
-        'i-inbox',
-        'Aucun retour',
-        'Rien ne correspond à ces filtres. Élargissez la recherche, ou partagez un lien reviewer pour recevoir les premiers retours.',
-      ),
-    );
+    const statusVal = $<HTMLSelectElement>('#status').value;
+    const clientVal = $<HTMLSelectElement>('#client').value;
+    const formatVal = $<HTMLSelectElement>('#format').value;
+    const searchVal = $<HTMLInputElement>('#page-filter').value.trim();
+    const hasFilter = Boolean(statusVal || clientVal || formatVal || searchVal);
+
+    if (selectedProject && !hasFilter) {
+      const card = el('div', 'empty-onboarding-card');
+      card.append(
+        icon('i-code'),
+        el('h3', '', 'Installez le widget sur votre site'),
+        el(
+          'p',
+          '',
+          'Pour que votre client ou votre équipe puisse déposer des retours, ajoutez la balise script sur votre préproduction ou partagez un lien direct.',
+        ),
+      );
+      const cta = el('button', 'btn btn-primary', 'Installer le widget sur le site →');
+      cta.type = 'button';
+      cta.onclick = () => $<HTMLButtonElement>('#review-link').click();
+      card.append(cta);
+      list.append(card);
+    } else {
+      list.append(
+        emptyState(
+          'i-inbox',
+          'Aucun retour',
+          'Rien ne correspond à ces filtres. Élargissez la recherche, ou partagez un lien reviewer pour recevoir les premiers retours.',
+        ),
+      );
+    }
     return;
   }
   for (const ticket of tickets) {
@@ -1140,7 +1164,265 @@ $('#export-copy').addEventListener('click', async () => {
   }
 });
 
-// ------------------------------------------------------------- review links
+// ------------------------------------------------------------- code utilities
+
+/** Copy with a confirmation on the button itself, not in a toast far away. */
+async function copyButton(label: string, value: () => string) {
+  const button = el('button', 'btn btn-ghost copy');
+  button.type = 'button';
+  button.append(icon('i-copy'), document.createTextNode(label));
+  button.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(value());
+      button.classList.add('copied');
+      button.replaceChildren(icon('i-check'), document.createTextNode('Copié'));
+      setTimeout(() => {
+        button.classList.remove('copied');
+        button.replaceChildren(icon('i-copy'), document.createTextNode(label));
+      }, 1600);
+    } catch {
+      toast('Copie refusée par le navigateur. Sélectionnez le texte.', 'error');
+    }
+  };
+  return button;
+}
+
+function codeBlock(text: string, copyLabel = 'Copier') {
+  const block = el('div', 'code-block');
+  const pre = el('pre', 'code');
+  pre.textContent = text;
+  block.append(pre);
+  void copyButton(copyLabel, () => text).then((button) => block.append(button));
+  return block;
+}
+
+// ------------------------------------------------------------- review links & widget onboarding
+
+type WidgetPlatform = {
+  id: string;
+  name: string;
+  hint: string;
+  iconName: string;
+  where: string;
+  generate: (ctx: {
+    origin: string;
+    projectId: string;
+    token: string;
+    previewOrigin: string;
+    position: string;
+    theme: string;
+    label: string;
+  }) => string;
+};
+
+const WIDGET_PLATFORMS: WidgetPlatform[] = [
+  {
+    id: 'html',
+    name: 'HTML / Statique',
+    hint: 'Balise <script>',
+    iconName: 'i-code',
+    where: 'À coller juste avant la fermeture de </body> sur vos pages de test.',
+    generate: ({ origin, projectId, token, position, theme, label }) => {
+      const attrs = [
+        `src="${origin}/widget.js"`,
+        `data-api="${origin}"`,
+        `data-project="${projectId}"`,
+        `data-token="${token}"`,
+      ];
+      if (position !== 'bottom-right') attrs.push(`data-position="${position}"`);
+      if (theme !== 'auto') attrs.push(`data-theme="${theme}"`);
+      if (label.trim()) attrs.push(`data-label="${label.trim()}"`);
+      return `<!-- ReviewDesk — Widget de retour visuel -->\n<script\n  ${attrs.join('\n  ')}\n  defer>\n</script>`;
+    },
+  },
+  {
+    id: 'nextjs',
+    name: 'Next.js & React',
+    hint: 'app/layout.tsx',
+    iconName: 'i-code',
+    where: 'Dans app/layout.tsx (Next.js App Router) ou pages/_app.tsx. Hors production uniquement.',
+    generate: ({ origin, projectId, token, position, theme, label }) => {
+      const extra = [];
+      if (position !== 'bottom-right') extra.push(`            data-position="${position}"`);
+      if (theme !== 'auto') extra.push(`            data-theme="${theme}"`);
+      if (label.trim()) extra.push(`            data-label="${label.trim()}"`);
+      const extraStr = extra.length ? '\n' + extra.join('\n') : '';
+      return (
+        `import Script from 'next/script';\n\n` +
+        `export default function RootLayout({ children }: { children: React.ReactNode }) {\n` +
+        `  return (\n` +
+        `    <html lang="fr">\n` +
+        `      <body>\n` +
+        `        {children}\n` +
+        `        {process.env.NODE_ENV !== 'production' && (\n` +
+        `          <Script\n` +
+        `            src="${origin}/widget.js"\n` +
+        `            data-api="${origin}"\n` +
+        `            data-project="${projectId}"\n` +
+        `            data-token="${token}"${extraStr}\n` +
+        `            strategy="afterInteractive"\n` +
+        `          />\n` +
+        `        )}\n` +
+        `      </body>\n` +
+        `    </html>\n` +
+        `  );\n` +
+        `}`
+      );
+    },
+  },
+  {
+    id: 'cms',
+    name: 'Webflow / WordPress',
+    hint: 'Custom Code / Footer',
+    iconName: 'i-layout',
+    where: 'Dans les réglages de votre CMS > Code personnalisé (Footer / avant </body>).',
+    generate: ({ origin, projectId, token, position, theme, label }) => {
+      const attrs = [
+        `src="${origin}/widget.js"`,
+        `data-api="${origin}"`,
+        `data-project="${projectId}"`,
+        `data-token="${token}"`,
+      ];
+      if (position !== 'bottom-right') attrs.push(`data-position="${position}"`);
+      if (theme !== 'auto') attrs.push(`data-theme="${theme}"`);
+      if (label.trim()) attrs.push(`data-label="${label.trim()}"`);
+      return `<!-- ReviewDesk (Footer Code) -->\n<script\n  ${attrs.join('\n  ')}>\n</script>`;
+    },
+  },
+  {
+    id: 'direct',
+    name: 'Lien direct (sans code)',
+    hint: 'Zéro code dans le site',
+    iconName: 'i-link',
+    where: 'Partagez cette URL au client. Le token voyage dans le fragment d’URL sans toucher au code du site.',
+    generate: ({ previewOrigin, projectId, token }) =>
+      `${previewOrigin}/#project=${projectId}&review=${token}`,
+  },
+];
+
+let installWizardStep = 1;
+let currentPlatform: WidgetPlatform = WIDGET_PLATFORMS[0]!;
+let activeProjectToken = '';
+let activeProjectTokenId = '';
+let widgetOptPosition = 'bottom-right';
+let widgetOptTheme = 'auto';
+let widgetOptLabel = '';
+let widgetConnectionTimer: ReturnType<typeof setTimeout> | undefined;
+
+function applyInstallWizardStep() {
+  for (const section of document.querySelectorAll<HTMLElement>('.link-wizard-step')) {
+    section.hidden = Number(section.dataset.step) !== installWizardStep;
+  }
+  for (const item of document.querySelectorAll<HTMLElement>('#link-wizard-steps li')) {
+    const step = Number(item.dataset.step);
+    item.classList.toggle('done', step < installWizardStep);
+    item.classList.toggle('current', step === installWizardStep);
+  }
+  $<HTMLElement>('#link-wizard-back').hidden = installWizardStep === 1;
+  const next = $<HTMLButtonElement>('#link-wizard-next');
+  next.textContent = installWizardStep === 3 ? 'Terminé' : 'Continuer';
+  $('#link-dialog-title').textContent =
+    installWizardStep === 1
+      ? 'Installer le widget'
+      : installWizardStep === 2
+        ? `Intégration — ${currentPlatform.name}`
+        : 'Vérification de l’installation';
+}
+
+function renderPlatformPicker() {
+  const host = $('#widget-platform-picker');
+  host.replaceChildren();
+  for (const platform of WIDGET_PLATFORMS) {
+    const card = el('button', `platform-card ${currentPlatform.id === platform.id ? 'active' : ''}`);
+    card.type = 'button';
+    card.setAttribute('role', 'radio');
+    card.setAttribute('aria-checked', String(currentPlatform.id === platform.id));
+    const glyph = el('span', 'platform-glyph');
+    glyph.append(icon(platform.iconName));
+    card.append(glyph, el('strong', '', platform.name), el('span', 'platform-hint', platform.hint));
+    card.onclick = () => {
+      currentPlatform = platform;
+      renderPlatformPicker();
+      if (activeProjectToken) renderWidgetSnippet();
+    };
+    host.append(card);
+  }
+}
+
+function renderWidgetSnippet() {
+  const container = $('#widget-snippet-container');
+  container.replaceChildren();
+  const project = projects.find((p) => p.id === selectedProject);
+  const origin = location.origin;
+  const previewOrigin = project?.origins[0] || origin;
+  const token = activeProjectToken || 'VOTRE_JETON_REVIEWER';
+
+  $('#link-step-desc').textContent = currentPlatform.where;
+
+  const codeText = currentPlatform.generate({
+    origin,
+    projectId: selectedProject,
+    token,
+    previewOrigin,
+    position: widgetOptPosition,
+    theme: widgetOptTheme,
+    label: widgetOptLabel,
+  });
+
+  container.append(codeBlock(codeText, 'Copier le code'));
+
+  // Update preview links for step 3
+  $('#test-preview-target').textContent = `Préproduction : ${previewOrigin}`;
+  const testPreviewUrl = `${previewOrigin}/#api=${encodeURIComponent(origin)}&project=${selectedProject}&review=${token}`;
+  const testDemoUrl = `/demo.html#api=${encodeURIComponent(origin)}&project=${selectedProject}&review=${token}`;
+  $<HTMLAnchorElement>('#test-preview-link').href = testPreviewUrl;
+  $<HTMLAnchorElement>('#test-demo-link').href = testDemoUrl;
+
+  // Keep #link-output updated for Playwright tests and legacy callers
+  $<HTMLTextAreaElement>('#link-output').value =
+    `URL reviewer DEMO : ${previewOrigin}/#project=${selectedProject}&review=${token}\n\n` +
+    `Installation dans la preview — une seule ligne à coller avant </body> :\n` +
+    `<script src="${origin}/widget.js" data-api="${origin}" ` +
+    `data-project="${selectedProject}" data-token="${token}"></script>`;
+}
+
+function watchWidgetConnection(status: HTMLElement) {
+  clearTimeout(widgetConnectionTimer);
+  const started = Date.now();
+  const poll = async () => {
+    if (!$<HTMLDialogElement>('#link-dialog').open) return;
+    let connected = false;
+    try {
+      const { links } = (await api(`/api/projects/${selectedProject}/review-links`)) as { links: ReviewLink[] };
+      const mine = activeProjectTokenId
+        ? links.find((l) => l.id === activeProjectTokenId)
+        : links.find((l) => !l.revokedAt && l.lastUsedAt);
+      connected = Boolean(mine?.lastUsedAt);
+      if (connected) {
+        status.className = 'widget-connection connected';
+        status.replaceChildren(
+          icon('i-check'),
+          el('strong', '', 'Widget connecté et actif'),
+          el('span', '', `première interaction ${formatAge(mine!.lastUsedAt!)}`),
+        );
+        await refreshOnboarding();
+        return;
+      }
+    } catch {
+      // Keep waiting quietly
+    }
+    if (Date.now() - started > 120_000) {
+      status.className = 'widget-connection idle';
+      status.replaceChildren(
+        el('strong', '', 'Toujours pas de requête'),
+        el('span', '', 'Le widget répondra dès qu’un reviewer ouvrira votre site de préproduction.'),
+      );
+      return;
+    }
+    widgetConnectionTimer = setTimeout(() => void poll(), 2_500);
+  };
+  widgetConnectionTimer = setTimeout(() => void poll(), 1_500);
+}
 
 async function renderReviewLinks() {
   const container = $('#link-list');
@@ -1171,6 +1453,7 @@ async function renderReviewLinks() {
         revoke.disabled = true;
         await api(`/api/projects/${selectedProject}/review-links/${link.id}/revoke`, { method: 'POST' });
         await renderReviewLinks();
+        await refreshOnboarding();
       };
       row.append(revoke);
     }
@@ -1181,15 +1464,16 @@ async function renderReviewLinks() {
 // Opening the dialog only reads. Minting a secret is a separate, deliberate
 // action, so revoking a link never requires creating another one first.
 $('#review-link').addEventListener('click', async () => {
-  const output = $<HTMLTextAreaElement>('#link-output');
-  output.value = '';
-  $<HTMLButtonElement>('#new-link').disabled = !selectedProject;
-  $('#link-list').replaceChildren();
   if (!selectedProject) {
-    output.value = 'Sélectionnez d’abord un projet dans la colonne de gauche.';
-  } else {
-    await renderReviewLinks();
+    toast('Sélectionnez d’abord un projet dans la colonne de gauche.', 'error');
+    return;
   }
+  const project = projects.find((p) => p.id === selectedProject);
+  $('#link-project-badge').textContent = project?.name ?? 'Projet';
+  installWizardStep = 1;
+  applyInstallWizardStep();
+  renderPlatformPicker();
+  await renderReviewLinks();
   $<HTMLDialogElement>('#link-dialog').showModal();
 });
 
@@ -1198,17 +1482,60 @@ $('#new-link').addEventListener('click', async () => {
   const button = $<HTMLButtonElement>('#new-link');
   button.disabled = true;
   try {
-    const link = await api(`/api/projects/${selectedProject}/review-links`, { method: 'POST', body: '{}' });
-    const origin = projects.find((project) => project.id === selectedProject)!.origins[0];
+    const link = (await api(`/api/projects/${selectedProject}/review-links`, { method: 'POST', body: '{}' })) as {
+      id: string;
+      token: string;
+      fragment: string;
+    };
+    activeProjectToken = link.token;
+    activeProjectTokenId = link.id;
+    const origin = projects.find((project) => project.id === selectedProject)?.origins[0] || location.origin;
     $<HTMLTextAreaElement>('#link-output').value =
       `URL reviewer DEMO : ${origin}/${link.fragment}\n\n` +
       `Installation dans la preview — une seule ligne à coller avant </body> :\n` +
       `<script src="${location.origin}/widget.js" data-api="${location.origin}" ` +
       `data-project="${selectedProject}" data-token="${link.token}"></script>`;
     await renderReviewLinks();
+    await refreshOnboarding();
+    installWizardStep = 2;
+    applyInstallWizardStep();
+    renderWidgetSnippet();
   } finally {
     button.disabled = false;
   }
+});
+
+$('#link-wizard-back').addEventListener('click', () => {
+  installWizardStep = Math.max(1, installWizardStep - 1);
+  applyInstallWizardStep();
+});
+
+$('#link-wizard-next').addEventListener('click', async () => {
+  if (installWizardStep === 3) {
+    $<HTMLDialogElement>('#link-dialog').close();
+    return;
+  }
+  if (installWizardStep === 1) {
+    if (!activeProjectToken) {
+      $<HTMLButtonElement>('#new-link').click();
+      return;
+    }
+    installWizardStep = 2;
+    applyInstallWizardStep();
+    renderWidgetSnippet();
+    return;
+  }
+  if (installWizardStep === 2) {
+    installWizardStep = 3;
+    applyInstallWizardStep();
+    const status = $<HTMLElement>('#widget-connection-status');
+    watchWidgetConnection(status);
+    return;
+  }
+});
+
+$('#link-dialog').addEventListener('close', () => {
+  clearTimeout(widgetConnectionTimer);
 });
 
 // ------------------------------------------------------------ agent access
@@ -1327,36 +1654,6 @@ function serverPath(): string {
   } catch {
     return DEFAULT_SERVER_PATH;
   }
-}
-
-/** Copy with a confirmation on the button itself, not in a toast far away. */
-async function copyButton(label: string, value: () => string) {
-  const button = el('button', 'btn btn-ghost copy');
-  button.type = 'button';
-  button.append(icon('i-copy'), document.createTextNode(label));
-  button.onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(value());
-      button.classList.add('copied');
-      button.replaceChildren(icon('i-check'), document.createTextNode('Copié'));
-      setTimeout(() => {
-        button.classList.remove('copied');
-        button.replaceChildren(icon('i-copy'), document.createTextNode(label));
-      }, 1600);
-    } catch {
-      toast('Copie refusée par le navigateur. Sélectionnez le texte.', 'error');
-    }
-  };
-  return button;
-}
-
-function codeBlock(text: string, copyLabel = 'Copier') {
-  const block = el('div', 'code-block');
-  const pre = el('pre', 'code');
-  pre.textContent = text;
-  block.append(pre);
-  void copyButton(copyLabel, () => text).then((button) => block.append(button));
-  return block;
 }
 
 function renderAgentPicker() {
@@ -1699,6 +1996,44 @@ async function refreshOnboarding() {
 for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
 $('#page-filter').addEventListener('input', scheduleReload);
 $('#new-project').addEventListener('click', () => openProjectDialog(null));
+
+function wireWidgetOptions() {
+  document.querySelectorAll<HTMLButtonElement>('#opt-position .seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#opt-position .seg-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      widgetOptPosition = btn.dataset.val ?? 'bottom-right';
+      if (activeProjectToken) renderWidgetSnippet();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('#opt-theme .seg-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#opt-theme .seg-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      widgetOptTheme = btn.dataset.val ?? 'auto';
+      if (activeProjectToken) renderWidgetSnippet();
+    });
+  });
+
+  $<HTMLInputElement>('#opt-label-input')?.addEventListener('input', (event) => {
+    widgetOptLabel = (event.target as HTMLInputElement).value;
+    if (activeProjectToken) renderWidgetSnippet();
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('#project-origin-helpers .chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const textarea = $<HTMLTextAreaElement>('#project-form [name="origins"]');
+      const val = chip.dataset.origin === 'current' ? location.origin : chip.dataset.origin!;
+      const current = textarea.value.trim();
+      if (!current.includes(val)) {
+        textarea.value = current ? `${current}\n${val}` : val;
+      }
+    });
+  });
+}
+
+wireWidgetOptions();
 
 // -------------------------------------------------------------- keyboard nav
 

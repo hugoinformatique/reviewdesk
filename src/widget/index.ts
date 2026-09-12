@@ -758,6 +758,10 @@ button{font:600 13px inherit;cursor:pointer;border-radius:11px;
     try{document.querySelector(replay.selector)?.scrollIntoView({block:'center',behavior:'smooth'});}catch{/* invalid selector */}
     setTimeout(reposition,600);
   }
+
+  // Ping the server to check for replies and touch the reviewer token's
+  // lastUsedAt, enabling the admin onboarding wizard to confirm installation.
+  void countReplies();
 }
 
 /**

@@ -79,6 +79,15 @@
     <path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/>
     <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 1 0 5.7 5.7l1.3-1.3"/>
   </symbol>
+  <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+  </symbol>
+  <symbol id="i-layout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/>
+  </symbol>
+  <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+  </symbol>
 </svg>
 
 <main id="login" class="login">
@@ -195,11 +204,19 @@
 
 <dialog id="project-dialog">
   <form id="project-form">
-    <h2 id="project-dialog-title">Nouveau projet</h2>
-    <p class="note">Le projet n’acceptera de retours que depuis les origines listées ici.</p>
-    <label>Nom<input name="name" placeholder="DEMO Site vitrine" required></label>
-    <label>Client<input name="clientLabel" placeholder="DEMO Client" required></label>
-    <label>Origines autorisées<input name="origins" placeholder="http://127.0.0.1:4310" required><small>Une origine par ligne, avec protocole.</small></label>
+    <div class="dialog-head">
+      <h2 id="project-dialog-title">Nouveau projet</h2>
+      <p class="note">Un projet correspond à un site web ou une application. Le widget n’acceptera de retours que depuis les origines listées ici.</p>
+    </div>
+    <label>Nom<input name="name" placeholder="DEMO Site vitrine" required><small>Le nom visible dans l'administration et les exports.</small></label>
+    <label>Client<input name="clientLabel" placeholder="DEMO Client" required><small>Permet de regrouper et filtrer les retours par client.</small></label>
+    <label>Origines autorisées<textarea name="origins" rows="2" placeholder="http://127.0.0.1:4310&#10;https://staging.monsite.fr" required></textarea><small>Une origine par ligne, avec protocole. Protection CORS et anti-spam.</small></label>
+    <div class="origin-helpers" id="project-origin-helpers">
+      <span class="helper-label">Ajout rapide :</span>
+      <button type="button" class="chip" data-origin="http://localhost:3000">+ localhost:3000</button>
+      <button type="button" class="chip" data-origin="http://localhost:5173">+ localhost:5173 (Vite)</button>
+      <button type="button" class="chip" data-origin="current">+ Origine actuelle</button>
+    </div>
     <label>Notification sortante<input name="webhookUrl" placeholder="https://hooks.slack.com/services/…"><small>Optionnel. Un POST JSON à chaque nouveau retour. HTTPS public uniquement.</small></label>
     <output></output>
     <div class="dialog-actions">
@@ -210,15 +227,105 @@
 </dialog>
 
 <dialog id="link-dialog">
-  <div class="dialog-body">
-    <h2>Liens reviewer</h2>
-    <p>Un secret n’est affiché qu’une seule fois, à sa création. Il reste dans le fragment de l’URL, jamais dans une query ni dans les logs HTTP.</p>
-    <button id="new-link" class="btn btn-primary">Générer un nouveau lien</button>
-    <textarea id="link-output" readonly placeholder="Le secret du prochain lien généré apparaîtra ici."></textarea>
-    <h3>Liens de ce projet</h3>
-    <div id="link-list"></div>
+  <div class="dialog-body wizard">
+    <div class="wizard-head">
+      <div class="wizard-title-row">
+        <h2 id="link-dialog-title">Installer le widget</h2>
+        <span class="wizard-project-pill" id="link-project-badge">Projet</span>
+      </div>
+      <p class="note">Intégrez ReviewDesk en une ligne de script sur votre environnement de préproduction, ou partagez un lien direct sans toucher au code.</p>
+      <ol class="steps" id="link-wizard-steps">
+        <li data-step="1" class="current">1. Plateforme</li>
+        <li data-step="2">2. Intégration</li>
+        <li data-step="3">3. Vérification</li>
+      </ol>
+    </div>
+
+    <!-- Step 1: Plateforme -->
+    <section class="link-wizard-step" data-step="1">
+      <p>Choisissez l’environnement ou la méthode pour intégrer ReviewDesk sur votre préproduction.</p>
+      <div class="platform-picker" id="widget-platform-picker"></div>
+
+      <div class="link-token-banner" id="link-token-banner">
+        <div class="banner-text">
+          <strong id="link-token-title">Jeton d'accès reviewer</strong>
+          <span id="link-token-desc">Chaque lien génère un jeton sécurisé qui autorise les retours depuis vos origines.</span>
+        </div>
+        <button id="new-link" class="btn btn-primary" type="button">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+          Générer un nouveau lien
+        </button>
+      </div>
+
+      <div class="existing-links-block" id="existing-links-block">
+        <h3>Liens de ce projet</h3>
+        <p class="note">Un secret n’est affiché qu’une seule fois, à sa création. Il reste dans le fragment de l’URL, jamais dans une query ni dans les logs HTTP.</p>
+        <div id="link-list"></div>
+      </div>
+
+      <textarea id="link-output" class="raw-output-area" readonly placeholder="Le secret du prochain lien généré apparaîtra ici."></textarea>
+    </section>
+
+    <!-- Step 2: Intégration & Options -->
+    <section class="link-wizard-step" data-step="2" hidden>
+      <p id="link-step-desc">Copiez ce code dans votre projet. Le widget s'affiche automatiquement pour les reviewers.</p>
+
+      <div class="widget-options" id="widget-options">
+        <div class="opt-group">
+          <label>Position du lanceur</label>
+          <div class="segmented" id="opt-position">
+            <button type="button" class="seg-btn active" data-val="bottom-right">Bas-droite</button>
+            <button type="button" class="seg-btn" data-val="bottom-left">Bas-gauche</button>
+          </div>
+        </div>
+        <div class="opt-group">
+          <label>Thème visuel</label>
+          <div class="segmented" id="opt-theme">
+            <button type="button" class="seg-btn active" data-val="auto">Auto (fond)</button>
+            <button type="button" class="seg-btn" data-val="light">Clair</button>
+            <button type="button" class="seg-btn" data-val="dark">Sombre</button>
+          </div>
+        </div>
+        <div class="opt-group">
+          <label for="opt-label-input">Texte du bouton</label>
+          <input type="text" id="opt-label-input" placeholder="Donner mon avis" maxlength="30">
+        </div>
+      </div>
+
+      <div id="widget-snippet-container"></div>
+    </section>
+
+    <!-- Step 3: Vérification & Test -->
+    <section class="link-wizard-step" data-step="3" hidden>
+      <p>Testez l’affichage du widget sur votre site pour vérifier que l’installation fonctionne.</p>
+
+      <div class="test-action-card">
+        <div class="test-card-content">
+          <strong id="test-preview-target">Préproduction : https://...</strong>
+          <span>Ouvrez le lien ci-dessous pour tester l’épinglage de retour sur votre site en direct.</span>
+        </div>
+        <div class="test-buttons">
+          <a id="test-preview-link" class="btn btn-primary" target="_blank" rel="noopener">
+            <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>
+            Tester sur la préproduction ↗
+          </a>
+          <a id="test-demo-link" class="btn btn-ghost" target="_blank" rel="noopener">
+            Tester sur la page démo locale ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="widget-connection waiting" id="widget-connection-status">
+        <span class="pulse"></span>
+        <strong>En attente du widget…</strong>
+        <span>Ouvrez votre site ou la démo. Le statut passera au vert dès sa première interaction.</span>
+      </div>
+    </section>
+
     <div class="dialog-actions">
-      <button class="quiet close">Fermer</button>
+      <button id="link-wizard-back" class="btn btn-ghost" type="button" hidden>Retour</button>
+      <button class="quiet close" type="button">Fermer</button>
+      <button id="link-wizard-next" class="btn btn-primary" type="button">Continuer</button>
     </div>
   </div>
 </dialog>
