@@ -424,7 +424,8 @@ function renderTickets() {
     title.textContent = ticket.text;
     const context = document.createElement('small');
     const format = ticket.viewportWidth < 768 ? 'Mobile' : 'Desktop';
-    context.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname} · ${format}`;
+    const shotBadge = ticket.screenshotId ? ' · 📸 Capture' : '';
+    context.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname} · ${format}${shotBadge}`;
     summary.append(title, context);
     const date = document.createElement('span');
     date.className = 'date';
@@ -466,6 +467,27 @@ function labelled(text: string, control: HTMLElement): HTMLLabelElement {
   label.textContent = text;
   label.append(control);
   return label;
+}
+
+function showScreenshotModal(ticket: Ticket) {
+  if (!ticket.screenshotId) return;
+  const dialog = $<HTMLDialogElement>('#screenshot-dialog');
+  const img = $<HTMLImageElement>('#screenshot-dialog-img');
+  const openLink = $<HTMLAnchorElement>('#screenshot-dialog-open');
+  const downloadLink = $<HTMLAnchorElement>('#screenshot-dialog-download');
+  const label = $('#screenshot-dialog-label');
+  const meta = $('#screenshot-dialog-meta');
+
+  const uploadUrl = `/api/uploads/${ticket.screenshotId}`;
+  img.src = uploadUrl;
+  openLink.href = uploadUrl;
+  downloadLink.href = uploadUrl;
+  downloadLink.download = `capture-${ticket.id}.webp`;
+  label.textContent = ticket.text;
+  const format = ticket.viewportWidth < 768 ? 'Mobile' : 'Desktop';
+  meta.textContent = `${ticket.projectName} · ${format} (${ticket.anchor.viewport.width}×${ticket.anchor.viewport.height}) · ${ticket.pageUrl}`;
+
+  dialog.showModal();
 }
 
 function openTicket(id: string) {
@@ -592,16 +614,73 @@ function openTicket(id: string) {
 
   const side = document.createElement('div');
   side.className = 'detail-side';
-  side.append(meta, openAnchor, diagnosticsTitle, diagnostics);
+  side.append(meta, openAnchor);
 
   if (ticket.screenshotId) {
+    const sCard = document.createElement('div');
+    sCard.className = 'ticket-screenshot-card';
+
+    const sHead = document.createElement('div');
+    sHead.className = 'ticket-screenshot-head';
+
+    const sTitle = document.createElement('div');
+    sTitle.className = 'ticket-screenshot-title';
+    sTitle.append(icon('i-image'), document.createTextNode('Capture d’écran'));
+
+    const sActions = document.createElement('div');
+    sActions.className = 'ticket-screenshot-actions';
+
+    const zoomBtn = document.createElement('button');
+    zoomBtn.type = 'button';
+    zoomBtn.className = 'btn-zoom-screenshot';
+    zoomBtn.textContent = '🔍 Agrandir';
+    zoomBtn.title = 'Agrandir en plein écran';
+
     const link = document.createElement('a');
+    link.className = 'screenshot-tab-link';
     link.href = `/api/uploads/${ticket.screenshotId}`;
     link.target = '_blank';
     link.rel = 'noreferrer';
     link.append(icon('i-image'), document.createTextNode('Voir la capture privée'));
-    side.append(link);
+
+    sActions.append(zoomBtn, link);
+    sHead.append(sTitle, sActions);
+
+    const sWrap = document.createElement('div');
+    sWrap.className = 'ticket-screenshot-wrap';
+    sWrap.title = 'Cliquer pour agrandir la capture';
+
+    const img = document.createElement('img');
+    img.className = 'ticket-screenshot-preview';
+    img.src = `/api/uploads/${ticket.screenshotId}`;
+    img.alt = `Capture d’écran pour ${ticket.text}`;
+    img.loading = 'lazy';
+
+    const sBadge = document.createElement('div');
+    sBadge.className = 'ticket-screenshot-badge';
+    const format = ticket.viewportWidth < 768 ? '📱 Mobile' : '💻 Desktop';
+    sBadge.textContent = `${format} · ${ticket.anchor.viewport.width}×${ticket.anchor.viewport.height}`;
+
+    const sHint = document.createElement('div');
+    sHint.className = 'ticket-screenshot-hint';
+    sHint.textContent = '🔍 Agrandir';
+
+    sWrap.append(img, sBadge, sHint);
+
+    const openModal = () => showScreenshotModal(ticket);
+    sWrap.onclick = openModal;
+    zoomBtn.onclick = openModal;
+
+    sCard.append(sHead, sWrap);
+    side.append(sCard);
+  } else {
+    const emptyCard = document.createElement('div');
+    emptyCard.className = 'ticket-screenshot-card empty';
+    emptyCard.textContent = '📷 Aucune capture d’écran jointe à ce retour';
+    side.append(emptyCard);
   }
+
+  side.append(diagnosticsTitle, diagnostics);
 
   detail.append(head, main, side);
 }
@@ -2217,6 +2296,10 @@ addEventListener('keydown', (event) => {
 for (const button of document.querySelectorAll('.close')) {
   button.addEventListener('click', () => button.closest('dialog')?.close());
 }
+const screenshotDialog = $<HTMLDialogElement>('#screenshot-dialog');
+screenshotDialog?.addEventListener('click', (e) => {
+  if (e.target === screenshotDialog) screenshotDialog.close();
+});
 
 function openProjectDialog(project: Project | null) {
   editingProject = project;

@@ -77,6 +77,11 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   await ticket.click();
   await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+  await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
+  await page.locator('.ticket-screenshot-wrap').click();
+  await expect(page.locator('#screenshot-dialog[open]')).toBeVisible();
+  await page.locator('#screenshot-dialog-close').click();
+  await expect(page.locator('#screenshot-dialog[open]')).toHaveCount(0);
   await page.screenshot({ path: 'artifacts/admin-desktop.png', fullPage: true });
   // --------------------------------------- export the backlog as one prompt
 

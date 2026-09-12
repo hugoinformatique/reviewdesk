@@ -422,6 +422,31 @@
   </div>
 </dialog>
 
+<dialog id="screenshot-dialog" class="screenshot-dialog">
+  <div class="screenshot-dialog-body">
+    <div class="screenshot-dialog-head">
+      <div class="screenshot-dialog-title">
+        <strong id="screenshot-dialog-label">Capture d’écran</strong>
+        <span id="screenshot-dialog-meta" class="muted"></span>
+      </div>
+      <div class="screenshot-dialog-actions">
+        <a id="screenshot-dialog-open" class="btn btn-ghost" target="_blank" rel="noreferrer">
+          <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>
+          Ouvrir l’original ↗
+        </a>
+        <a id="screenshot-dialog-download" class="btn btn-ghost" download="capture.webp">
+          <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+          Télécharger
+        </a>
+        <button type="button" class="quiet close" id="screenshot-dialog-close" aria-label="Fermer (Échap)">✕</button>
+      </div>
+    </div>
+    <div class="screenshot-dialog-view">
+      <img id="screenshot-dialog-img" alt="Capture d’écran plein format" />
+    </div>
+  </div>
+</dialog>
+
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <aside id="onboarding-prompt" class="onboarding-prompt" role="alert" aria-live="polite" hidden>
