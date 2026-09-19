@@ -1,4 +1,6 @@
 import { ApiError, loginErrorMessage } from './errors.js';
+import { applyBranding, fetchPublicBranding, refreshBrandingForTheme, type PublicBranding } from './branding.js';
+import { openSetup, type BrandingDraft } from './setup.js';
 
 type Project = {
   id: string;
@@ -208,7 +210,66 @@ async function load() {
   // A fresh instance has nothing to triage and everything to set up: start on
   // the overview, where the checklist is.
   if (onboarding && onboarding.tickets === 0 && onboarding.connectedAgents === 0) await showOverview();
+  await maybeOpenSetup();
 }
+
+// ------------------------------------------------------------ white-label
+
+type BrandingSettings = BrandingDraft & {
+  setupCompletedAt: string | null;
+  emailDeliveryNote: string;
+};
+
+/**
+ * Opens the wizard. `first-run` is the takeover shown once, right after the
+ * very first sign-in; `settings` is the same flow reopened deliberately.
+ */
+async function openBrandingWizard(mode: 'first-run' | 'settings') {
+  const settings: BrandingSettings = await api('/api/branding/settings');
+  openSetup({
+    mode,
+    emailDeliveryNote: settings.emailDeliveryNote,
+    draft: {
+      productName: settings.productName,
+      tagline: settings.tagline,
+      logoDataUri: settings.logoDataUri,
+      accent: settings.accent,
+      publicUrl: settings.publicUrl,
+      emailFromName: settings.emailFromName,
+      emailFromAddress: settings.emailFromAddress,
+      emailReplyTo: settings.emailReplyTo,
+    },
+    save: (draft, completeSetup) =>
+      api('/api/branding', {
+        method: 'PUT',
+        body: JSON.stringify({ ...draft, completeSetup }),
+      }) as Promise<PublicBranding>,
+    onClose: (branding) => {
+      if (branding) toast('Personnalisation appliquée.');
+    },
+  });
+}
+
+/** The takeover only fires while the instance has never been configured. */
+async function maybeOpenSetup() {
+  try {
+    const branding = await fetchPublicBranding();
+    applyBranding(branding);
+    if (!branding.setupComplete) await openBrandingWizard('first-run');
+  } catch {
+    // Branding is decoration: a failure here must never block the dashboard.
+  }
+}
+
+$('#branding').addEventListener('click', () => {
+  openBrandingWizard('settings').catch(() => toast('Personnalisation indisponible.', 'error'));
+});
+
+// The sign-in screen is branded before anyone has signed in, so this runs
+// outside the authenticated boot path.
+fetchPublicBranding()
+  .then(applyBranding)
+  .catch(() => {});
 
 /**
  * The accessible name is pinned to `name` alone via aria-label: the secondary
@@ -2270,6 +2331,9 @@ $('#theme').addEventListener('click', () => {
   const current = document.documentElement.dataset.theme ?? (dark ? 'dark' : 'light');
   const next = current === 'dark' ? 'light' : 'dark';
   applyTheme(next);
+  // The brand accent used as text has to clear contrast against whichever
+  // background is now showing, so it is re-derived rather than kept.
+  refreshBrandingForTheme();
   try {
     localStorage.setItem('reviewdesk-theme', next);
   } catch {

@@ -2391,3 +2391,564 @@ dialog[open]::backdrop { animation: fade 0.2s var(--ease); }
   .btn:active, button.quiet:active, .icon-btn:active, .ticket:active, .project:active { transform: none; }
   .skeleton { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Personnalisation — l'assistant de marque blanche
+
+   Une instance auto-hébergée est revendue sous le nom de l'agence qui la
+   déploie. L'assistant occupe donc tout l'écran à la première connexion : ce
+   n'est pas un réglage parmi d'autres, c'est le moment où l'outil cesse de
+   s'appeler ReviewDesk. Le volet de droite montre le résultat pendant qu'on le
+   compose, parce que choisir une couleur de marque dans un champ hexadécimal
+   sans rien voir revient à deviner.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.setup {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  overflow: hidden;
+  animation: setup-in 0.32s var(--ease) both;
+}
+
+body.setup-open { overflow: hidden; }
+
+@keyframes setup-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.setup-grid {
+  display: grid;
+  grid-template-columns: minmax(400px, 34%) 1fr;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------- le volet */
+
+.setup-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 34px 38px 28px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.setup-progress {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.progress-step {
+  height: 3px;
+  flex: 1;
+  border-radius: var(--r-full);
+  background: var(--surface-active);
+  transition: background 0.3s var(--ease);
+}
+
+.progress-step.is-done { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.progress-step.is-current { background: var(--accent); }
+
+.setup-header { flex: none; }
+
+.setup-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  color: var(--text-3);
+}
+
+.setup-title {
+  margin: 8px 0 0;
+  font-size: 25px;
+  line-height: 1.15;
+  letter-spacing: -0.032em;
+  outline: none;
+}
+
+.setup-intro {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 46ch;
+}
+
+.setup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  animation: setup-step-in 0.34s var(--ease) both;
+}
+
+/* Chaque étape entre par la droite : le mouvement dit « on avance », il ne
+   décore pas. */
+@keyframes setup-step-in {
+  from { opacity: 0; transform: translate3d(14px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+.setup-fields { display: grid; gap: 18px; }
+.setup-field { display: grid; gap: 7px; }
+
+.setup-label {
+  font-size: 12.5px;
+  font-weight: 540;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.setup-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.setup-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  box-shadow: var(--edge);
+  transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.setup-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.setup-input.mono { font-family: var(--mono); font-size: 12.5px; }
+
+.setup-sep {
+  height: 1px;
+  margin: 2px 0;
+  border: 0;
+  background: var(--border);
+}
+
+.setup-error {
+  margin: 0;
+  min-height: 16px;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding-top: 4px;
+}
+
+.setup-spacer { flex: 1; }
+.setup-later { font-size: 12.5px; }
+
+/* ------------------------------------------------------------- l'accueil */
+
+.setup-welcome { display: grid; gap: 18px; }
+
+.setup-point {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 13px;
+  align-items: start;
+}
+
+.setup-point-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.setup-point-icon .icon { width: 15px; height: 15px; }
+.setup-point strong { display: block; font-size: 13.5px; letter-spacing: -0.015em; }
+
+.setup-point p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+/* ----------------------------------------------------------------- le logo */
+
+.logo-zone {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.logo-zone:hover,
+.logo-zone:focus-visible,
+.logo-zone.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.logo-preview {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--text-3);
+  overflow: hidden;
+}
+
+.logo-preview-img { max-width: 34px; max-height: 34px; object-fit: contain; }
+.logo-placeholder { width: 18px; height: 18px; }
+
+.logo-label {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.logo-clear { flex: none; font-size: 12px; }
+.logo-status { margin-top: 2px; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -------------------------------------------------------------- la couleur */
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #09090b1f;
+  border-radius: var(--r);
+  background: var(--swatch);
+  box-shadow: var(--edge-strong);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.swatch:hover { transform: translateY(-1px); }
+
+.swatch[aria-pressed='true'] {
+  box-shadow: var(--edge-strong), 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
+}
+
+.swatch-check {
+  width: 15px;
+  height: 15px;
+  color: #ffffff;
+  opacity: 0;
+  /* Une coche blanche sur une pastille claire serait invisible : on la borde. */
+  filter: drop-shadow(0 0 1px #00000066);
+  transition: opacity 0.14s var(--ease);
+}
+
+.swatch[aria-pressed='true'] .swatch-check { opacity: 1; }
+
+.accent-custom { display: flex; gap: 9px; align-items: center; }
+
+.color-picker {
+  width: 40px;
+  height: 38px;
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker::-webkit-color-swatch { border: none; border-radius: 5px; }
+.color-picker::-moz-color-swatch { border: none; border-radius: 5px; }
+
+.contrast-readout {
+  margin: 0;
+  padding: 9px 11px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.contrast-readout.warn {
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ---------------------------------------------------------------- la note */
+
+.setup-note {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.setup-note .icon { width: 15px; height: 15px; color: var(--text-3); margin-top: 1px; }
+.setup-note p { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--text-2); }
+
+/* -------------------------------------------------------------- le récap */
+
+.setup-recap {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--border);
+}
+
+.setup-recap dt,
+.setup-recap dd {
+  margin: 0;
+  padding: 10px 13px;
+  font-size: 12.5px;
+  background: var(--surface);
+}
+
+.setup-recap dt { color: var(--text-3); }
+.setup-recap dd { color: var(--text); font-weight: 500; }
+.setup-recap dd.mono { font-family: var(--mono); font-size: 12px; }
+
+/* ----------------------------------------------------------- l'aperçu live */
+
+.setup-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  background: var(--bg-sunken);
+  /* Une trame de points : on lit tout de suite que ce panneau est une surface
+     de présentation, pas une partie de l'application. */
+  background-image: radial-gradient(circle at 1px 1px, var(--border-2) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.stage-caption {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.stage-frame {
+  position: relative;
+  width: min(560px, 100%);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-2);
+  background: var(--bg);
+  box-shadow: var(--edge), var(--shadow-3);
+  overflow: hidden;
+  /* Aucun élément de l'aperçu n'est cliquable : c'est une image, pas une UI. */
+  pointer-events: none;
+  user-select: none;
+}
+
+.stage-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stage-mark { width: 22px; height: 22px; border-radius: 6px; }
+.stage-mark .icon { width: 13px; height: 13px; }
+.stage-tabs { display: flex; gap: 4px; }
+
+.stage-tab {
+  padding: 4px 9px;
+  font-size: 11.5px;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+}
+
+.stage-tab.is-active { background: var(--accent-soft); color: var(--accent-text); font-weight: 540; }
+
+/* La réserve en bas est la place du lanceur du widget, qui flotte au-dessus :
+   sans elle il recouvre la dernière ligne de la liste. */
+.stage-page { padding: 18px 16px 62px; display: grid; gap: 14px; }
+
+.stage-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.stage-eyebrow { font-size: 9.5px; font-weight: 600; letter-spacing: 0.09em; color: var(--text-3); }
+.stage-title { margin: 3px 0 0; font-size: 17px; letter-spacing: -0.028em; }
+
+.stage-btn {
+  flex: none;
+  padding: 7px 13px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 540;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  box-shadow: var(--edge-strong), var(--shadow-1);
+}
+
+.stage-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.stage-kpi {
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.stage-kpi-label { font-size: 10.5px; color: var(--text-3); }
+.stage-kpi-value { font-size: 19px; letter-spacing: -0.03em; }
+
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.stage-pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.stage-pin .icon { width: 14px; height: 14px; }
+.stage-row-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.stage-row-text strong { font-size: 12.5px; font-weight: 520; letter-spacing: -0.012em; }
+.stage-row-text span { font-size: 11px; color: var(--text-3); }
+
+.stage-badge {
+  flex: none;
+  padding: 3px 8px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+/* Le lanceur du widget : la seule chose que le client final voit de vous. */
+.stage-launcher {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 540;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-radius: var(--r-full);
+  box-shadow: var(--edge-strong), var(--shadow-2);
+}
+
+.stage-launcher .icon { width: 14px; height: 14px; }
+
+/* ------------------------------------------------------------------ marque */
+
+/* Un logo fourni par l'agence remplace la pastille d'encre : le dégradé de
+   marque par défaut ferait un cadre autour du logo de quelqu'un d'autre. */
+.mark.has-logo,
+.prompt-icon.has-logo {
+  background: var(--surface-2);
+  box-shadow: var(--edge), inset 0 0 0 1px var(--border);
+}
+
+.mark-img,
+.prompt-icon .mark-img {
+  max-width: 72%;
+  max-height: 72%;
+  object-fit: contain;
+}
+
+/* ------------------------------------------------------------- adaptations */
+
+@media (max-width: 1040px) {
+  .setup-grid { grid-template-columns: 1fr; }
+  /* L'aperçu est le premier à partir : sur un écran étroit, il vole la place
+     des champs sans rien montrer de lisible. */
+  .setup-stage { display: none; }
+  .setup-panel { border-right: 0; }
+}
+
+@media (max-width: 560px) {
+  .setup-panel { padding: 24px 20px 20px; }
+  .setup-title { font-size: 21px; }
+  .setup-actions { flex-wrap: wrap; }
+  .setup-spacer { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup,
+  .setup-body { animation: none; }
+  .swatch,
+  .progress-step { transition: none; }
+}

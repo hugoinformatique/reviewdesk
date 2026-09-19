@@ -10,6 +10,8 @@ import { createDb, type Db } from './db/index.js';
 import { ensureMigrated } from './db/migrate.js';
 import { createObjectStore, StorageError, type ObjectStore } from './storage/index.js';
 import { cleanUrl, normalizeDiagnostics } from './privacy.js';
+import { accentTokens, normaliseHex } from './brand-tokens.js';
+import { EMAIL_DELIVERY_NOTE, brandingInput, readBranding, writeBranding } from './branding.js';
 import {
   ADMIN_CONTENT_SECURITY_POLICY,
   IMAGE_EXTENSIONS,
@@ -374,6 +376,41 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     await db.query('DELETE FROM admin_sessions WHERE token_hash = $1', [req.adminSession!.tokenHash]);
     reply.clearCookie('rd_session', { path: '/' });
     return reply.code(204).send();
+  });
+
+  // ------------------------------------------------------------ white-label
+
+  /**
+   * Unauthenticated on purpose: the sign-in screen has to be branded before
+   * anyone has signed in, and the widget reads the same endpoint. Only the
+   * parts already visible on that screen are exposed — the configured email
+   * identity stays behind `requireAdmin`, because a logged-out visitor has no
+   * business enumerating the operator's addresses.
+   */
+  app.get('/api/branding', async (req, reply) => {
+    const branding = await readBranding(db);
+    reply.header('Cache-Control', 'no-store');
+    return {
+      productName: branding.productName,
+      tagline: branding.tagline,
+      logoDataUri: branding.logoDataUri,
+      accent: branding.accent,
+      tokens: accentTokens(branding.accent),
+      setupComplete: branding.setupCompletedAt !== null,
+    };
+  });
+
+  app.get('/api/branding/settings', { preHandler: requireAdmin }, async () => {
+    const branding = await readBranding(db);
+    return { ...branding, tokens: accentTokens(branding.accent), emailDeliveryNote: EMAIL_DELIVERY_NOTE };
+  });
+
+  app.put('/api/branding', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const parsed = brandingInput.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    if (!normaliseHex(parsed.data.accent)) return reply.code(400).send({ error: 'INVALID_ACCENT' });
+    const branding = await writeBranding(db, parsed.data);
+    return { ...branding, tokens: accentTokens(branding.accent), emailDeliveryNote: EMAIL_DELIVERY_NOTE };
   });
 
   app.get('/api/projects', { preHandler: requireAdmin }, async () => {

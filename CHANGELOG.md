@@ -15,7 +15,44 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [8.0.0] — 2026-09-19
+
+L'instance cesse de s'appeler ReviewDesk.
+
+Le produit est conçu pour être auto-hébergé et revendu : une agence déploie sa
+propre instance, et tout ce que ses clients voient doit porter son nom à elle.
+Cette version installe le socle de la marque blanche et le parcours de
+configuration qui va avec.
+
 ### Ajouté
+
+- **Assistant de personnalisation en marque blanche** : à la toute première
+  connexion, un parcours plein écran en cinq temps (accueil, identité, couleur,
+  diffusion, récapitulatif) prend la main sur l'interface. Il est rouvrable
+  ensuite depuis l'entrée « Personnalisation » de la barre de navigation, où il
+  sert d'écran de réglages.
+  - **Aperçu en direct** : un tableau de bord miniature et le lanceur du widget
+    se recolorent à chaque frappe. Le reste de l'interface ne change qu'à
+    l'enregistrement, pour ne pas basculer pendant qu'on hésite.
+  - **Identité** : nom du produit (qui remplace « ReviewDesk » dans l'interface),
+    baseline de l'écran de connexion, et logo déposé ou choisi au clic
+    (SVG, PNG, JPEG, WebP — 96 Ko). Le logo remplace aussi le favicon.
+  - **Couleur de marque** : huit teintes prêtes à l'emploi, sélecteur natif et
+    saisie hexadécimale, avec le rapport de contraste WCAG affiché en clair.
+  - **Diffusion** : adresse publique de l'instance et identité d'expéditeur.
+- **Dérivation automatique des couleurs** (`src/brand-tokens.ts`) : à partir de
+  la seule teinte choisie, l'état survolé, la surface teintée, l'anneau de focus
+  et surtout le texte posé sur la couleur sont calculés. Le texte bascule entre
+  noir et blanc selon le contraste réel — un accent pâle reçoit du texte noir,
+  là où un simple seuil de luminosité se trompait. L'accent employé comme texte
+  est assombri ou éclairci jusqu'à franchir 4,5:1 sur le fond en cours.
+- **Persistance de la configuration** : nouvelle table `instance_settings`
+  (migration `007_instance_settings`), et les routes `GET /api/branding`
+  (publique, pour habiller l'écran de connexion avant toute authentification),
+  `GET /api/branding/settings` et `PUT /api/branding`.
+- Tests : dérivation des couleurs et réparation d'une configuration corrompue
+  (`tests/unit/brand-tokens.test.ts`), frontières d'authentification, validation
+  et idempotence de l'assistant (`tests/integration/branding.test.ts`).
 
 - **Capture d'écran 100% robuste sur tout site web (Support CSS moderne OKLCH, iframes et fallback résilient)** :
   - **Intercepteur et conversion automatique des couleurs CSS modernes** : `html2canvas` ne supporte pas nativement les fonctions de couleur modernes (`oklch()`, `color-mix()`, `lab()`, `oklab()`, `hwb()`) massivement utilisées par Tailwind v4 et les frameworks récents, provoquant un plantage silencieux de la capture. Mise en place d'un proxy transparent sur `window.getComputedStyle` (sur la fenêtre hôte et les clones `html2canvas`) qui convertit automatiquement et fidèlement ces formats en `rgb()` / `rgba()` via un canvas de tramage 2D matériel.
@@ -110,6 +147,17 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 - **Notification incitative après création de projet** : affichage automatique d'une carte flottante d'onboarding demandant à l'utilisateur s'il souhaite configurer l'intégration immédiatement, avec bouton d'accès direct au formulaire et option pour différer (« Plus tard »).
 - **Écran d'accueil guidé pour projet vierge** : carte d'onboarding dans la liste des retours invitant à installer le widget ou tester le flux.
 - Détection immédiate de l'installation par ping automatique de l'état des réponses au montage du widget.
+
+### Notes
+
+- **L'identité d'expéditeur est collectée mais dormante** : le produit n'embarque
+  aucun service d'envoi d'emails — la seule notification sortante reste le
+  webhook par projet. L'assistant le dit à l'écran plutôt que de laisser croire
+  que des emails partent.
+- **Le widget et les extraits d'installation ne sont pas encore rebrandés** : la
+  marque s'applique pour l'instant à l'interface d'administration. Le libellé et
+  les couleurs du widget, le texte inscrit sur la capture d'écran et les
+  commentaires « ReviewDesk » des extraits livrés aux clients restent à traiter.
 
 ## [7.0.0] — 2026-09-12
 

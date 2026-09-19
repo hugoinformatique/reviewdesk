@@ -360,6 +360,14 @@ connexion — un logo redessiné en gris cesse d'être le logo de cette marque.
 page qui l'accueille : ce n'est pas notre outil qui se montre, c'est le site du
 client qui reçoit un commentaire. Seule la marque reste la nôtre.
 
+**Tout ce qui précède est un défaut, pas une contrainte.** Une instance est
+auto-hébergée et destinée à être revendue : l'assistant de personnalisation
+(première connexion, puis l'entrée « Personnalisation ») remplace le nom, le
+logo, le favicon et la couleur par ceux de l'agence qui la déploie. La rampe de
+gris reste ce que voit une instance non configurée ; dès qu'une teinte est
+choisie, elle devient la couleur d'action, et le texte qui s'y pose est calculé
+pour rester lisible (`src/brand-tokens.ts`).
+
 Les logos des outils tiers proviennent de [svgl.app](https://svgl.app) et
 appartiennent à leurs propriétaires respectifs ; ils sont employés ici pour
 désigner l'outil que la configuration vise, rien d'autre.
