@@ -155,6 +155,9 @@
         <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
       </button>
       <span class="nav-sep" aria-hidden="true"></span>
+      <button id="branding" class="icon-btn" aria-label="Personnalisation de l’instance" title="Personnalisation">
+        <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>
+      </button>
       <button id="theme" class="icon-btn theme-toggle" aria-label="Basculer le thème">
         <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
         <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
@@ -446,6 +449,10 @@
     </div>
   </div>
 </dialog>
+
+<!-- Filled entirely by src/admin/setup.ts: the white-label wizard takes over the
+     screen on a first run, and is reopened from « Personnalisation » afterwards. -->
+<div id="setup" class="setup" role="dialog" aria-modal="true" aria-label="Personnalisation de l’instance" hidden></div>
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 

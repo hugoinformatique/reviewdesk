@@ -138,6 +138,19 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS ticket_comments_ticket ON ticket_comments(ticket_id, created_at);
     `,
   },
+  {
+    id: '007_instance_settings',
+    sql: `
+      -- Deployment-wide configuration, keyed rather than columnar: the instance
+      -- is single-tenant, so there is exactly one row per concern and no owner
+      -- to join against. White-label branding is the first of them.
+      CREATE TABLE IF NOT EXISTS instance_settings (
+        key text PRIMARY KEY,
+        value jsonb NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
 
 const BOOTSTRAP_SQL = `
