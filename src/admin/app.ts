@@ -359,15 +359,53 @@ function scheduleReload() {
   filterTimer = setTimeout(() => void loadTickets(), 180);
 }
 
+/**
+ * Failures land in the list rather than escaping: a refused filter request
+ * used to be an unhandled rejection, and a failed first load sent the admin
+ * back to the login screen although the session was fine. A 401 has already
+ * shown the login screen inside api(), so it needs nothing more here.
+ */
 async function loadTickets() {
-  const params = filterParams();
-  const payload = await api(`/api/tickets?${params}`);
-  tickets = payload.tickets;
-  nextCursor = payload.nextCursor;
-  totalTickets = payload.total;
-  renderTickets();
-  renderCount();
-  if (!selectedTicket) clearDetail();
+  const list = $('#tickets');
+  list.setAttribute('aria-busy', 'true');
+  // Placeholders only when there is nothing to keep on screen: a refresh of a
+  // populated list leaves the rows in place until the answer lands.
+  if (!tickets.length) renderTicketSkeleton();
+  try {
+    const payload = await api(`/api/tickets?${filterParams()}`);
+    tickets = payload.tickets;
+    nextCursor = payload.nextCursor;
+    totalTickets = payload.total;
+    renderTickets();
+    renderCount();
+    if (!selectedTicket) clearDetail();
+  } catch (error) {
+    if (!(error instanceof ApiError && error.status === 401)) renderTicketsError();
+  } finally {
+    list.removeAttribute('aria-busy');
+  }
+}
+
+function renderTicketSkeleton() {
+  const rows: HTMLDivElement[] = [];
+  for (let index = 0; index < 6; index++) {
+    const row = el('div', 'skeleton-ticket');
+    row.setAttribute('aria-hidden', 'true');
+    row.append(el('span', 'skeleton'), el('span', 'skeleton'), el('span', 'skeleton'));
+    rows.push(row);
+  }
+  $('#tickets').replaceChildren(...rows);
+}
+
+function renderTicketsError() {
+  const box = emptyState('i-inbox', 'Retours indisponibles', 'Le chargement a échoué. Vérifiez la connexion, puis réessayez.');
+  box.setAttribute('role', 'alert');
+  const retry = el('button', 'btn btn-ghost', 'Réessayer');
+  retry.type = 'button';
+  retry.onclick = () => void loadTickets();
+  box.append(retry);
+  $('#tickets').replaceChildren(box);
+  $('#count').textContent = '';
 }
 
 async function loadMore() {
@@ -470,6 +508,9 @@ function renderTickets() {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = `ticket ${selectedTicket === ticket.id ? 'active' : ''}`;
+    row.dataset.ticketId = ticket.id;
+    // The lifted row says "open" to the eye; aria-current says it to a reader.
+    if (selectedTicket === ticket.id) row.setAttribute('aria-current', 'true');
     const status = document.createElement('span');
     status.className = `status ${ticket.status}`;
     // The glyph is a disc that empties as the work advances; the label always
@@ -485,7 +526,9 @@ function renderTickets() {
     title.textContent = ticket.text;
     const context = document.createElement('small');
     const format = ticket.viewportWidth < 768 ? 'Mobile' : 'Desktop';
-    const shotBadge = ticket.screenshotId ? ' · 📸 Capture' : '';
+    // Words, not an emoji: a colour glyph breaks the monochrome list, and
+    // systems without an emoji font draw an empty box instead.
+    const shotBadge = ticket.screenshotId ? ' · Capture' : '';
     context.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname} · ${format}${shotBadge}`;
     summary.append(title, context);
     const date = document.createElement('span');
@@ -551,7 +594,26 @@ function showScreenshotModal(ticket: Ticket) {
   dialog.showModal();
 }
 
+/** Below this width the detail pane covers the list instead of sitting beside it. */
+const DETAIL_OVERLAY = matchMedia('(max-width: 900px)');
+
+function focusTicketRow(id: string) {
+  $('#tickets').querySelector<HTMLElement>(`.ticket[data-ticket-id="${CSS.escape(id)}"]`)?.focus();
+}
+
+/** Back to the list, handing focus to the row that was open so the keyboard resumes where it left. */
+function closeDetail() {
+  const id = selectedTicket;
+  selectedTicket = '';
+  clearDetail();
+  renderTickets();
+  if (id) focusTicketRow(id);
+}
+
 function openTicket(id: string) {
+  // renderTickets() rebuilds the rows, which drops focus to <body>; remember
+  // whether it was in the list so it can be put back on the new active row.
+  const listHadFocus = $('#tickets').contains(document.activeElement);
   selectedTicket = id;
   renderTickets();
   const ticket = tickets.find((candidate) => candidate.id === id)!;
@@ -563,11 +625,7 @@ function openTicket(id: string) {
   close.type = 'button';
   close.className = 'quiet';
   close.append(icon('i-back'), document.createTextNode('Liste'));
-  close.onclick = () => {
-    selectedTicket = '';
-    clearDetail();
-    renderTickets();
-  };
+  close.onclick = closeDetail;
   const eyebrow = document.createElement('div');
   eyebrow.className = 'eyebrow';
   eyebrow.textContent = `${ticket.clientLabel} · ${ticket.projectName}`;
@@ -744,6 +802,16 @@ function openTicket(id: string) {
   side.append(diagnosticsTitle, diagnostics);
 
   detail.append(head, main, side);
+
+  // Where focus goes depends on the layout: over the list, the pane is the
+  // whole screen and a reader must land in it; beside the list, focus stays
+  // on the row so arrow keys and Tab keep triaging.
+  if (DETAIL_OVERLAY.matches) {
+    heading.tabIndex = -1;
+    heading.focus();
+  } else if (listHadFocus) {
+    focusTicketRow(id);
+  }
 }
 
 // -------------------------------------------------------------- overview
@@ -2351,11 +2419,7 @@ addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if ($('#app').classList.contains('nav-open')) return toggleNav(false);
   // On mobile the detail pane covers the list, so Escape is the way back out.
-  if (selectedTicket && innerWidth <= 900) {
-    selectedTicket = '';
-    clearDetail();
-    renderTickets();
-  }
+  if (selectedTicket && DETAIL_OVERLAY.matches) closeDetail();
 });
 for (const button of document.querySelectorAll('.close')) {
   button.addEventListener('click', () => button.closest('dialog')?.close());

@@ -10,7 +10,19 @@ async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('Mot de passe').fill(ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await expect(page.getByRole('heading', { name: 'Tous les retours' })).toBeVisible();
+  await dismissFirstRun(page);
+}
+
+/**
+ * The e2e instance starts empty and no test completes the branding setup, so
+ * the first-run wizard covers the dashboard on every load. « Plus tard »
+ * leaves it incomplete on purpose; the wizard itself is covered elsewhere.
+ */
+async function dismissFirstRun(page: Page) {
+  const setup = page.getByRole('dialog', { name: 'Personnalisation de l’instance' });
+  await setup.getByRole('button', { name: 'Configurer plus tard' }).click();
+  await expect(setup).toBeHidden();
+  await expect(page.locator('#project-title')).toHaveText('Tous les retours');
 }
 
 test('a reviewer on another origin files an anchored ticket that the admin triages and can revoke', async ({ page, request }) => {
@@ -65,7 +77,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${API_ORIGIN}/`);
-  await expect(page.getByRole('heading', { name: 'Tous les retours' })).toBeVisible();
+  await dismissFirstRun(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
 
   const ticket = page.getByText('Rendre ce bouton plus visible sur mobile');
@@ -75,8 +87,16 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.locator('#format').selectOption('mobile');
   await expect(ticket).toBeVisible();
 
+  // Keyboard and screen-reader affordances of the triage screen.
+  await expect(page.getByRole('link', { name: 'Aller au contenu' })).toHaveAttribute('href', '#main-content');
+  await expect(page.getByRole('combobox', { name: 'Filtrer par statut' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Filtrer par client' })).toBeVisible();
+
   await ticket.click();
   await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+  // The open row is announced, not only drawn lifted, and keeps the focus.
+  await expect(page.locator('.ticket[aria-current="true"]')).toHaveCount(1);
+  await expect(page.locator('.ticket[aria-current="true"]')).toBeFocused();
   await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
   await page.locator('.ticket-screenshot-wrap').click();
   await expect(page.locator('#screenshot-dialog[open]')).toBeVisible();
@@ -177,6 +197,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.getByRole('button', { name: 'Enregistrer' }).click();
 
   await page.reload();
+  await dismissFirstRun(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
   await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
   await page.getByText('Rendre ce bouton plus visible sur mobile').click();
@@ -212,6 +233,30 @@ test('invalid credentials show the credential error instead of a service outage'
   await expect(page.locator('#login output')).toHaveText('Identifiants invalides.');
 });
 
+test('on a phone the dashboard fits the screen and the closed drawer is out of reach', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.locator('#tab-tickets').click();
+
+  // The bar used to be wider than the phone, which widened the whole page and
+  // pushed the filters and the status column off screen.
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  for (const id of ['#nav-open', '#logout', '#status', '#project-title']) {
+    const box = (await page.locator(id).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
+
+  // Closed, the drawer is neither drawn nor reachable by Tab.
+  const newProject = page.getByRole('button', { name: '＋ Nouveau projet' });
+  await expect(newProject).toBeHidden();
+  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click();
+  await expect(newProject).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(newProject).toBeHidden();
+});
+
 test('the admin can replay a pin on the preview, and the reviewer reads the answer back', async ({ page }) => {
   const projectName = `DEMO Ancrage ${Date.now()}`;
   await login(page);
@@ -244,6 +289,7 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   // ------------------------------------------- the admin answers the reviewer
 
   await page.goto(`${API_ORIGIN}/`);
+  await dismissFirstRun(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
   await page.getByText('Le libellé du bouton est ambigu').click();
   await page.getByLabel('Réponse visible par le reviewer').fill('Renommé en « Voir la collection ».');
@@ -428,6 +474,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
 
   // 3. Admin verifies both tickets have screenshot attached and visible
   await page.goto(`${API_ORIGIN}/`);
+  await dismissFirstRun(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
 
   const ticket1 = page.getByText('Test capture avec styles OKLCH');

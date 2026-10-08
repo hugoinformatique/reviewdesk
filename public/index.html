@@ -120,6 +120,7 @@
 </main>
 
 <div id="app" hidden>
+  <a class="skip-link" href="#main-content">Aller au contenu</a>
   <div class="scrim" id="scrim"></div>
 
   <header class="nav">
@@ -167,9 +168,9 @@
   </header>
 
   <div class="shell">
-    <aside>
-      <div class="aside-title">Projets</div>
-      <nav id="projects"></nav>
+    <aside aria-labelledby="projects-title">
+      <div class="aside-title" id="projects-title">Projets</div>
+      <nav id="projects" aria-labelledby="projects-title"></nav>
       <div class="aside-foot">
         <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
              while the accessible name keeps its historical wording. -->
@@ -180,7 +181,7 @@
       </div>
     </aside>
 
-    <section class="workspace">
+    <section class="workspace" id="main-content" tabindex="-1" aria-label="Espace de travail">
       <div class="config" id="config-overview" hidden>
         <span class="eyebrow">Période</span>
         <select id="period" aria-label="Période observée">
@@ -192,17 +193,19 @@
       </div>
 
       <div class="config" id="config-tickets">
-        <select id="client"><option value="">Tous les clients</option></select>
+        <!-- Named through title, not aria-label: getByLabel() matches substrings,
+             and the project dialog already has a field labelled "Client". -->
+        <select id="client" title="Filtrer par client"><option value="">Tous les clients</option></select>
         <div class="field-search">
           <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-          <input id="page-filter" placeholder="Filtrer une page…">
+          <input id="page-filter" placeholder="Filtrer une page…" aria-label="Filtrer par page">
         </div>
-        <select id="format">
+        <select id="format" aria-label="Filtrer par format">
           <option value="">Tous les formats</option>
           <option value="mobile">Mobile</option>
           <option value="desktop">Desktop</option>
         </select>
-        <select id="status">
+        <select id="status" aria-label="Filtrer par statut">
           <option value="">Tous les statuts</option>
           <option value="TODO">À traiter</option>
           <option value="IN_PROGRESS">En cours</option>
@@ -213,12 +216,12 @@
           <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
           Exporter pour Claude Code
         </button>
-        <span id="count"></span>
+        <span id="count" role="status" aria-live="polite"></span>
       </div>
 
       <div class="content" id="tickets-view">
-        <div id="tickets" class="tickets"></div>
-        <div id="detail" class="detail empty"></div>
+        <div id="tickets" class="tickets" role="region" aria-label="Liste des retours"></div>
+        <div id="detail" class="detail empty" role="region" aria-label="Détail du retour"></div>
       </div>
 
       <div class="overview" id="overview" hidden></div>

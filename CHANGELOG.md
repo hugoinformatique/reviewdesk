@@ -15,6 +15,55 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+### Ajouté
+
+- Tableau de bord : lien « Aller au contenu » en tête de la tabulation, qui
+  saute la barre de navigation et le rail des projets.
+- Liste des retours : squelette de chargement au premier affichage, et état
+  d'erreur avec bouton « Réessayer » quand le chargement échoue.
+- Tests de régression `tests/unit/admin-contrast.test.ts` : contraste AA des
+  gris de texte en clair et en sombre, cohérence des deux blocs du thème
+  sombre, aucune variable CSS lue sans être déclarée.
+
+### Modifié
+
+- Le gris de texte le plus clair (`--text-3`) passe à `#6b6b74` en clair et
+  `#8b8b94` en sombre, pour atteindre 4,5:1 sur toutes les surfaces (dates,
+  compteurs, métadonnées, statut « Traité »).
+- Les filtres, le rail des projets, la liste et le détail ont un nom
+  accessible ; le compteur de retours est annoncé (`aria-live`).
+- La ligne ouverte porte `aria-current` et garde le focus ; sur écran étroit,
+  le focus passe sur le titre du détail à l'ouverture et revient sur la ligne
+  à la fermeture (bouton « Liste » ou Échap).
+
+### Corrigé
+
+- Un échec de chargement de la liste au démarrage renvoyait à l'écran de
+  connexion alors que la session était valide ; un échec lors d'un changement
+  de filtre restait silencieux.
+- Variables CSS utilisées mais jamais déclarées (`--surface-3`,
+  `--border-strong`, `--r-md`, `--r-xl`, `--shadow-sm`) : les déclarations
+  correspondantes étaient ignorées, dont le survol du bouton d'agrandissement
+  de la capture.
+- Le bouton d'agrandissement de la capture n'avait plus d'anneau de focus.
+- Le bouton « Accès agents → » de l'accueil d'un projet vide (`.btn-secondary`)
+  n'avait aucun style.
+- Sur téléphone (≤ 640 px), la barre du haut était plus large que l'écran et
+  élargissait toute la page : filtres format et statut, colonne de statut et
+  titre du projet sortaient de l'écran. La barre passe sur deux rangées (menu,
+  marque, vues ; puis titre et actions), et la grille de l'application ne peut
+  plus déborder latéralement.
+- Le tiroir des projets fermé laissait son ombre sur le bord gauche et restait
+  atteignable à la tabulation ; il est désormais masqué tant qu'il est fermé.
+- La mention « Capture » d'une ligne de retour utilisait l'emoji 📸, affiché
+  en couleur dans une liste monochrome ou en case vide sans police emoji ; elle
+  devient du texte.
+- Tests E2E : l'assistant de personnalisation du premier lancement recouvre le
+  tableau de bord d'une instance neuve et faisait échouer quatre scénarios ;
+  ils le referment désormais (« Configurer plus tard »). Nouveau scénario de
+  régression mobile (390 px) : pas de débordement horizontal, tiroir fermé hors
+  d'atteinte.
+
 ## [8.0.0] — 2026-09-19
 
 L'instance cesse de s'appeler ReviewDesk.

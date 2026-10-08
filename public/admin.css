@@ -45,7 +45,10 @@
 
   --text: #09090b;
   --text-2: #52525b;
-  --text-3: #8c8c96;
+  /* The faintest ink still clears WCAG AA (4.5:1) on every surface it sits on,
+     sunken rail included: dates, counts and meta lines are read, not decor.
+     tests/unit/admin-contrast.test.ts holds this line. */
+  --text-3: #6b6b74;
 
   --border: #eaeaec;
   --border-2: #dadade;
@@ -72,6 +75,13 @@
   --r: 9px;
   --r-lg: 13px;
   --r-full: 999px;
+  /* Aliases for names some components reached for but that were never
+     declared, which silently dropped their declarations. */
+  --r-md: var(--r);
+  --r-xl: 16px;
+  --surface-3: var(--surface-active);
+  --border-strong: var(--border-2);
+  --shadow-sm: var(--shadow-1);
 
   --shadow-1: 0 1px 1px #09090b0a, 0 2px 4px -1px #09090b0a;
   --shadow-2: 0 1px 2px #09090b0d, 0 6px 16px -4px #09090b14;
@@ -100,7 +110,7 @@
 
     --text: #fafafa;
     --text-2: #a1a1aa;
-    --text-3: #71717a;
+    --text-3: #8b8b94;
 
     --border: #232327;
     --border-2: #32323a;
@@ -136,7 +146,7 @@
 
   --text: #fafafa;
   --text-2: #a1a1aa;
-  --text-3: #71717a;
+  --text-3: #8b8b94;
 
   --border: #232327;
   --border-2: #32323a;
@@ -201,6 +211,33 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 600; }
   clip-path: inset(50%); white-space: nowrap;
 }
 
+/* First stop of the Tab order: jump the nav bar and the project rail straight
+   to the list. Off-screen until focused, then a plain ink chip. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12.5px;
+  font-weight: 560;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+  /* Transparent as well as off screen: a full-page capture or a scrolled
+     document can bring the area above the bar into view. */
+  opacity: 0;
+}
+
+.skip-link:focus-visible { transform: none; opacity: 1; outline-color: var(--text); }
+
+/* The workspace takes programmatic focus from the skip link; no ring on a
+   region the user did not tab to. */
+#main-content:focus,
+.detail-head h2:focus { outline: none; }
+
 /* ------------------------------------------------------------------ atoms */
 
 .eyebrow {
@@ -256,7 +293,8 @@ button.quiet:active,
 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 button.quiet,
-.btn-ghost {
+.btn-ghost,
+.btn-secondary {
   background: var(--surface);
   color: var(--text-2);
   border-color: var(--border-2);
@@ -273,7 +311,8 @@ button.quiet,
   }
 
   button.quiet:hover,
-  .btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+  .btn-ghost:hover,
+  .btn-secondary:hover { background: var(--surface-hover); color: var(--text); }
 }
 
 .btn-danger { background: transparent; color: var(--danger); border-color: transparent; }
@@ -398,7 +437,9 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
 /* --------------------------------------------------------------- app shell */
 
 /* Two rows: the nav bar owns the full width, everything else lives under it. */
-#app { min-height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); }
+/* minmax(0, 1fr), not auto: a bar wider than the screen must clip or wrap
+   inside its column instead of widening the whole page sideways. */
+#app { min-height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
 #app:not([hidden]) { display: grid; }
 
 .shell {
@@ -1150,6 +1191,12 @@ aside {
   border-color: var(--border-strong);
 }
 
+/* `all: unset` above also wipes the global focus ring: give it back. */
+.btn-zoom-screenshot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ticket-screenshot-card .screenshot-tab-link {
   font-size: 11.5px;
   color: var(--text-2);
@@ -1651,11 +1698,14 @@ button.mobile-only, .scrim { display: none; }
     height: 100dvh;
     z-index: 45;
     transform: translateX(-100%);
-    transition: transform 0.26s var(--ease);
+    /* Hidden once off screen: its shadow no longer bleeds on the left edge,
+       and Tab no longer walks through links nobody can see. */
+    visibility: hidden;
+    transition: transform 0.26s var(--ease), visibility 0s linear 0.26s;
     box-shadow: var(--shadow-3);
   }
 
-  #app.nav-open aside { transform: none; }
+  #app.nav-open aside { transform: none; visibility: visible; transition-delay: 0s; }
 
   .scrim {
     display: block;
@@ -1686,6 +1736,34 @@ button.mobile-only, .scrim { display: none; }
   }
   .detail.empty { display: none; }
   .detail-head > .quiet { display: inline-flex; }
+}
+
+/* Phone width: one bar no longer holds menu, brand, views, title and seven
+   actions. Two rows instead — where you are (menu, brand, views), then what
+   you look at and what you can do with it. --nav-h follows, so the drawer and
+   the detail pane still start right under the bar. */
+@media (max-width: 640px) {
+  :root { --nav-h: 88px; }
+
+  .nav {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'menu brand tabs tabs'
+      'ctx ctx ctx actions';
+    align-content: center;
+    gap: 6px 8px;
+    padding-block: 6px;
+  }
+
+  #nav-open { grid-area: menu; }
+  .brand { grid-area: brand; }
+  .nav-tabs { grid-area: tabs; justify-self: start; }
+  .nav-context { grid-area: ctx; padding-left: 4px; border-left: 0; }
+  .nav-actions { grid-area: actions; gap: 2px; }
+
+  .wordmark, .nav-sep { display: none; }
+  .nav-tab { padding-inline: 9px; }
 }
 
 
@@ -2373,6 +2451,23 @@ dialog[open]::backdrop { animation: fade 0.2s var(--ease); }
 
 .skeleton-kpi { height: 92px; }
 .skeleton-panel { height: 196px; }
+
+/* Ticket list placeholder: same padding and two-line rhythm as a real row, so
+   the list does not jump when the answer lands. */
+.skeleton-ticket {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  gap: 8px 12px;
+  padding: 12px;
+}
+
+.skeleton-ticket .skeleton { height: 10px; border-radius: var(--r-full); }
+.skeleton-ticket .skeleton:nth-child(1) { width: 82%; }
+.skeleton-ticket .skeleton:nth-child(3) { width: 54%; }
+.skeleton-ticket:nth-child(even) .skeleton:nth-child(1) { width: 66%; }
+
+/* Failed load: the empty state, plus the way out of it. */
+.empty-state .btn { margin-top: 6px; }
 
 /* Reduced motion means gentler, not none: the fades that explain what replaced
    what stay, everything that travels or scales is dropped. */
