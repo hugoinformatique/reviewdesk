@@ -151,6 +151,17 @@ export const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    // « Lancer la correction »: the admin queues a ticket for a connected
+    // agent, which picks it up through the agent API. Cleared once the ticket
+    // moves to review or done, by the agent or anyone else.
+    id: '008_fix_requests',
+    sql: `
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS fix_requested_at timestamptz;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS fix_requested_for text NOT NULL DEFAULT '';
+      CREATE INDEX IF NOT EXISTS tickets_fix_requested_idx ON tickets (fix_requested_at) WHERE fix_requested_at IS NOT NULL;
+    `,
+  },
 ];
 
 const BOOTSTRAP_SQL = `

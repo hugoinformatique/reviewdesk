@@ -276,3 +276,66 @@ test('an agent reads the screenshot of its own project only', async (t) => {
   });
   assert.equal(other.statusCode, 404, 'a scoped token must not reach another project’s capture');
 });
+
+test('« Lancer la correction » queues a ticket for the agent until it reaches review', async (t) => {
+  const app = await createTestApp(t);
+  const auth = await loginAdmin(app);
+  const project = await createProject(app, auth, {
+    name: 'DEMO Correction',
+    clientLabel: 'DEMO Client C',
+    origins: ['https://preview.client-c.test'],
+  });
+  const queued = await fileTicket(app, auth, project, 'Le menu ne se ferme pas sur mobile');
+  const untouched = await fileTicket(app, auth, project, 'Une faute dans le pied de page');
+  const token = await mintAgentToken(app, auth, { label: 'Claude Code' });
+  const agent = { authorization: `Bearer ${token}` };
+
+  // Only the admin can queue, and only with a write session.
+  const anonymous = await app.inject({ method: 'POST', url: `/api/tickets/${queued}/fix-request`, payload: {} });
+  assert.equal(anonymous.statusCode, 401);
+  const asAgent = await app.inject({ method: 'POST', url: `/api/tickets/${queued}/fix-request`, headers: agent, payload: {} });
+  assert.equal(asAgent.statusCode, 401);
+
+  const requested = await app.inject({
+    method: 'POST',
+    url: `/api/tickets/${queued}/fix-request`,
+    headers: auth.write,
+    payload: { agent: 'Claude Code' },
+  });
+  assert.equal(requested.statusCode, 201, requested.body);
+  assert.equal(requested.json().status, 'IN_PROGRESS');
+  assert.equal(requested.json().fixRequestedFor, 'Claude Code');
+
+  // The agent sees the queue, and only what was queued.
+  const queue = await app.inject({ method: 'GET', url: '/api/agent/tickets?requested=1', headers: agent });
+  assert.equal(queue.statusCode, 200, queue.body);
+  assert.deepEqual(queue.json().tickets.map((ticket: { id: string }) => ticket.id), [queued]);
+  assert.ok(queue.json().tickets[0].fixRequestedAt);
+  const bad = await app.inject({ method: 'GET', url: '/api/agent/tickets?requested=yes', headers: agent });
+  assert.equal(bad.statusCode, 400);
+
+  // The request is traced in the work log, with the status move.
+  const detail = await app.inject({ method: 'GET', url: `/api/agent/tickets/${queued}`, headers: agent });
+  const log = detail.json().comments as Comment[];
+  assert.equal(log.at(-1)?.body, 'Correction demandée à Claude Code.');
+  assert.equal(log.at(-1)?.statusFrom, 'TODO');
+  assert.equal(log.at(-1)?.statusTo, 'IN_PROGRESS');
+
+  // Moving the ticket to review answers the request and empties the queue.
+  const done = await app.inject({
+    method: 'PATCH',
+    url: `/api/agent/tickets/${queued}`,
+    headers: agent,
+    payload: { status: 'REVIEW', comment: 'Menu corrigé.' },
+  });
+  assert.equal(done.statusCode, 200, done.body);
+  const after = await app.inject({ method: 'GET', url: '/api/agent/tickets?requested=1', headers: agent });
+  assert.equal(after.json().total, 0);
+
+  // The admin can also withdraw a request.
+  await app.inject({ method: 'POST', url: `/api/tickets/${untouched}/fix-request`, headers: auth.write, payload: {} });
+  const withdrawn = await app.inject({ method: 'DELETE', url: `/api/tickets/${untouched}/fix-request`, headers: auth.write });
+  assert.equal(withdrawn.statusCode, 200, withdrawn.body);
+  const empty = await app.inject({ method: 'GET', url: '/api/agent/tickets?requested=1', headers: agent });
+  assert.equal(empty.json().total, 0);
+});

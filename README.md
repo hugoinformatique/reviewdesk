@@ -314,7 +314,8 @@ Ou, dans un `.mcp.json` / `claude_desktop_config.json` :
 | Outil | Effet |
 | --- | --- |
 | `list_projects` | Les projets visibles par le jeton, et le reste à faire par statut. |
-| `list_tickets` | Les retours, filtrés par statut, projet, page ou format. |
+| `list_tickets` | Les retours, filtrés par statut, projet, page ou format, ou seulement ceux dont la correction est demandée (`requested`). |
+| `next_fix_request` | Le plus ancien retour pour lequel l'équipe a cliqué « Lancer la correction », avec son détail complet. |
 | `get_ticket` | Le détail : élément visé, page, écran, diagnostics, journal. |
 | `get_screenshot` | La capture jointe par le client, comme image. |
 | `comment_ticket` | Un commentaire, interne ou **publié au client**. |
@@ -327,6 +328,23 @@ dans son widget ; sinon il reste dans le journal, côté équipe.
 
 Le journal de chaque retour est visible dans l'administration, sous la réponse :
 les entrées d'un agent y sont distinguées de celles de l'équipe.
+
+### « Lancer la correction »
+
+Sur la fiche d'un retour, le bouton **Lancer la correction** confie ce retour à
+un agent. MCP est appelé par l'agent, jamais l'inverse : l'administration ne
+peut pas réveiller un Claude Code ouvert sur un poste. Le bouton fait donc ce
+qui est réellement possible :
+
+1. il met le retour en file (« Correction demandée », statut `En cours`, trace
+   au journal) ;
+2. il donne la commande ou le prompt exact pour l'agent choisi — `claude "…"`,
+   `codex "…"`, ou la consigne à coller dans Cursor, VS Code ou Claude Desktop —
+   copié en un clic (la copie automatique exige HTTPS ou `localhost`).
+
+L'agent peut aussi vider la file seul : « traite les corrections demandées
+ReviewDesk une par une avec `next_fix_request` ». La demande se clôt d'elle-même
+quand le retour passe à `À valider` ou `Traité` ; l'équipe peut l'annuler.
 
 ### Sans MCP
 
@@ -539,6 +557,7 @@ Administration — cookie de session + jeton CSRF sur les mutations :
 | `GET` | `/api/stats` | Vue d'ensemble : `days` (7, 30, 90) et `projectId` optionnel. |
 | `GET` | `/api/onboarding` | État d'installation, déduit des données. |
 | `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
+| `POST` `DELETE` | `/api/tickets/:id/fix-request` | Demander (ou annuler) la correction d'un retour par un agent. |
 | `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
 | `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
 | `GET` `POST` | `/api/agent-tokens` | Jetons agents (le secret n'est montré qu'une fois). |
@@ -550,7 +569,7 @@ Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
 | Méthode | Route | Effet |
 | --- | --- | --- |
 | `GET` | `/api/agent/context` | Portée du jeton et projets visibles, avec le compte par statut. |
-| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `limit`, `cursor`). |
+| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `requested`, `limit`, `cursor`). |
 | `GET` | `/api/agent/tickets/:id` | Détail d'un retour et son journal. |
 | `POST` | `/api/agent/tickets/:id/comments` | Commentaire interne ou publié au client. |
 | `PATCH` | `/api/agent/tickets/:id` | Statut et commentaire, en un appel. |

@@ -34,6 +34,16 @@ Refonte de l'interface : administration, widget client et intégration.
   démarrage compact, graphique d'activité plus haut avec lecture au survol,
   répartition en barre empilée, avancement par projet, pages en barres,
   derniers mouvements en fil.
+- « Lancer la correction » sur la fiche d'un retour : choix de l'agent
+  (Claude Code, Codex, Cursor, VS Code, Claude Desktop, API), commande ou
+  prompt prêt à coller, retour mis en file « Correction demandée » (statut
+  `En cours`, trace au journal), demande annulable et close d'elle-même au
+  passage à `À valider` ou `Traité`. Migration `008_fix_requests`, routes
+  `POST`/`DELETE /api/tickets/:id/fix-request`, filtre `requested` de l'API
+  agent et nouvel outil MCP `next_fix_request`.
+- Mise en avant des agents IA : carte « Agents IA » dans la vue d'ensemble
+  (logos des outils reliés à la marque, état de connexion, corrections en
+  attente) et logos dans le bouton « Accès agents ».
 - Formulaire de projet simplifié : « Nom du site », « Client » avec
   suggestion des clients existants, adresses saisies en étiquettes (une URL
   collée, même avec un chemin, est réduite à son origine ; les adresses

@@ -26,6 +26,9 @@ type Ticket = {
   diagnostics: Record<string, unknown>;
   screenshotId?: string;
   createdAt: string;
+  /** Set when the team clicked « Lancer la correction »; cleared at review. */
+  fixRequestedAt?: string | null;
+  fixRequestedFor?: string;
 };
 type ReviewLink = { id: string; label: string; createdAt: string; revokedAt: string | null; lastUsedAt: string | null };
 type Comment = {
@@ -588,6 +591,13 @@ function renderTickets() {
     const device = document.createElement('span');
     device.append(icon(mobile ? 'i-phone' : 'i-monitor'), document.createTextNode(mobile ? 'Mobile' : 'Desktop'));
     context.append(where, device);
+    if (ticket.fixRequestedAt) {
+      const queued = document.createElement('span');
+      queued.className = 'queued';
+      queued.append(icon('i-sparkle'), document.createTextNode(ticket.fixRequestedFor || 'Agent'));
+      queued.title = 'Correction demandée à un agent';
+      context.append(queued);
+    }
     if (ticket.screenshotId) {
       const shot = document.createElement('span');
       shot.append(icon('i-camera'), document.createTextNode('Capture'));
@@ -750,7 +760,7 @@ function openTicket(id: string) {
 
   // The whole point of a visual feedback tool: go and look at the spot rather
   // than decode a CSS selector by hand.
-  const openAnchor = el('a', 'btn btn-primary anchor-link');
+  const openAnchor = el('a', 'btn btn-secondary anchor-link');
   openAnchor.href = anchorUrl(ticket);
   openAnchor.target = '_blank';
   openAnchor.rel = 'noreferrer';
@@ -759,8 +769,42 @@ function openTicket(id: string) {
   openAnchor.setAttribute('aria-label', 'Ouvrir au point d’ancrage');
   openAnchor.append(icon('i-target'), el('span', '', 'Ouvrir au point d’ancrage'));
 
+  // The agent is the fastest way from a ticket to a fix, so it gets the one
+  // strong button of the bar; a pending request is shown instead of hidden.
+  const launchFix = el('button', 'btn btn-ai launch-fix');
+  launchFix.type = 'button';
+  launchFix.append(icon('i-sparkle'), el('span', '', ticket.fixRequestedAt ? 'Relancer' : 'Lancer la correction'));
+  launchFix.setAttribute('aria-label', ticket.fixRequestedAt ? 'Relancer la correction' : 'Lancer la correction');
+  launchFix.onclick = () => void openFixDialog(ticket);
+
   const bar = el('div', 'detail-bar');
-  bar.append(back, stepper, el('span', 'detail-bar-spacer'), statusField, openAnchor);
+  bar.append(back, stepper, el('span', 'detail-bar-spacer'));
+  if (ticket.fixRequestedAt) {
+    const pending = el('span', 'fix-pending');
+    pending.title = `Demandée ${formatAge(ticket.fixRequestedAt)}`;
+    pending.append(
+      icon('i-robot'),
+      el('span', '', `Correction demandée${ticket.fixRequestedFor ? ` à ${ticket.fixRequestedFor}` : ''}`),
+    );
+    const withdraw = el('button', 'fix-withdraw');
+    withdraw.type = 'button';
+    withdraw.setAttribute('aria-label', 'Annuler la demande de correction');
+    withdraw.title = 'Annuler la demande';
+    withdraw.append(icon('i-plus'));
+    withdraw.onclick = async () => {
+      try {
+        await api(`/api/tickets/${ticket.id}/fix-request`, { method: 'DELETE' });
+        toast('Demande de correction annulée.');
+        await loadTickets();
+        openTicket(ticket.id);
+      } catch {
+        toast('Annulation impossible.', 'error');
+      }
+    };
+    pending.append(withdraw);
+    bar.append(pending);
+  }
+  bar.append(statusField, openAnchor, launchFix);
 
   // ------------------------------------------------------------ main column
 
@@ -1429,7 +1473,97 @@ function panel(title: string, hint: string, body: HTMLElement, variant: string) 
   return section;
 }
 
-function renderOverview(stats: Stats) {
+/**
+ * The agents, front and centre: the tools that plug in, drawn around the
+ * product mark (after 21st.dev's « Integration Card »), and either the way to
+ * connect one or what the connected ones have waiting.
+ */
+function aiCard(agents: string[], queued: number) {
+  const card = el('section', `panel ai-card ${agents.length ? 'connected' : ''}`);
+
+  const copy = el('div', 'ai-copy');
+  const eyebrow = el('span', 'ai-eyebrow');
+  eyebrow.append(icon('i-sparkle'), document.createTextNode('Agents IA · MCP et API'));
+  copy.append(eyebrow);
+  const actions = el('div', 'ai-actions');
+  const manage = el('button', agents.length ? 'btn btn-secondary' : 'btn btn-ai');
+  manage.type = 'button';
+  manage.onclick = () => $<HTMLButtonElement>('#agent-access').click();
+
+  if (agents.length) {
+    copy.append(
+      el('h2', '', 'Votre agent corrige les retours'),
+      el(
+        'p',
+        '',
+        `Connecté : ${agents.join(', ')}. Sur un retour, « Lancer la correction » le lui confie : il lit le ticket, la capture et l’élément visé, corrige le code et répond au client.`,
+      ),
+    );
+    const status = el('div', 'ai-status');
+    const live = el('span', 'ai-live');
+    live.append(el('span', 'pulse-dot'), document.createTextNode(`${agents.length} agent${agents.length > 1 ? 's' : ''} connecté${agents.length > 1 ? 's' : ''}`));
+    status.append(live, el('span', '', `${queued} correction${queued > 1 ? 's' : ''} en attente`));
+    copy.append(status);
+    const todo = el('button', 'btn btn-ai');
+    todo.type = 'button';
+    todo.append(icon('i-inbox'), document.createTextNode('Voir les retours'));
+    todo.onclick = () => void showTickets();
+    manage.textContent = 'Gérer les agents';
+    actions.append(todo, manage);
+  } else {
+    copy.append(
+      el('h2', '', 'Faites corriger les retours par votre agent IA'),
+      el(
+        'p',
+        '',
+        'Claude Code, Codex, Cursor, VS Code ou Claude Desktop se branchent en MCP ; tout autre outil passe par l’API HTTP. Ensuite, un clic sur « Lancer la correction » et l’agent s’en charge.',
+      ),
+    );
+    manage.append(icon('i-sparkle'), document.createTextNode('Connecter un agent'));
+    actions.append(manage);
+  }
+  copy.append(actions);
+
+  // The orbit: the mark in the middle, each tool on a dashed line to it.
+  const orbit = el('div', 'ai-orbit');
+  orbit.setAttribute('aria-hidden', 'true');
+  const tools: [string, string, number, number][] = [
+    ['i-claude', 'Claude Code', 14, 22],
+    ['i-openai', 'Codex', 86, 22],
+    ['i-cursor', 'Cursor', 8, 74],
+    ['i-vscode', 'VS Code', 92, 74],
+    ['i-plug', 'API', 50, 92],
+  ];
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'ai-lines');
+  for (const [, , x, y] of tools) {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '50');
+    line.setAttribute('y1', '45');
+    line.setAttribute('x2', String(x));
+    line.setAttribute('y2', String(y));
+    svg.append(line);
+  }
+  orbit.append(svg);
+  const center = el('span', 'ai-center');
+  center.append(icon('i-brand'));
+  orbit.append(center);
+  for (const [mark, name, x, y] of tools) {
+    const tile = el('span', 'ai-tool');
+    tile.style.left = `${x}%`;
+    tile.style.top = `${y}%`;
+    tile.title = name;
+    tile.append(icon(mark, 'logo'));
+    orbit.append(tile);
+  }
+
+  card.append(copy, orbit);
+  return card;
+}
+
+function renderOverview(stats: Stats, agents: string[] = [], queued = 0) {
   const host = $('#overview');
   host.replaceChildren();
 
@@ -1474,6 +1608,7 @@ function renderOverview(stats: Stats) {
   // The checklist sits above everything until the instance is genuinely set up,
   // then vanishes without leaving a trace of itself.
   if (onboarding && onboarding.connectedAgents === 0) host.append(onboardingPanel(onboarding));
+  host.append(aiCard(agents, queued));
   // Nothing has happened yet: a wall of zeros teaches less than the checklist.
   if (onboarding && onboarding.tickets === 0) return;
 
@@ -1516,9 +1651,16 @@ async function loadStats() {
   const scope = $('#stats-scope');
   renderStatsSkeleton();
   try {
-    const stats = (await api(`/api/stats?${params}`)) as Stats;
+    const queue = new URLSearchParams({ requested: '1', limit: '1' });
+    if (selectedProject) queue.set('projectId', selectedProject);
+    const [stats, agents, queued] = await Promise.all([
+      api(`/api/stats?${params}`) as Promise<Stats>,
+      connectedAgentLabels(),
+      // The queue count is a nicety: the overview still renders without it.
+      api(`/api/tickets?${queue}`).then((page: { total: number }) => page.total).catch(() => 0),
+    ]);
     scope.textContent = selectedProject ? 'Projet sélectionné' : 'Tous les projets';
-    renderOverview(stats);
+    renderOverview(stats, agents, queued);
   } catch {
     scope.textContent = '';
     $('#overview').replaceChildren(
@@ -1627,6 +1769,168 @@ $('#period').addEventListener('change', () => void loadStats());
  * with the status move that came with it. This is where an operator reads what
  * an AI agent did without opening the code.
  */
+// ------------------------------------------------------------ launch a fix
+
+/**
+ * « Lancer la correction ». MCP is pulled by the agent, never pushed: the
+ * browser cannot wake a coding agent on someone's machine. So the button does
+ * the two things that are actually possible — it queues the ticket (the agent
+ * finds it with `next_fix_request`) and hands over the exact command or prompt
+ * to start that agent on it.
+ */
+type FixTarget = { id: string; name: string; mark: string; kind: 'cli' | 'chat' | 'api'; where: string };
+
+const FIX_TARGETS: FixTarget[] = [
+  { id: 'claude-code', name: 'Claude Code', mark: 'i-claude', kind: 'cli', where: 'Dans un terminal, depuis le dépôt du site.' },
+  { id: 'codex', name: 'Codex CLI', mark: 'i-openai', kind: 'cli', where: 'Dans un terminal, depuis le dépôt du site.' },
+  { id: 'cursor', name: 'Cursor', mark: 'i-cursor', kind: 'chat', where: 'Dans le chat Agent de Cursor, projet ouvert.' },
+  { id: 'vscode', name: 'VS Code', mark: 'i-vscode', kind: 'chat', where: 'Dans Copilot Chat en mode Agent.' },
+  { id: 'claude-desktop', name: 'Claude Desktop', mark: 'i-claude', kind: 'chat', where: 'Dans une conversation Claude Desktop.' },
+  { id: 'api', name: 'API HTTP', mark: 'i-plug', kind: 'api', where: 'Depuis un script, n8n ou votre propre agent.' },
+];
+
+/** The brief, in typographic apostrophes so it survives shell double quotes. */
+function fixPrompt(ticket: Ticket) {
+  return (
+    `Corrige le retour ReviewDesk ${ticket.id} : lis-le avec get_ticket ` +
+    `(et get_screenshot s’il a une capture), corrige le code du site, ` +
+    `puis passe-le à REVIEW avec update_ticket en expliquant ce que tu as changé.`
+  );
+}
+
+function fixCommand(target: FixTarget, ticket: Ticket) {
+  if (target.kind === 'api') {
+    return (
+      `curl -H "Authorization: Bearer $REVIEWDESK_TOKEN" \\\n` +
+      `  ${location.origin}/api/agent/tickets/${ticket.id}`
+    );
+  }
+  if (target.id === 'codex') return `codex "${fixPrompt(ticket)}"`;
+  if (target.kind === 'cli') return `claude "${fixPrompt(ticket)}"`;
+  return fixPrompt(ticket);
+}
+
+/** Connected = an agent token has made at least one call. */
+async function connectedAgentLabels(): Promise<string[]> {
+  try {
+    const { tokens } = (await api('/api/agent-tokens')) as { tokens: AgentToken[] };
+    return tokens.filter((token) => !token.revokedAt && token.lastUsedAt).map((token) => token.label);
+  } catch {
+    return [];
+  }
+}
+
+async function openFixDialog(ticket: Ticket) {
+  const dialog = $<HTMLDialogElement>('#fix-dialog');
+  const body = $('#fix-body');
+  const connected = await connectedAgentLabels();
+  const isConnected = (target: FixTarget) =>
+    connected.some((label) => label.toLowerCase().includes(target.name.toLowerCase()));
+  let target = FIX_TARGETS.find(isConnected) ?? FIX_TARGETS[0]!;
+
+  const head = el('div', 'fix-head');
+  const tile = el('span', 'fix-tile');
+  tile.append(icon('i-sparkle'));
+  const titles = el('div');
+  titles.append(el('h2', '', 'Lancer la correction'), el('p', 'note', ticket.text));
+  head.append(tile, titles);
+
+  const picker = el('div', 'fix-agents');
+  picker.setAttribute('role', 'radiogroup');
+  picker.setAttribute('aria-label', 'Agent');
+  const where = el('p', 'fix-where');
+  const code = el('div', 'fix-code');
+  const launch = el('button', 'btn btn-primary fix-launch');
+  launch.type = 'button';
+
+  const render = () => {
+    for (const option of picker.children) {
+      option.setAttribute('aria-checked', String((option as HTMLElement).dataset.agent === target.id));
+    }
+    where.textContent = target.where;
+    code.replaceChildren(codeBlock(fixCommand(target, ticket), target.kind === 'chat' ? 'Copier le prompt' : 'Copier la commande'));
+    launch.replaceChildren(icon('i-sparkle'), document.createTextNode(`Copier et lancer avec ${target.name}`));
+  };
+
+  for (const candidate of FIX_TARGETS) {
+    const option = el('button', 'fix-agent');
+    option.type = 'button';
+    option.setAttribute('role', 'radio');
+    option.dataset.agent = candidate.id;
+    option.append(icon(candidate.mark, 'logo'), el('span', '', candidate.name));
+    if (isConnected(candidate)) {
+      const dot = el('span', 'fix-connected');
+      dot.title = 'Agent connecté';
+      option.append(dot);
+    }
+    option.onclick = () => {
+      target = candidate;
+      render();
+    };
+    picker.append(option);
+  }
+
+  const notice = el('div', connected.length ? 'fix-notice ok' : 'fix-notice');
+  if (connected.length) {
+    notice.append(icon('i-check'), el('span', '', `Agent connecté : ${connected.join(', ')}. Il trouvera aussi ce retour dans sa file avec next_fix_request.`));
+  } else {
+    notice.append(icon('i-robot'), el('span', '', 'Aucun agent connecté pour l’instant. Connectez-en un, puis lancez la commande.'));
+    const connect = el('button', 'btn btn-secondary', 'Connecter un agent');
+    connect.type = 'button';
+    connect.onclick = () => {
+      dialog.close();
+      $<HTMLButtonElement>('#agent-access').click();
+    };
+    notice.append(connect);
+  }
+
+  launch.onclick = async () => {
+    launch.disabled = true;
+    let copied = true;
+    try {
+      await navigator.clipboard.writeText(fixCommand(target, ticket));
+    } catch {
+      // Insecure origin or refused permission: the command stays on screen.
+      copied = false;
+    }
+    try {
+      await api(`/api/tickets/${ticket.id}/fix-request`, {
+        method: 'POST',
+        body: JSON.stringify({ agent: target.name }),
+      });
+    } catch {
+      toast('Demande de correction impossible.', 'error');
+      launch.disabled = false;
+      return;
+    }
+    if (copied) {
+      dialog.close();
+      toast(`Correction demandée à ${target.name}. ${target.kind === 'chat' ? 'Prompt' : 'Commande'} copié${target.kind === 'chat' ? '' : 'e'}.`);
+    } else {
+      toast(`Correction demandée à ${target.name}. Copiez la ${target.kind === 'chat' ? 'consigne' : 'commande'} affichée.`);
+      launch.disabled = false;
+    }
+    await loadTickets();
+    if (selectedTicket === ticket.id && tickets.some((candidate) => candidate.id === ticket.id)) openTicket(ticket.id);
+  };
+
+  const queueTip = el('p', 'fix-tip');
+  queueTip.append(
+    icon('i-inbox'),
+    document.createTextNode('Pour enchaîner toute la file : « Traite les corrections demandées ReviewDesk une par une avec next_fix_request ».'),
+  );
+
+  const actions = el('div', 'dialog-actions');
+  const cancel = el('button', 'quiet', 'Annuler');
+  cancel.type = 'button';
+  cancel.onclick = () => dialog.close();
+  actions.append(cancel, launch);
+
+  render();
+  body.replaceChildren(head, notice, el('div', 'eyebrow', 'Agent'), picker, where, code, queueTip, actions);
+  dialog.showModal();
+}
+
 /**
  * The ticket's history as a conversation: the client's request first, then
  * every reply, internal message, agent report and status move, oldest first.
