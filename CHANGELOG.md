@@ -80,7 +80,11 @@ Refonte de l'interface : administration, widget client et intégration.
 
 - Sur ordinateur, faire défiler la fiche d'un retour faisait aussi défiler
   la liste : c'était la page entière qui défilait. Chaque colonne défile
-  désormais seule.
+  désormais seule, sans aucun élément collant : la barre, le fil (avec le
+  compositeur posé dessous) et la colonne latérale sont des zones séparées.
+  Sur mobile, la page ne défile plus sous la fiche ouverte.
+- Une capture prise sur téléphone était étirée sur toute la largeur ; elle
+  s'affiche maintenant à la taille d'un téléphone.
 - L'assistant de personnalisation revenait à chaque chargement tant qu'il
   n'était pas terminé ; « Configurer plus tard » est maintenant retenu par le
   navigateur (Personnalisation et `⌘K` le rouvrent).

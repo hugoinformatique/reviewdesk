@@ -1278,15 +1278,17 @@ aside {
    the bottom. Facts and the internal memo sit in a rail beside it, and the
    rail drops below once the pane is too narrow to share. */
 
+/* Nothing in the pane is sticky. The bar, the conversation column with its
+   composer underneath, and the rail are separate boxes; only the column and
+   the rail scroll, each on its own, so no content ever slides under another
+   layer. Below 820px of pane the rail joins the column in a single scroll. */
 .detail {
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg-sunken);
-  scrollbar-width: thin;
   container-type: inline-size;
-  /* Keeps the sticky bar's shadow from being clipped by the first scroll. */
-  scroll-padding-top: 64px;
 }
 
 .detail.empty {
@@ -1299,21 +1301,14 @@ aside {
 }
 
 .detail-bar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 52px;
   padding: 8px 20px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter: saturate(180%) blur(12px);
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-  .detail-bar { background: var(--bg); }
+  background: var(--bg);
 }
 
 .detail-bar-spacer { flex: 1; }
@@ -1327,24 +1322,50 @@ aside {
 
 .detail-bar .anchor-link { height: 32px; text-decoration: none; }
 
+/* A scroll that reaches its end stops there instead of moving what is behind. */
+.tickets, .detail-body, .detail-scroll, .detail-rail { overscroll-behavior: contain; }
+
+/* Narrow pane: one scroll for everything, composer at the end of the thread. */
 .detail-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
-  padding: 24px 24px 0;
-  align-items: start;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
+
+.detail-main { min-width: 0; }
+.detail-scroll { display: grid; gap: 20px; align-content: start; padding: 24px 24px 0; }
 
 @container (min-width: 820px) {
-  .detail-body { grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; padding-inline: 28px; }
-  .detail-rail { position: sticky; top: 76px; }
+  .detail-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    /* One row exactly as tall as the pane, so each column scrolls inside it. */
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .detail-main { display: flex; flex-direction: column; min-height: 0; }
+  .detail-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 24px 28px 24px; }
+
+  .detail-body .detail-rail {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding: 24px 20px;
+    border-left: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  /* On the plain ground of the rail, cards would be boxes in a box. */
+  .detail-rail .rail-card { padding: 0 0 18px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+  .detail-rail .rail-card + .rail-card { padding-top: 18px; border-top: 1px solid var(--border); }
 }
 
-@container (min-width: 1200px) {
-  .detail-body { grid-template-columns: minmax(0, 860px) 320px; }
+@container (min-width: 1240px) {
+  .detail-body { grid-template-columns: minmax(0, 1fr) 340px; }
+  .detail-scroll { padding-inline: max(28px, calc((100% - 820px) / 2)); }
 }
-
-.detail-main { display: grid; gap: 20px; min-width: 0; }
 
 .detail-head { display: grid; gap: 10px; justify-items: start; }
 .detail-head .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
@@ -1468,14 +1489,15 @@ aside {
 .comment-meta .tag.reviewer { background: var(--st-todo-soft); color: var(--st-todo); }
 .comment-meta .tag.move { background: var(--st-review-soft); color: var(--st-review); }
 
-/* Composer: pinned to the bottom of the pane, like a chat box. */
-.composer {
-  position: sticky;
-  bottom: 0;
-  z-index: 4;
-  margin: 0 -4px;
-  padding: 10px 4px 20px;
-  background: var(--bg-sunken);
+/* Composer: under the conversation, outside its scroll, like a chat box. */
+.composer { flex: none; padding: 12px 24px 20px; }
+
+@container (min-width: 820px) {
+  .composer { padding: 12px 28px 20px; border-top: 1px solid var(--border); background: var(--bg-sunken); }
+}
+
+@container (min-width: 1240px) {
+  .composer { padding-inline: max(28px, calc((100% - 820px) / 2)); }
 }
 
 .composer-tabs { display: flex; gap: 2px; padding: 0 0 8px; }
@@ -1537,7 +1559,7 @@ aside {
 
 /* Rail ---------------------------------------------------------------------- */
 
-.detail-rail { display: grid; gap: 12px; align-content: start; padding-bottom: 24px; }
+.detail-rail { display: grid; gap: 12px; align-content: start; padding: 0 24px 24px; }
 
 .rail-card {
   display: grid;
@@ -1665,6 +1687,16 @@ aside {
   width: 100%;
   height: auto;
   transition: transform 0.4s var(--ease);
+}
+
+/* A phone capture at phone width, framed on a quiet ground. */
+.ticket-screenshot-wrap.mobile { padding: 16px; max-height: 520px; }
+.ticket-screenshot-wrap.mobile .ticket-screenshot-preview {
+  width: auto;
+  max-width: min(100%, 300px);
+  margin: 0 auto;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px var(--border-2), var(--shadow-2);
 }
 
 .ticket-screenshot-wrap:hover .ticket-screenshot-preview { transform: scale(1.01); }
@@ -2293,7 +2325,10 @@ button.mobile-only, .scrim { display: none; }
     inset: var(--nav-h) 0 0;
     z-index: 30;
   }
-  .detail-body { padding: 16px 16px 0; }
+  .detail-scroll { padding: 16px 16px 0; }
+  /* The pane covers the list; the list must not scroll away beneath it. */
+  body:has(.detail:not(.empty)) { overflow: hidden; }
+  .composer, .detail-rail { padding-inline: 16px; }
   .detail.empty { display: none; }
   .detail .detail-back { display: inline-flex; }
   .detail-bar { padding-inline: 12px; }

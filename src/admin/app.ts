@@ -775,8 +775,11 @@ function openTicket(id: string) {
   const head = el('header', 'detail-head');
   head.append(eyebrow, heading, byline);
 
+  // The column scrolls on its own; the composer sits under it, outside the
+  // scroll, so nothing ever slides beneath it.
+  const scroller = el('div', 'detail-scroll');
+  scroller.append(head, screenshotFigure(ticket));
   const main = el('div', 'detail-main');
-  main.append(head, screenshotFigure(ticket));
 
   const conversation = el('section', 'conversation');
   conversation.setAttribute('aria-label', 'Échanges');
@@ -793,7 +796,8 @@ function openTicket(id: string) {
   const replyCard = el('section', 'rail-card');
   replyCard.append(railTitle('i-eye', 'Ce que voit le client'), replyPreview);
 
-  main.append(conversation, composer(ticket, conversation, showReply));
+  scroller.append(conversation);
+  main.append(scroller, composer(ticket, conversation, showReply));
 
   const note = document.createElement('textarea');
   note.id = 'ticket-note';
@@ -897,7 +901,8 @@ function screenshotFigure(ticket: Ticket) {
   }
   const card = el('figure', 'ticket-screenshot-card');
 
-  const wrap = el('div', 'ticket-screenshot-wrap');
+  // A phone capture is shown at phone width, not stretched across the column.
+  const wrap = el('div', mobile ? 'ticket-screenshot-wrap mobile' : 'ticket-screenshot-wrap');
   wrap.title = 'Cliquer pour agrandir la capture';
   const img = el('img', 'ticket-screenshot-preview');
   img.src = `/api/uploads/${ticket.screenshotId}`;
@@ -1024,6 +1029,8 @@ function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: s
       toast('Message ajouté.');
     }
     await renderConversation(ticket, conversation);
+    // The newest entry is at the bottom, right above the composer.
+    conversation.closest('.detail-scroll')?.scrollTo({ top: conversation.scrollHeight * 10, behavior: 'smooth' });
     void loadTickets();
   };
   send.onclick = () => void submit();
