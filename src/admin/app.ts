@@ -10,6 +10,13 @@ type Project = {
   origins: string[];
   webhookUrl: string;
   openCount: number;
+  todoCount: number;
+  inProgressCount: number;
+  reviewCount: number;
+  fixRequestedCount: number;
+  lastTicketAt: string | null;
+  /** Last time a review link of this project was used: the widget is live. */
+  widgetSeenAt: string | null;
 };
 type Ticket = {
   id: string;
@@ -29,6 +36,7 @@ type Ticket = {
   /** Set when the team clicked « Lancer la correction »; cleared at review. */
   fixRequestedAt?: string | null;
   fixRequestedFor?: string;
+  commentCount?: number;
 };
 type ReviewLink = { id: string; label: string; createdAt: string; revokedAt: string | null; lastUsedAt: string | null };
 type Comment = {
@@ -66,7 +74,6 @@ let tickets: Ticket[] = [];
 let selectedProject = '';
 let selectedTicket = '';
 /** Keyset cursor for the next page; null once the list is exhausted. */
-let nextCursor: string | null = null;
 let totalTickets = 0;
 /** Set while a project dialog is editing rather than creating. */
 let editingProject: Project | null = null;
@@ -229,13 +236,16 @@ async function load() {
   if (!csrfToken) csrfToken = (await api('/api/auth/session')).csrfToken;
   projects = await api('/api/projects');
   showApp();
-  renderProjects();
-  await loadTickets();
   await refreshOnboarding();
-  // A fresh instance has nothing to triage and everything to set up: start on
-  // the overview, where the checklist is.
-  if (onboarding && onboarding.tickets === 0 && onboarding.connectedAgents === 0) await showOverview();
-  await maybeOpenSetup();
+  void applyPublicBranding();
+  // A fresh instance starts with its first project, not with a logo upload:
+  // white-labelling waits in the account menu until it is wanted.
+  if (!projects.length) {
+    await go('#/projets', true);
+    openGuide();
+    return;
+  }
+  await renderRoute();
 }
 
 // ------------------------------------------------------------ white-label
@@ -271,41 +281,14 @@ async function openBrandingWizard(mode: 'first-run' | 'settings') {
       }) as Promise<PublicBranding>,
     onClose: (branding) => {
       if (branding) toast('Personnalisation appliquée.');
-      // « Configurer plus tard » means later, not on every reload: the takeover
-      // steps aside for good in this browser. Personnalisation (and ⌘K) still
-      // reopen it at any time.
-      else if (mode === 'first-run') rememberSetupPostponed();
     },
   });
 }
 
-const SETUP_POSTPONED_KEY = 'reviewdesk-setup-postponed';
-
-function setupPostponed() {
+/** Applies the instance's name, logo and colour. The wizard itself is opened from the account menu. */
+async function applyPublicBranding() {
   try {
-    return localStorage.getItem(SETUP_POSTPONED_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-function rememberSetupPostponed() {
-  try {
-    localStorage.setItem(SETUP_POSTPONED_KEY, '1');
-  } catch {
-    // Private mode or blocked storage: the wizard comes back next load.
-  }
-}
-
-/**
- * The takeover only fires while the instance has never been configured, and
- * only until it has been postponed once.
- */
-async function maybeOpenSetup() {
-  try {
-    const branding = await fetchPublicBranding();
-    applyBranding(branding);
-    if (!branding.setupComplete && !setupPostponed()) await openBrandingWizard('first-run');
+    applyBranding(await fetchPublicBranding());
   } catch {
     // Branding is decoration: a failure here must never block the dashboard.
   }
@@ -321,88 +304,458 @@ fetchPublicBranding()
   .then(applyBranding)
   .catch(() => {});
 
+// ------------------------------------------------------------------ routing
+
 /**
- * The accessible name is pinned to `name` alone via aria-label: the secondary
- * client line is decoration, and tests (plus screen-reader users scanning the
- * nav) want the project's own name, not "Name Client" run together.
+ * Every screen has an address, so the browser's back button and a shared link
+ * both land where they should:
+ *   #/projets            the home grid
+ *   #/p/<id|all>         a project's board (all = every project)
+ *   #/p/<id>/stats       its overview
+ *   #/p/<id>/t/<ticket>  a ticket, open over the board
  */
-function projectButton(id: string, name: string, secondary: string, openCount = 0) {
-  const button = el('button', `project ${selectedProject === id ? 'active' : ''}`);
-  button.type = 'button';
-  button.setAttribute('aria-label', name);
-  if (selectedProject === id) button.setAttribute('aria-current', 'page');
-  button.title = secondary ? `${name} — ${secondary}` : name;
-  const label = el('span', 'name', name);
-  label.setAttribute('aria-hidden', 'true');
-  button.append(projectAvatar(id, name), label);
-  // Open tickets only: a project with nothing waiting stays quiet.
-  if (openCount > 0) {
-    const badge = el('span', 'badge', String(openCount));
-    badge.setAttribute('aria-hidden', 'true');
-    button.append(badge);
-  }
-  button.onclick = () => {
-    toggleNav(false);
-    void chooseProject(id);
-  };
-  return button;
+type Route =
+  | { name: 'projects' }
+  | { name: 'project'; id: string; tab: 'board' | 'overview'; ticket?: string };
+
+function parseRoute(): Route {
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  if (parts[0] !== 'p' || !parts[1]) return { name: 'projects' };
+  const id = parts[1] === 'all' ? '' : parts[1];
+  if (parts[2] === 'stats') return { name: 'project', id, tab: 'overview' };
+  if (parts[2] === 't' && parts[3]) return { name: 'project', id, tab: 'board', ticket: parts[3] };
+  return { name: 'project', id, tab: 'board' };
 }
 
-/**
- * The rail lists projects under their client: an agency thinks "which client",
- * then "which site". "All projects" stays on top as the way back out.
- */
-function renderProjects() {
-  const nav = $('#projects');
-  nav.replaceChildren();
-  const open = projects.reduce((sum, project) => sum + project.openCount, 0);
-  $('#projects-count').textContent = String(projects.length);
-  nav.append(projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`, open));
+function projectHash(id: string, tail = '') {
+  return `#/p/${id || 'all'}${tail}`;
+}
 
-  const byClient = new Map<string, Project[]>();
-  for (const project of projects) {
-    const group = byClient.get(project.clientLabel) ?? [];
-    group.push(project);
-    byClient.set(project.clientLabel, group);
-  }
-  for (const label of [...byClient.keys()].sort((a, b) => a.localeCompare(b, 'fr'))) {
-    // The client's name is read as plain text before its projects; no
-    // aria-label, which would make it a second field named like the client.
-    const group = el('div', 'project-group');
-    group.append(el('div', 'project-group-title', label));
-    for (const project of byClient.get(label)!) {
-      group.append(projectButton(project.id, project.name, project.clientLabel, project.openCount));
-    }
-    nav.append(group);
-  }
+/** Moves to an address and draws it; replace for steps that should not stack in history. */
+async function go(hash: string, replace = false) {
+  if (location.hash !== hash) history[replace ? 'replaceState' : 'pushState'](null, '', hash);
+  await renderRoute();
+}
 
-  const client = $<HTMLSelectElement>('#client');
-  const previous = client.value;
-  client.replaceChildren(new Option('Tous les clients', ''));
-  for (const label of [...byClient.keys()].sort()) {
-    client.append(new Option(label, label));
+addEventListener('popstate', () => void renderRoute());
+
+let boardProject: string | null = null;
+
+async function renderRoute() {
+  const route = parseRoute();
+  if (route.name === 'projects') {
+    closeSheet();
+    showScreen('home');
+    renderHome();
+    return;
   }
-  client.value = previous;
+  if (route.id && !projects.some((project) => project.id === route.id)) {
+    await go('#/projets', true);
+    return;
+  }
+  const changed = route.id !== boardProject;
+  selectedProject = route.id;
+  showScreen('project');
+  renderProjectHeader();
+  if (route.tab === 'overview') {
+    closeSheet();
+    view = 'overview';
+    applyView();
+    await loadStats();
+    return;
+  }
+  view = 'tickets';
+  applyView();
+  if (changed) await loadTickets();
+  if (route.ticket) openTicket(route.ticket);
+  else closeSheet();
+}
+
+function showScreen(screen: 'home' | 'project') {
+  $<HTMLElement>('#home').hidden = screen !== 'home';
+  $<HTMLElement>('#project-view').hidden = screen !== 'project';
+  $('#app').classList.toggle('on-home', screen === 'home');
+}
+
+function renderProjectHeader() {
+  const project = projects.find((candidate) => candidate.id === selectedProject);
+  $('#project-title').textContent = project?.name ?? 'Tous les retours';
+  // Filtering by client only means something across projects.
+  $<HTMLElement>('#client').hidden = Boolean(selectedProject);
+  for (const id of ['#copy-quick-link', '#review-link', '#edit-project']) {
+    $<HTMLElement>(id).hidden = !selectedProject;
+  }
 }
 
 async function chooseProject(id: string) {
-  selectedProject = id;
   selectedTicket = '';
-  const project = projects.find((candidate) => candidate.id === id);
-  $('#project-title').textContent = project?.name ?? 'Tous les retours';
-  $('#client-label').textContent = project?.clientLabel ?? 'Tous les clients';
-  $('#app').classList.remove('nav-open');
-  renderProjects();
-  // Both views are scoped by the project, so whichever is on screen reloads.
-  await (view === 'overview' ? loadStats() : loadTickets());
+  await go(projectHash(id));
 }
+
+// -------------------------------------------------------------------- guide
+
+/**
+ * The guide: how a project comes to life, the first one and every next one.
+ * Three steps in one place — create, install, connect an agent — each with a
+ * single primary action, instead of three dialogs found one by one.
+ */
+type GuideState = { step: 1 | 2 | 3; project: Project | null; token: string; tokenId: string };
+let guide: GuideState = { step: 1, project: null, token: '', tokenId: '' };
+let guideTimer: ReturnType<typeof setTimeout> | undefined;
+
+function openGuide() {
+  guide = { step: 1, project: null, token: '', tokenId: '' };
+  const host = $<HTMLElement>('#guide');
+  host.hidden = false;
+  document.body.classList.add('guide-open');
+  renderGuide();
+}
+
+function closeGuide() {
+  clearTimeout(guideTimer);
+  $<HTMLElement>('#guide').hidden = true;
+  document.body.classList.remove('guide-open');
+}
+
+function renderGuide() {
+  const host = $('#guide');
+  const panel = el('div', 'guide-panel');
+
+  const top = el('div', 'guide-top');
+  const brand = el('span', 'guide-brand');
+  brand.append(icon('i-brand'));
+  const steps = el('ol', 'guide-steps');
+  for (const [index, label] of ['Projet', 'Installer', 'Agent IA'].entries()) {
+    const step = index + 1;
+    const item = el('li', step < guide.step ? 'done' : step === guide.step ? 'current' : '');
+    const mark = el('span', 'guide-step-mark');
+    if (step < guide.step) mark.append(icon('i-check'));
+    else mark.textContent = String(step);
+    item.append(mark, el('span', '', label));
+    if (step === guide.step) item.setAttribute('aria-current', 'step');
+    steps.append(item);
+  }
+  const close = el('button', 'icon-btn guide-close');
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Fermer le guide');
+  close.append(icon('i-plus'));
+  close.onclick = () => {
+    closeGuide();
+    void go(guide.project ? projectHash(guide.project.id) : '#/projets');
+  };
+  top.append(brand, steps, close);
+
+  const body = el('div', 'guide-body');
+  if (guide.step === 1) body.append(...guideProjectStep());
+  else if (guide.step === 2) body.append(...guideInstallStep());
+  else body.append(...guideAgentStep());
+
+  panel.append(top, body);
+  host.replaceChildren(panel);
+  host.querySelector<HTMLElement>('input, .guide-primary')?.focus();
+}
+
+function guideHeading(eyebrow: string, title: string, text: string) {
+  const head = el('header', 'guide-head');
+  const heading = el('h2', '', title);
+  heading.id = 'guide-title';
+  head.append(el('span', 'guide-eyebrow', eyebrow), heading, el('p', '', text));
+  return head;
+}
+
+function guideProjectStep(): HTMLElement[] {
+  const form = el('form', 'guide-form');
+  const field = (label: string, input: HTMLInputElement, hint?: string) => {
+    const wrap = el('div', 'field');
+    const id = `guide-${input.name}`;
+    input.id = id;
+    const tag = el('label', '', label);
+    tag.htmlFor = id;
+    wrap.append(tag, input);
+    if (hint) wrap.append(el('small', '', hint));
+    return wrap;
+  };
+  const name = el('input');
+  name.name = 'name';
+  name.required = true;
+  name.placeholder = 'Site vitrine, boutique, application…';
+  name.autocomplete = 'off';
+  const client = el('input');
+  client.name = 'clientLabel';
+  client.required = true;
+  client.placeholder = 'Nom de votre client';
+  client.autocomplete = 'off';
+  client.setAttribute('list', 'project-client-suggestions');
+  $('#project-client-suggestions').replaceChildren(
+    ...[...new Set(projects.map((candidate) => candidate.clientLabel))].sort().map((label) => new Option(label)),
+  );
+  const site = el('input');
+  site.name = 'site';
+  site.required = true;
+  site.inputMode = 'url';
+  site.placeholder = 'https://preprod.client.fr';
+  site.autocomplete = 'off';
+  site.setAttribute('aria-label', 'Adresse du site à faire relire (origines autorisées)');
+
+  const demo = el('label', 'guide-check');
+  const demoBox = el('input');
+  demoBox.type = 'checkbox';
+  demoBox.checked = true;
+  demo.append(demoBox, document.createTextNode('Autoriser aussi la page de démonstration, pour tester tout de suite'));
+
+  const error = el('p', 'field-error');
+  error.setAttribute('role', 'alert');
+  error.hidden = true;
+  const submit = el('button', 'btn btn-primary guide-primary', 'Créer le projet');
+  submit.type = 'submit';
+
+  form.append(
+    field('Nom du site', name),
+    field('Client', client, 'Les projets d’un même client sont regroupés.'),
+    field('Adresse du site à faire relire', site, 'Préproduction ou recette. Seule cette adresse pourra envoyer des retours.'),
+    demo,
+    error,
+    submit,
+  );
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const origin = toOrigin(site.value);
+    if (!origin) {
+      error.textContent = 'Cette adresse n’est pas une adresse web. Exemple : https://preprod.client.fr';
+      error.hidden = false;
+      site.focus();
+      return;
+    }
+    const origins = demoBox.checked && origin !== location.origin ? [origin, location.origin] : [origin];
+    submit.disabled = true;
+    try {
+      const created = (await api('/api/projects', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.value.trim(), clientLabel: client.value.trim(), origins, webhookUrl: '' }),
+      })) as Project;
+      projects = await api('/api/projects');
+      guide.project = projects.find((project) => project.id === created.id) ?? created;
+      const link = (await api(`/api/projects/${created.id}/review-links`, {
+        method: 'POST',
+        body: JSON.stringify({ label: 'Installation' }),
+      })) as { id: string; token: string };
+      guide.token = link.token;
+      guide.tokenId = link.id;
+      guide.step = 2;
+      renderGuide();
+    } catch (failure) {
+      error.textContent =
+        failure instanceof ApiError && failure.status === 400
+          ? 'Vérifiez les champs : nom et client de 2 caractères au moins, adresse en http ou https.'
+          : 'Création impossible pour le moment. Réessayez.';
+      error.hidden = false;
+      submit.disabled = false;
+    }
+  };
+  return [guideHeading('Étape 1 sur 3', 'Quel site voulez-vous faire relire ?', 'Trois informations, et le projet est prêt.'), form];
+}
+
+function guideInstallStep(): HTMLElement[] {
+  const project = guide.project!;
+  let platform = WIDGET_PLATFORMS[0]!;
+  const tabs = el('div', 'guide-tabs');
+  tabs.setAttribute('role', 'tablist');
+  const where = el('p', 'guide-where');
+  const code = el('div');
+  const draw = () => {
+    for (const tab of tabs.children) tab.setAttribute('aria-selected', String((tab as HTMLElement).dataset.platform === platform.id));
+    where.textContent = platform.where;
+    const text = platform.generate({
+      origin: location.origin,
+      projectId: project.id,
+      token: guide.token,
+      previewOrigin: project.origins[0] ?? location.origin,
+      position: 'bottom-right',
+      theme: 'auto',
+      label: '',
+    });
+    code.replaceChildren(codeBlock(text, platform.id === 'direct' ? 'Copier le lien' : 'Copier le code'));
+  };
+  for (const candidate of WIDGET_PLATFORMS) {
+    const tab = el('button', 'guide-tab');
+    tab.type = 'button';
+    tab.setAttribute('role', 'tab');
+    tab.dataset.platform = candidate.id;
+    tab.append(icon(candidate.mark, 'logo'), el('span', '', candidate.name));
+    tab.onclick = () => {
+      platform = candidate;
+      draw();
+    };
+    tabs.append(tab);
+  }
+  draw();
+
+  // Live check: the step turns green the moment the widget first calls in.
+  const status = el('div', 'widget-connection waiting');
+  status.append(el('span', 'pulse'), el('strong', '', 'En attente du widget…'), el('span', '', 'Ouvrez le site, ou la page de démonstration.'));
+  const watch = async () => {
+    if ($<HTMLElement>('#guide').hidden || guide.step !== 2) return;
+    try {
+      const { links } = (await api(`/api/projects/${project.id}/review-links`)) as { links: ReviewLink[] };
+      if (links.find((link) => link.id === guide.tokenId)?.lastUsedAt) {
+        status.className = 'widget-connection connected';
+        status.replaceChildren(icon('i-check'), el('strong', '', 'Widget connecté'), el('span', '', 'Les retours arrivent.'));
+        return;
+      }
+    } catch {
+      // Keep waiting quietly.
+    }
+    guideTimer = setTimeout(() => void watch(), 2500);
+  };
+  clearTimeout(guideTimer);
+  guideTimer = setTimeout(() => void watch(), 1500);
+
+  const test = el('a', 'btn btn-secondary');
+  test.href = `/demo.html#api=${encodeURIComponent(location.origin)}&project=${project.id}&review=${guide.token}`;
+  test.target = '_blank';
+  test.rel = 'noopener';
+  test.append(icon('i-external'), document.createTextNode('Tester sur la page de démo'));
+
+  const next = el('button', 'btn btn-primary guide-primary', 'Continuer');
+  next.type = 'button';
+  next.onclick = () => {
+    guide.step = 3;
+    renderGuide();
+  };
+  const actions = el('div', 'guide-actions');
+  actions.append(test, el('span', 'detail-bar-spacer'), next);
+
+  return [
+    guideHeading('Étape 2 sur 3', `Installez le widget sur ${project.name}`, 'Une ligne de code, ou un lien à envoyer au client.'),
+    tabs,
+    where,
+    code,
+    status,
+    actions,
+  ];
+}
+
+function guideAgentStep(): HTMLElement[] {
+  const project = guide.project!;
+  const grid = el('div', 'guide-agents');
+  for (const target of FIX_TARGETS) {
+    const card = el('button', 'guide-agent');
+    card.type = 'button';
+    card.append(icon(target.mark, 'logo'), el('strong', '', target.name), el('span', '', target.kind === 'api' ? 'API HTTP' : 'MCP'));
+    card.onclick = () => {
+      closeGuide();
+      void go(projectHash(project.id)).then(() => $<HTMLButtonElement>('#agent-access').click());
+    };
+    grid.append(card);
+  }
+  const later = el('button', 'btn btn-primary guide-primary', 'Ouvrir le projet');
+  later.type = 'button';
+  later.onclick = () => {
+    closeGuide();
+    void go(projectHash(project.id));
+  };
+  const actions = el('div', 'guide-actions');
+  actions.append(el('span', 'guide-skip', 'Facultatif : vous pourrez le faire plus tard depuis « Agents IA ».'), el('span', 'detail-bar-spacer'), later);
+  return [
+    guideHeading(
+      'Étape 3 sur 3 · facultatif',
+      'Confiez les corrections à un agent IA',
+      'Branchez votre agent en MCP ou par l’API : sur chaque retour, « Lancer la correction » le lui confie.',
+    ),
+    grid,
+    actions,
+  ];
+}
+
+// --------------------------------------------------------------------- home
+
+/** The home grid: one card per client site, with what it needs from you. */
+async function renderHome() {
+  const open = projects.reduce((sum, project) => sum + project.todoCount, 0);
+  $('#home-summary').textContent = projects.length
+    ? `${projects.length} projet${projects.length > 1 ? 's' : ''} · ${open} retour${open > 1 ? 's' : ''} à traiter`
+    : 'Aucun projet pour l’instant.';
+  const grid = $('#project-grid');
+  const agents = await connectedAgentLabels();
+  grid.replaceChildren();
+  for (const project of projects) grid.append(projectCard(project, agents));
+  const add = el('button', 'project-card add');
+  add.type = 'button';
+  add.append(icon('i-plus'), el('strong', '', 'Nouveau projet'), el('span', '', 'Un site à faire relire par un client'));
+  add.onclick = () => openGuide();
+  grid.append(add);
+}
+
+function projectCard(project: Project, agents: string[]) {
+  const card = el('article', 'project-card');
+  // The whole card opens the project; the inner buttons sit above that link.
+  const open = el('a', 'project-card-link');
+  open.href = projectHash(project.id);
+  open.setAttribute('aria-label', project.name);
+  open.onclick = (event) => {
+    event.preventDefault();
+    void chooseProject(project.id);
+  };
+
+  const head = el('div', 'project-card-head');
+  const names = el('div');
+  names.append(el('strong', '', project.name), el('span', '', project.clientLabel));
+  head.append(projectAvatar(project.id, project.name), names);
+
+  const counts = el('div', 'project-card-counts');
+  for (const [status, count] of [
+    ['TODO', project.todoCount],
+    ['IN_PROGRESS', project.inProgressCount],
+    ['REVIEW', project.reviewCount],
+  ] as const) {
+    const cell = el('span', `count-cell ${status}`);
+    cell.append(el('b', '', String(count)), el('small', '', STATUS_LABELS[status] ?? status));
+    counts.append(cell);
+  }
+
+  const foot = el('div', 'project-card-foot');
+  const widget = el('span', project.widgetSeenAt ? 'health ok' : 'health');
+  widget.append(
+    icon(project.widgetSeenAt ? 'i-check' : 'i-code'),
+    document.createTextNode(project.widgetSeenAt ? `Widget actif ${formatAge(project.widgetSeenAt)}` : 'Widget pas encore installé'),
+  );
+  const agent = el('span', agents.length ? 'health ok' : 'health');
+  agent.append(icon('i-sparkle'), document.createTextNode(agents.length ? agents[0]! : 'Pas d’agent IA'));
+  foot.append(widget, agent);
+
+  const last = el('span', 'project-card-last', project.lastTicketAt ? `Dernier retour ${formatAge(project.lastTicketAt)}` : 'Aucun retour reçu');
+
+  card.append(open, head, counts, last, foot);
+  // What is missing gets a direct way to fix it, right on the card.
+  if (!project.widgetSeenAt) {
+    const install = el('button', 'btn btn-secondary project-card-cta');
+    install.type = 'button';
+    install.append(icon('i-code'), document.createTextNode('Installer le widget'));
+    install.onclick = () => {
+      selectedProject = project.id;
+      $<HTMLButtonElement>('#review-link').click();
+    };
+    card.append(install);
+  }
+  return card;
+}
+
+// -------------------------------------------------------------------- board
+
+/**
+ * The board: one column per status, each loaded on its own so « Traité » can
+ * hold hundreds of tickets without slowing the three columns that matter.
+ */
+const COLUMNS = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const;
+type Column = { tickets: Ticket[]; total: number; cursor: string | null };
+let board: Record<string, Column> = {};
 
 function filterParams() {
   const params = new URLSearchParams();
   if (selectedProject) params.set('projectId', selectedProject);
-  for (const key of ['status', 'client', 'format'] as const) {
+  for (const key of ['client', 'format'] as const) {
     const value = $<HTMLSelectElement>(`#${key}`).value;
-    if (value) params.set(key, value);
+    if (value && !(key === 'client' && selectedProject)) params.set(key, value);
   }
   const page = $<HTMLInputElement>('#page-filter').value.trim();
   if (page) params.set('page', page);
@@ -416,212 +769,157 @@ function scheduleReload() {
   filterTimer = setTimeout(() => void loadTickets(), 180);
 }
 
+/** Every loaded ticket, column by column: what the palette and the stepper walk. */
+function syncTickets() {
+  tickets = COLUMNS.flatMap((status) => board[status]?.tickets ?? []);
+  totalTickets = COLUMNS.reduce((sum, status) => sum + (board[status]?.total ?? 0), 0);
+}
+
 /**
- * Failures land in the list rather than escaping: a refused filter request
- * used to be an unhandled rejection, and a failed first load sent the admin
- * back to the login screen although the session was fine. A 401 has already
- * shown the login screen inside api(), so it needs nothing more here.
+ * Failures land on the board rather than escaping: a refused filter request
+ * used to be an unhandled rejection. A 401 has already shown the login screen
+ * inside api(), so it needs nothing more here.
  */
 async function loadTickets() {
-  const list = $('#tickets');
-  list.setAttribute('aria-busy', 'true');
-  // Placeholders only when there is nothing to keep on screen: a refresh of a
-  // populated list leaves the rows in place until the answer lands.
-  if (!tickets.length) renderTicketSkeleton();
+  const host = $('#board');
+  host.setAttribute('aria-busy', 'true');
+  if (!tickets.length || boardProject !== selectedProject) renderBoardSkeleton();
   try {
-    const payload = await api(`/api/tickets?${filterParams()}`);
-    tickets = payload.tickets;
-    nextCursor = payload.nextCursor;
-    totalTickets = payload.total;
-    renderTickets();
+    const pages = await Promise.all(
+      COLUMNS.map((status) => {
+        const params = filterParams();
+        params.set('status', status);
+        params.set('limit', status === 'DONE' ? '20' : '60');
+        return api(`/api/tickets?${params}`) as Promise<{ tickets: Ticket[]; total: number; nextCursor: string | null }>;
+      }),
+    );
+    board = Object.fromEntries(
+      COLUMNS.map((status, index) => [
+        status,
+        { tickets: pages[index]!.tickets, total: pages[index]!.total, cursor: pages[index]!.nextCursor },
+      ]),
+    );
+    boardProject = selectedProject;
+    boardFailed = false;
+    syncTickets();
+    renderBoard();
     renderCount();
-    if (!selectedTicket) clearDetail();
     return true;
   } catch (error) {
     if (!(error instanceof ApiError && error.status === 401)) renderTicketsError();
     return false;
   } finally {
-    list.removeAttribute('aria-busy');
+    host.removeAttribute('aria-busy');
   }
 }
 
-function renderTicketSkeleton() {
-  const rows: HTMLDivElement[] = [];
-  for (let index = 0; index < 6; index++) {
-    const row = el('div', 'skeleton-ticket');
-    row.setAttribute('aria-hidden', 'true');
-    row.append(el('span', 'skeleton'), el('span', 'skeleton'), el('span', 'skeleton'));
-    rows.push(row);
-  }
-  $('#tickets').replaceChildren(...rows);
+async function loadMore(status: string) {
+  const column = board[status];
+  if (!column?.cursor) return;
+  const params = filterParams();
+  params.set('status', status);
+  params.set('cursor', column.cursor);
+  const page = (await api(`/api/tickets?${params}`)) as { tickets: Ticket[]; nextCursor: string | null };
+  column.tickets.push(...page.tickets);
+  column.cursor = page.nextCursor;
+  syncTickets();
+  renderBoard();
 }
+
+function renderBoardSkeleton() {
+  const columns = COLUMNS.map(() => {
+    const column = el('div', 'column');
+    column.append(el('div', 'skeleton skeleton-head'));
+    for (let index = 0; index < 3; index++) column.append(el('div', 'skeleton skeleton-card'));
+    return column;
+  });
+  $('#board').replaceChildren(...columns);
+}
+
+/** Set while the last load failed: a redraw must keep saying so. */
+let boardFailed = false;
 
 function renderTicketsError() {
+  boardFailed = true;
   const box = emptyState('i-inbox', 'Retours indisponibles', 'Le chargement a échoué. Vérifiez la connexion, puis réessayez.');
   box.setAttribute('role', 'alert');
   const retry = el('button', 'btn btn-ghost', 'Réessayer');
   retry.type = 'button';
   retry.onclick = () => void loadTickets();
   box.append(retry);
-  $('#tickets').replaceChildren(box);
+  $('#board').replaceChildren(box);
   $('#count').textContent = '';
 }
 
-async function loadMore() {
-  if (!nextCursor) return;
-  const params = filterParams();
-  params.set('cursor', nextCursor);
-  const payload = await api(`/api/tickets?${params}`);
-  tickets = [...tickets, ...payload.tickets];
-  nextCursor = payload.nextCursor;
-  totalTickets = payload.total;
-  renderTickets();
-  renderCount();
-}
-
 function renderCount() {
-  const plural = totalTickets === 1 ? '' : 's';
-  // Say what is loaded as well as what matches: a page that shows 60 of 340
-  // must not read as though 60 were the whole story.
-  $('#count').textContent =
-    tickets.length < totalTickets
-      ? `${tickets.length} affichés sur ${totalTickets} retour${plural}`
-      : `${totalTickets} retour${plural}`;
+  const open = COLUMNS.slice(0, 3).reduce((sum, status) => sum + (board[status]?.total ?? 0), 0);
+  $('#count').textContent = `${open} ouvert${open > 1 ? 's' : ''} · ${totalTickets} au total`;
 }
 
-function renderTickets() {
-  const list = $('#tickets');
-  list.replaceChildren();
-  if (!tickets.length) {
-    const statusVal = $<HTMLSelectElement>('#status').value;
-    const clientVal = $<HTMLSelectElement>('#client').value;
-    const formatVal = $<HTMLSelectElement>('#format').value;
-    const searchVal = $<HTMLInputElement>('#page-filter').value.trim();
-    const hasFilter = Boolean(statusVal || clientVal || formatVal || searchVal);
-
-    if (selectedProject && !hasFilter) {
-      const card = el('div', 'empty-onboarding-card');
-      card.append(
-        icon('i-code'),
-        el('h3', '', 'Bienvenue sur votre espace de retours'),
-        el(
-          'p',
-          '',
-          'Votre projet est prêt. Suivez ces étapes simples pour lancer la phase de retours avec vos clients :',
-        ),
-      );
-
-      const stepsList = el('div', 'empty-steps-list');
-
-      // Step 1: Install or share link
-      const step1 = el('div', 'empty-step-row');
-      const s1Num = el('span', 'empty-step-num', '1');
-      const s1Body = el('div', 'empty-step-body');
-      s1Body.append(
-        el('strong', '', 'Installer le widget ou partager un lien direct'),
-        el('p', '', 'Ajoutez le script sur votre site (HTML, React, Webflow...) ou envoyez le lien direct.'),
-      );
-      const s1Btn = el('button', 'btn btn-primary', 'Configurer l’installation →');
-      s1Btn.type = 'button';
-      s1Btn.onclick = () => $<HTMLButtonElement>('#review-link').click();
-      step1.append(s1Num, s1Body, s1Btn);
-
-      // Step 2: Test live
-      const step2 = el('div', 'empty-step-row');
-      const s2Num = el('span', 'empty-step-num', '2');
-      const s2Body = el('div', 'empty-step-body');
-      s2Body.append(
-        el('strong', '', 'Tester l’expérience de review'),
-        el('p', '', 'Le client clique sur « Faire un retour », pointe un élément et écrit son retour avec tags et captures.'),
-      );
-      step2.append(s2Num, s2Body);
-
-      // Step 3: Connect AI agent
-      const step3 = el('div', 'empty-step-row');
-      const s3Num = el('span', 'empty-step-num', '3');
-      const s3Body = el('div', 'empty-step-body');
-      s3Body.append(
-        el('strong', '', 'Automatiser avec un agent IA (optionnel)'),
-        el('p', '', 'Branchez Claude Code, Cursor ou votre agent personnalisé pour traiter les retours.'),
-      );
-      const s3Btn = el('button', 'btn btn-secondary', 'Accès agents →');
-      s3Btn.type = 'button';
-      s3Btn.onclick = () => $<HTMLButtonElement>('#agent-access').click();
-      step3.append(s3Num, s3Body, s3Btn);
-
-      stepsList.append(step1, step2, step3);
-      card.append(stepsList);
-      list.append(card);
-    } else {
-      list.append(
-        emptyState(
-          'i-inbox',
-          'Aucun retour',
-          'Rien ne correspond à ces filtres. Élargissez la recherche, ou partagez un lien reviewer pour recevoir les premiers retours.',
-        ),
-      );
-    }
+function renderBoard() {
+  if (boardFailed) {
+    renderTicketsError();
     return;
   }
-  for (const ticket of tickets) {
-    const row = document.createElement('button');
-    row.type = 'button';
-    row.className = `ticket ${selectedTicket === ticket.id ? 'active' : ''}`;
-    row.dataset.ticketId = ticket.id;
-    // The lifted row says "open" to the eye; aria-current says it to a reader.
-    if (selectedTicket === ticket.id) row.setAttribute('aria-current', 'true');
-    const status = document.createElement('span');
-    status.className = `status ${ticket.status}`;
-    // The glyph is a disc that empties as the work advances; the label always
-    // rides with it, so nothing depends on reading the shape alone.
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.setAttribute('aria-hidden', 'true');
-    status.append(dot, document.createTextNode(STATUS_LABELS[ticket.status] ?? ticket.status));
-    const summary = document.createElement('span');
-    summary.className = 'summary';
-    const title = document.createElement('strong');
-    // textContent, never innerHTML: reviewer text is stored verbatim.
-    title.textContent = ticket.text;
-    const context = document.createElement('small');
-    const mobile = ticket.viewportWidth < 768;
-    // Drawn icons, not emoji: systems without an emoji font draw empty boxes.
-    const where = document.createElement('span');
-    where.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname}`;
-    const device = document.createElement('span');
-    device.append(icon(mobile ? 'i-phone' : 'i-monitor'), document.createTextNode(mobile ? 'Mobile' : 'Desktop'));
-    context.append(where, device);
-    if (ticket.fixRequestedAt) {
-      const queued = document.createElement('span');
-      queued.className = 'queued';
-      queued.append(icon('i-sparkle'), document.createTextNode(ticket.fixRequestedFor || 'Agent'));
-      queued.title = 'Correction demandée à un agent';
-      context.append(queued);
-    }
-    if (ticket.screenshotId) {
-      const shot = document.createElement('span');
-      shot.append(icon('i-camera'), document.createTextNode('Capture'));
-      context.append(shot);
-    }
-    summary.append(title, context);
-    const date = document.createElement('span');
-    date.className = 'date';
-    date.textContent = formatAge(ticket.createdAt);
-    date.title = formatDate(ticket.createdAt);
-    row.append(projectAvatar(ticket.projectId, ticket.projectName), status, summary, date);
-    row.onclick = () => openTicket(ticket.id);
-    list.append(row);
+  const host = $('#board');
+  const filtered = Boolean($<HTMLInputElement>('#page-filter').value.trim() || $<HTMLSelectElement>('#format').value);
+  // A project that has never received anything gets the way to get started
+  // instead of four empty columns.
+  if (!totalTickets && !filtered) {
+    host.replaceChildren(boardWelcome());
+    return;
   }
-  if (nextCursor) {
-    const more = document.createElement('button');
+  host.replaceChildren(...COLUMNS.map(renderColumn));
+}
+
+function boardWelcome() {
+  const project = projects.find((candidate) => candidate.id === selectedProject);
+  const box = el('div', 'board-welcome');
+  box.append(
+    el('span', 'board-welcome-icon'),
+    el('h3', '', 'Aucun retour pour l’instant'),
+    el(
+      'p',
+      '',
+      project
+        ? 'Installez le widget sur le site, ou envoyez le lien direct au client : ses retours arriveront ici, rangés par statut.'
+        : 'Les retours de tous vos projets arriveront ici, rangés par statut.',
+    ),
+  );
+  box.firstElementChild!.append(icon('i-inbox'));
+  if (project) {
+    const install = el('button', 'btn btn-primary');
+    install.type = 'button';
+    install.append(icon('i-code'), document.createTextNode('Installer le widget'));
+    install.onclick = () => $<HTMLButtonElement>('#review-link').click();
+    box.append(install);
+  }
+  return box;
+}
+
+function renderColumn(status: (typeof COLUMNS)[number]) {
+  const data = board[status] ?? { tickets: [], total: 0, cursor: null };
+  const column = el('section', `column ${status}`);
+  column.dataset.column = status;
+  column.setAttribute('aria-label', `${STATUS_LABELS[status]} : ${data.total}`);
+
+  const head = el('header', 'column-head');
+  const label = el('span', `status ${status}`);
+  const dot = el('span', 'dot');
+  dot.setAttribute('aria-hidden', 'true');
+  label.append(dot, document.createTextNode(STATUS_LABELS[status] ?? status));
+  head.append(label, el('span', 'column-count', String(data.total)));
+
+  const list = el('div', 'column-list');
+  for (const ticket of data.tickets) list.append(ticketCard(ticket));
+  if (!data.tickets.length) list.append(el('p', 'column-empty', status === 'TODO' ? 'Rien à traiter.' : 'Vide'));
+  if (data.cursor) {
+    const more = el('button', 'quiet load-more', `Afficher plus (${data.total - data.tickets.length})`);
     more.type = 'button';
-    more.className = 'quiet load-more';
-    more.textContent = `Charger plus (${totalTickets - tickets.length} restants)`;
     more.onclick = async () => {
       more.disabled = true;
-      more.textContent = 'Chargement…';
       try {
-        await loadMore();
+        await loadMore(status);
       } catch {
         toast('Chargement impossible.', 'error');
         more.disabled = false;
@@ -629,14 +927,115 @@ function renderTickets() {
     };
     list.append(more);
   }
+
+  // Dropping a card on a column moves the ticket to that status.
+  column.addEventListener('dragover', (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    column.classList.add('drop');
+  });
+  column.addEventListener('dragleave', (event) => {
+    if (!column.contains(event.relatedTarget as Node)) column.classList.remove('drop');
+  });
+  column.addEventListener('drop', (event) => {
+    event.preventDefault();
+    column.classList.remove('drop');
+    if (dragged) void moveTicket(dragged, status);
+  });
+
+  column.append(head, list);
+  return column;
 }
 
-function clearDetail() {
-  const detail = $('#detail');
-  detail.className = 'detail empty';
-  detail.replaceChildren(
-    emptyState('i-image', 'Aucun retour sélectionné', 'Choisissez un retour dans la liste pour voir son ancrage, ses diagnostics et y répondre.'),
-  );
+let dragged = '';
+/** True when the open sheet was pushed from a card, so closing can pop it. */
+let sheetOpenedFromBoard = false;
+
+function ticketCard(ticket: Ticket) {
+  const card = el('button', `ticket ${selectedTicket === ticket.id ? 'active' : ''}`);
+  card.type = 'button';
+  card.dataset.ticketId = ticket.id;
+  card.draggable = true;
+  if (selectedTicket === ticket.id) card.setAttribute('aria-current', 'true');
+
+  if (ticket.screenshotId) {
+    const shot = el('span', 'card-shot');
+    const img = el('img');
+    img.src = `/api/uploads/${ticket.screenshotId}`;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.draggable = false;
+    shot.append(img);
+    card.append(shot);
+  }
+
+  const body = el('span', 'card-body');
+  const title = el('strong', 'card-title');
+  // textContent, never innerHTML: reviewer text is stored verbatim.
+  title.textContent = ticket.text;
+  const meta = el('span', 'card-meta');
+  const mobile = ticket.viewportWidth < 768;
+  if (!selectedProject) meta.append(projectAvatar(ticket.projectId, ticket.projectName));
+  const where = el('span', 'card-page', new URL(ticket.pageUrl).pathname);
+  where.title = ticket.pageUrl;
+  meta.append(where, icon(mobile ? 'i-phone' : 'i-monitor'));
+  const foot = el('span', 'card-foot');
+  const age = el('span', 'card-age', formatAge(ticket.createdAt));
+  age.title = formatDate(ticket.createdAt);
+  foot.append(age);
+  if (ticket.commentCount) {
+    const comments = el('span', 'card-comments');
+    comments.append(icon('i-message'), document.createTextNode(String(ticket.commentCount)));
+    foot.append(comments);
+  }
+  if (ticket.fixRequestedAt) {
+    const queued = el('span', 'card-ai');
+    queued.append(icon('i-sparkle'), document.createTextNode(ticket.fixRequestedFor || 'Agent'));
+    queued.title = 'Correction demandée à un agent';
+    foot.append(queued);
+  }
+  body.append(title, meta, foot);
+  card.append(body);
+
+  card.onclick = () => {
+    sheetOpenedFromBoard = true;
+    void go(projectHash(selectedProject, `/t/${ticket.id}`));
+  };
+  card.addEventListener('dragstart', (event) => {
+    dragged = ticket.id;
+    event.dataTransfer?.setData('text/plain', ticket.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    requestAnimationFrame(() => card.classList.add('dragging'));
+  });
+  card.addEventListener('dragend', () => {
+    dragged = '';
+    card.classList.remove('dragging');
+  });
+  return card;
+}
+
+/** Drag and drop: moved on screen at once, put back if the server refuses. */
+async function moveTicket(id: string, status: string) {
+  const from = COLUMNS.find((column) => board[column]?.tickets.some((ticket) => ticket.id === id));
+  if (!from || from === status) return;
+  const source = board[from]!;
+  const target = board[status]!;
+  const ticket = source.tickets.find((candidate) => candidate.id === id)!;
+  source.tickets = source.tickets.filter((candidate) => candidate.id !== id);
+  source.total -= 1;
+  target.tickets.unshift({ ...ticket, status });
+  target.total += 1;
+  syncTickets();
+  renderBoard();
+  renderCount();
+  try {
+    await api(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    toast(`Déplacé vers « ${STATUS_LABELS[status] ?? status} ».`);
+    projects = await api('/api/projects');
+  } catch {
+    toast('Déplacement refusé, le retour reprend sa place.', 'error');
+    await loadTickets();
+  }
 }
 
 function showScreenshotModal(ticket: Ticket) {
@@ -660,34 +1059,60 @@ function showScreenshotModal(ticket: Ticket) {
   dialog.showModal();
 }
 
-/** Below this width the detail pane covers the list instead of sitting beside it. */
-const DETAIL_OVERLAY = matchMedia('(max-width: 900px)');
 
-function focusTicketRow(id: string) {
-  $('#tickets').querySelector<HTMLElement>(`.ticket[data-ticket-id="${CSS.escape(id)}"]`)?.focus();
+// -------------------------------------------------------------------- sheet
+
+/** The ticket sheet: a full-size dialog over the board, with its own address. */
+function closeSheet() {
+  const sheet = $<HTMLDialogElement>('#ticket-sheet');
+  selectedTicket = '';
+  // Closed by navigation: the address has already moved on.
+  sheetOpenedFromBoard = false;
+  if (sheet.open) sheet.close();
+  // Nothing of the last ticket lingers for the next opening.
+  const detail = $('#detail');
+  detail.className = 'detail empty';
+  detail.replaceChildren();
 }
 
-/** Back to the list, handing focus to the row that was open so the keyboard resumes where it left. */
+/** Back to the board, handing focus to the card that was open. */
 function closeDetail() {
   const id = selectedTicket;
-  selectedTicket = '';
-  clearDetail();
-  renderTickets();
-  if (id) focusTicketRow(id);
+  $<HTMLDialogElement>('#ticket-sheet').close();
+  requestAnimationFrame(() => document.querySelector<HTMLElement>(`.ticket[data-ticket-id="${id}"]`)?.focus());
 }
 
+// Escape (or the backdrop) closes the dialog itself; the address follows.
+$<HTMLDialogElement>('#ticket-sheet').addEventListener('close', () => {
+  const route = parseRoute();
+  if (route.name !== 'project' || !route.ticket) return;
+  selectedTicket = '';
+  // Opened from the board: closing steps back, so Back does not reopen it.
+  if (sheetOpenedFromBoard) history.back();
+  else history.replaceState(null, '', projectHash(selectedProject));
+  renderBoard();
+});
+$<HTMLDialogElement>('#ticket-sheet').addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) closeDetail();
+});
+
 function openTicket(id: string) {
-  // renderTickets() rebuilds the rows, which drops focus to <body>; remember
-  // whether it was in the list so it can be put back on the new active row.
-  const listHadFocus = $('#tickets').contains(document.activeElement);
+  const ticket = tickets.find((candidate) => candidate.id === id);
+  if (!ticket) {
+    // An old link, or a ticket outside the loaded page of « Traité ».
+    toast('Ce retour n’est pas affiché sur ce tableau.', 'error');
+    void go(projectHash(selectedProject), true);
+    return;
+  }
   selectedTicket = id;
-  renderTickets();
-  const ticket = tickets.find((candidate) => candidate.id === id)!;
+  const sheet = $<HTMLDialogElement>('#ticket-sheet');
+  if (!sheet.open) sheet.showModal();
   const detail = $('#detail');
   detail.className = 'detail';
   detail.replaceChildren();
 
-  const index = tickets.findIndex((candidate) => candidate.id === id);
+  const column = board[ticket.status]?.tickets ?? [];
+  const index = column.findIndex((candidate) => candidate.id === id);
   const mobile = ticket.viewportWidth < 768;
   const { selector, relative, viewport } = ticket.anchor;
 
@@ -697,7 +1122,7 @@ function openTicket(id: string) {
 
   const back = el('button', 'quiet detail-back');
   back.type = 'button';
-  back.append(icon('i-back'), document.createTextNode('Liste'));
+  back.append(icon('i-back'), document.createTextNode('Tableau'));
   back.onclick = closeDetail;
 
   const stepper = el('div', 'detail-stepper');
@@ -713,9 +1138,13 @@ function openTicket(id: string) {
   next.setAttribute('aria-label', 'Retour suivant');
   next.title = 'Suivant (J)';
   next.append(icon('i-chevron-down'));
-  next.disabled = index >= tickets.length - 1;
+  next.disabled = index >= column.length - 1;
   next.onclick = () => moveSelection(1);
-  stepper.append(prev, next, el('span', 'detail-position', `${index + 1} sur ${totalTickets || tickets.length}`));
+  stepper.append(
+    prev,
+    next,
+    el('span', 'detail-position', `${index + 1} sur ${board[ticket.status]?.total ?? column.length} · ${STATUS_LABELS[ticket.status] ?? ''}`),
+  );
 
   const select = document.createElement('select');
   // Identified because the pane holds other fields; named for screen readers.
@@ -748,10 +1177,9 @@ function openTicket(id: string) {
     } finally {
       select.disabled = false;
     }
-    // The sidebar badges count open tickets, so a status change moves them.
+    // The project cards count open tickets, so a status change moves them.
     try {
       projects = await api('/api/projects');
-      renderProjects();
     } catch {
       // Badges catch up on the next refresh.
     }
@@ -924,15 +1352,10 @@ function openTicket(id: string) {
   body.append(main, rail);
   detail.append(bar, body);
 
-  // Where focus goes depends on the layout: over the list, the pane is the
-  // whole screen and a reader must land in it; beside the list, focus stays
-  // on the row so arrow keys and Tab keep triaging.
-  if (DETAIL_OVERLAY.matches) {
-    heading.tabIndex = -1;
-    heading.focus();
-  } else if (listHadFocus) {
-    focusTicketRow(id);
-  }
+  // The sheet is a dialog: a reader lands on what it is about.
+  heading.tabIndex = -1;
+  heading.focus();
+  detail.scrollTop = 0;
 }
 
 function railTitle(iconId: string, text: string) {
@@ -1676,7 +2099,7 @@ function applyView() {
   const overview = view === 'overview';
   $<HTMLElement>('#overview').hidden = !overview;
   $<HTMLElement>('#config-overview').hidden = !overview;
-  $<HTMLElement>('#tickets-view').hidden = overview;
+  $<HTMLElement>('#board').hidden = overview;
   $<HTMLElement>('#config-tickets').hidden = overview;
   $('#tab-overview').setAttribute('aria-current', String(overview));
   $('#tab-tickets').setAttribute('aria-current', String(!overview));
@@ -1684,16 +2107,11 @@ function applyView() {
 }
 
 async function showOverview() {
-  view = 'overview';
-  applyView();
-  await loadStats();
+  await go(projectHash(selectedProject, '/stats'));
 }
 
 async function showTickets() {
-  const wasOverview = view === 'overview';
-  view = 'tickets';
-  applyView();
-  if (wasOverview) await loadTickets();
+  await go(projectHash(selectedProject));
 }
 
 $('#tab-overview').addEventListener('click', () => void showOverview());
@@ -1712,6 +2130,7 @@ function paletteIcon(id: string) {
 function paletteItems(): PaletteItem[] {
   const click = (selector: string) => () => $<HTMLButtonElement>(selector).click();
   const items: PaletteItem[] = [
+    { group: 'Navigation', label: 'Mes projets', keywords: 'accueil home', leading: paletteIcon('i-grid'), run: () => void go('#/projets') },
     { group: 'Navigation', label: 'Vue d’ensemble', keywords: 'statistiques tableau de bord', leading: paletteIcon('i-chart'), run: () => void showOverview() },
     { group: 'Navigation', label: 'Retours', keywords: 'tickets liste inbox', leading: paletteIcon('i-inbox'), run: () => void showTickets() },
     { group: 'Projets', label: 'Tous les projets', hint: `${projects.length} projet${projects.length === 1 ? '' : 's'}`, leading: () => projectAvatar('', ''), run: () => void chooseProject('') },
@@ -1743,7 +2162,7 @@ function paletteItems(): PaletteItem[] {
     { group: 'Actions', label: 'Nouveau projet', keywords: 'creer ajouter', leading: paletteIcon('i-plus'), run: click('#new-project') },
     { group: 'Actions', label: 'Installer le widget et liens reviewer', keywords: 'integration script snippet partager', leading: paletteIcon('i-code'), run: click('#review-link') },
     { group: 'Actions', label: 'Copier le lien client', keywords: 'partager url', leading: paletteIcon('i-copy'), run: click('#copy-quick-link') },
-    { group: 'Actions', label: 'Accès agents', keywords: 'claude cursor mcp ia', leading: paletteIcon('i-robot'), run: click('#agent-access') },
+    { group: 'Actions', label: 'Agents IA (MCP et API)', keywords: 'acces agents claude cursor mcp ia', leading: paletteIcon('i-robot'), run: click('#agent-access') },
     { group: 'Actions', label: 'Exporter pour Claude Code', keywords: 'prompt markdown', leading: paletteIcon('i-copy'), run: click('#export-prompt') },
     { group: 'Actions', label: 'Personnalisation de l’instance', keywords: 'marque blanche logo couleur branding', leading: paletteIcon('i-image'), run: click('#branding') },
     { group: 'Actions', label: 'Basculer le thème clair / sombre', keywords: 'dark mode nuit', leading: paletteIcon('i-moon'), run: toggleTheme },
@@ -1753,10 +2172,7 @@ function paletteItems(): PaletteItem[] {
 }
 
 const palette = initPalette(paletteItems);
-$('#nav-search').addEventListener('click', () => {
-  toggleNav(false);
-  palette.open();
-});
+$('#nav-search').addEventListener('click', () => palette.open());
 $('#project-switch').addEventListener('click', () => palette.open());
 $('#menu-palette').addEventListener('click', () => palette.open());
 $('#tab-tickets').addEventListener('click', () => void showTickets());
@@ -3013,9 +3429,14 @@ async function refreshOnboarding() {
 
 // ------------------------------------------------------------------ wiring
 
-for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
+for (const id of ['client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
 $('#page-filter').addEventListener('input', scheduleReload);
-$('#new-project').addEventListener('click', () => openProjectDialog(null));
+$('#new-project').addEventListener('click', () => openGuide());
+$('#all-tickets').addEventListener('click', () => void chooseProject(''));
+$('#crumb-home').addEventListener('click', (event) => {
+  event.preventDefault();
+  void go('#/projets');
+});
 
 /** Mirrors the chosen options on the drawn preview, token or not. */
 function updateWidgetPreview() {
@@ -3165,29 +3586,26 @@ wireWidgetOptions();
 // -------------------------------------------------------------- keyboard nav
 
 /** Triage is a scanning job, so the list is drivable without leaving the keys. */
+/** Previous or next ticket of the same column, from inside the sheet. */
 function moveSelection(step: number) {
-  if (!tickets.length) return;
-  const current = tickets.findIndex((ticket) => ticket.id === selectedTicket);
-  const next = current === -1 ? (step > 0 ? 0 : tickets.length - 1) : current + step;
-  const ticket = tickets[Math.max(0, Math.min(tickets.length - 1, next))];
-  if (!ticket) return;
-  openTicket(ticket.id);
-  $(`.ticket.active`)?.scrollIntoView({ block: 'nearest' });
+  const current = tickets.find((ticket) => ticket.id === selectedTicket);
+  if (!current) return;
+  const column = board[current.status]?.tickets ?? [];
+  const index = column.findIndex((ticket) => ticket.id === current.id);
+  const next = column[index + step];
+  if (next) void go(projectHash(selectedProject, `/t/${next.id}`), true);
 }
 
+/** Triage is a scanning job: J and K walk the column without leaving the sheet. */
 addEventListener('keydown', (event) => {
   const target = event.target as HTMLElement | null;
   // Never steal a key from a field, and never from a browser shortcut.
   const typing = target?.closest('input, textarea, select') !== null;
   if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
-  if ($<HTMLElement>('#app').hidden || document.querySelector('dialog[open]')) return;
-  if (event.key === 'j' || event.key === 'ArrowDown') {
-    event.preventDefault();
-    moveSelection(1);
-  } else if (event.key === 'k' || event.key === 'ArrowUp') {
-    event.preventDefault();
-    moveSelection(-1);
-  }
+  const open = [...document.querySelectorAll('dialog[open]')];
+  if (open.length !== 1 || open[0]!.id !== 'ticket-sheet') return;
+  if (event.key === 'j') moveSelection(1);
+  else if (event.key === 'k') moveSelection(-1);
 });
 
 // ---------------------------------------------------------------- appearance
@@ -3308,16 +3726,6 @@ void document.fonts?.ready.then(placeTabIndicator);
 
 // ------------------------------------------------------------ mobile drawers
 
-const toggleNav = (open: boolean) => $('#app').classList.toggle('nav-open', open);
-$('#nav-open').addEventListener('click', () => toggleNav(true));
-$('#scrim').addEventListener('click', () => toggleNav(false));
-
-addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape') return;
-  if ($('#app').classList.contains('nav-open')) return toggleNav(false);
-  // On mobile the detail pane covers the list, so Escape is the way back out.
-  if (selectedTicket && DETAIL_OVERLAY.matches) closeDetail();
-});
 for (const button of document.querySelectorAll('.close')) {
   button.addEventListener('click', () => button.closest('dialog')?.close());
 }
@@ -3384,16 +3792,8 @@ $('#project-delete-confirm').addEventListener('click', async () => {
     editingProject = null;
     toast(`Projet « ${target.name} » supprimé.`);
     projects = await api('/api/projects');
-    if (selectedProject === target.id) {
-      selectedProject = projects[0]?.id ?? '';
-    }
-    await renderProjects();
-    if (selectedProject) {
-      await chooseProject(selectedProject);
-    } else {
-      await renderTickets();
-    }
     await refreshOnboarding();
+    await go('#/projets');
   } catch {
     toast('Échec de la suppression du projet.', 'error');
   } finally {

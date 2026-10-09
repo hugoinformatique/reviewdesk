@@ -10,29 +10,46 @@ async function login(page: Page) {
   await page.goto('/');
   await page.getByLabel('Mot de passe').fill(ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await dismissFirstRun(page);
-}
-
-/**
- * The e2e instance starts empty and no test completes the branding setup, so
- * the first-run wizard covers the dashboard on every load. « Plus tard »
- * leaves it incomplete on purpose; the wizard itself is covered elsewhere.
- */
-/**
- * Back on the dashboard in a browser that already postponed the setup: the
- * wizard must stay away instead of covering the dashboard on every load.
- */
-async function backInAdmin(page: Page) {
-  await expect(page.locator('#project-title')).toHaveText('Tous les retours');
-  await page.waitForLoadState('networkidle');
+  // Signing in lands on the projects, never on the branding wizard.
+  await expect(page.locator('#home')).toBeVisible();
+  await expect(page.locator('#project-grid .project-card.add')).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Personnalisation de l’instance' })).toBeHidden();
 }
 
-async function dismissFirstRun(page: Page) {
-  const setup = page.getByRole('dialog', { name: 'Personnalisation de l’instance' });
-  await setup.getByRole('button', { name: 'Configurer plus tard' }).click();
-  await expect(setup).toBeHidden();
-  await expect(page.locator('#project-title')).toHaveText('Tous les retours');
+/** Back in the admin with a session: the projects, nothing in the way. */
+async function backInAdmin(page: Page) {
+  await expect(page.locator('#home')).toBeVisible();
+  await expect(page.locator('#project-grid .project-card.add')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Personnalisation de l’instance' })).toBeHidden();
+}
+
+/**
+ * Creates a project the way a user does, through the guide, and reads back
+ * the project id and the reviewer token from the install snippet it shows.
+ * An empty instance opens the guide by itself; otherwise « Nouveau projet ».
+ */
+async function createProject(page: Page, name: string, client: string) {
+  const guide = page.locator('#guide');
+  if (!(await guide.isVisible())) await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
+  await guide.getByLabel('Nom du site').fill(name);
+  await guide.getByLabel('Client', { exact: true }).fill(client);
+  await guide.getByLabel('Adresse du site à faire relire').fill(PREVIEW_ORIGIN);
+  await guide.getByRole('button', { name: 'Créer le projet' }).click();
+  const snippet = guide.locator('.code');
+  await expect(snippet).toContainText('data-token=');
+  const code = (await snippet.textContent())!;
+  const projectId = /data-project="([0-9a-f-]{36})"/.exec(code)![1]!;
+  const token = /data-token="([A-Za-z0-9_-]+)"/.exec(code)![1]!;
+  await guide.getByRole('button', { name: 'Continuer' }).click();
+  await guide.getByRole('button', { name: 'Ouvrir le projet' }).click();
+  await expect(page.getByRole('heading', { name })).toBeVisible();
+  return { projectId, token };
+}
+
+/** Opens a project from the home grid. */
+async function openProject(page: Page, name: string) {
+  await page.getByRole('link', { name, exact: true }).click();
+  await expect(page.getByRole('heading', { name })).toBeVisible();
 }
 
 test('a reviewer on another origin files an anchored ticket that the admin triages and can revoke', async ({ page, request }) => {
@@ -41,20 +58,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   // Everything below goes through the real admin UI, so the CSRF token, the
   // dialogs and the filters are exercised rather than the API alone.
-  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
-  await page.getByLabel('Nom').fill(projectName);
-  await page.getByLabel('Client').fill('DEMO Client A');
-  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
-  await page.getByRole('button', { name: 'Créer', exact: true }).click();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
-  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
-  await expect(page.locator('#link-output')).toHaveValue(/review=/);
-  const instructions = await page.locator('#link-output').inputValue();
-  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
-  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
-  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+  const { projectId, token } = await createProject(page, projectName, 'DEMO Client A');
 
   // ------------------------------------------------ reviewer, other origin
 
@@ -88,39 +92,34 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${API_ORIGIN}/`);
   await backInAdmin(page);
-  await page.getByRole('button', { name: projectName, exact: true }).click();
+  await openProject(page, projectName);
 
-  const ticket = page.getByText('Rendre ce bouton plus visible sur mobile');
-  await expect(ticket).toBeVisible();
+  // The board: the new ticket waits in « À traiter ».
+  const ticket = page.locator('.ticket', { hasText: 'Rendre ce bouton plus visible sur mobile' });
+  await expect(page.locator('[data-column="TODO"] .ticket')).toHaveCount(1);
   await page.locator('#format').selectOption('desktop');
   await expect(ticket).toHaveCount(0, { timeout: 5_000 });
   await page.locator('#format').selectOption('mobile');
   await expect(ticket).toBeVisible();
-
-  // Keyboard and screen-reader affordances of the triage screen.
   await expect(page.getByRole('link', { name: 'Aller au contenu' })).toHaveAttribute('href', '#main-content');
-  await expect(page.getByRole('combobox', { name: 'Filtrer par statut' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Filtrer par client' })).toBeVisible();
-
-  await ticket.click();
-  await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
-  // The open row is announced, not only drawn lifted, and keeps the focus.
-  await expect(page.locator('.ticket[aria-current="true"]')).toHaveCount(1);
-  await expect(page.locator('.ticket[aria-current="true"]')).toBeFocused();
-  await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
-  // Each pane scrolls on its own: the document itself never does, so reading
-  // a long ticket cannot drag the list along.
-  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, pane.scrollHeight));
-  expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+  // The app is one screen tall: the document itself never scrolls.
   expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(800);
-  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, 0));
+  await page.screenshot({ path: 'artifacts/admin-desktop.png' });
+
+  // The ticket opens over the board, with its own address.
+  await ticket.click();
+  await expect(page.locator('#ticket-sheet[open]')).toBeVisible();
+  await expect(page).toHaveURL(/#\/p\/[0-9a-f-]{36}\/t\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+  await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
   await page.locator('.ticket-screenshot-wrap').click();
   await expect(page.locator('#screenshot-dialog[open]')).toBeVisible();
   await page.locator('#screenshot-dialog-close').click();
   await expect(page.locator('#screenshot-dialog[open]')).toHaveCount(0);
-  // The viewport, not the full page: the sticky bar would land mid-image.
-  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, 0));
-  await page.screenshot({ path: 'artifacts/admin-desktop.png' });
+  // Escape closes the sheet and the address goes back to the board.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ticket-sheet[open]')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/\/t\//);
   // --------------------------------------- export the backlog as one prompt
 
   // Still TODO at this point, so it must appear in the export with its anchor,
@@ -139,12 +138,14 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   // ------------------------------------------ the work log, from the admin
 
+  await ticket.click();
   await page.getByRole('button', { name: 'Message interne' }).click();
   await page.getByLabel('Message pour l’équipe').fill('Vu avec le client : on garde l’orange.');
   await page.getByRole('button', { name: 'Ajouter au fil' }).click();
   await expect(page.locator('.comment')).toContainText('Vu avec le client');
   await expect(page.locator('.comment-meta')).toContainText('Équipe');
   await expect(page.locator('.comment-meta')).toContainText('Interne');
+  await page.keyboard.press('Escape');
 
   // ------------------------------------------------------- the overview
 
@@ -173,7 +174,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   // ------------------------------------ connect an agent, for real this time
 
-  await page.getByRole('button', { name: 'Accès agents' }).click();
+  await page.getByRole('button', { name: 'Agents IA', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Connecter un agent IA' })).toBeVisible();
 
   // Step 1: the client decides which configuration gets written.
@@ -211,11 +212,12 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('.onboarding')).toHaveCount(0);
   await page.getByRole('button', { name: 'Retours', exact: true }).click();
 
-  // The ticket stayed selected behind the dialogs; triage it from there.
-  // A status is saved the moment it is picked.
+  // Triage from the sheet. A status is saved the moment it is picked, and the
+  // card changes column behind it.
+  await ticket.click();
   await page.locator('#ticket-status').selectOption('REVIEW');
   await expect(page.locator('#toast')).toHaveText('Statut : À valider.');
-  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
+  await expect(page.locator('[data-column="REVIEW"] .ticket')).toHaveCount(1);
   await page.getByLabel('Note interne').fill('Ajustement prêt à valider');
   // Preserve the saved note when the subsequent refresh fails.
   await page.route('**/api/tickets?*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }));
@@ -224,21 +226,22 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('#toast')).toHaveText('Note enregistrée, mais actualisation indisponible.');
   await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
   await page.unroute('**/api/tickets?*');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
-  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
+  await expect(page.locator('[data-column="REVIEW"] .ticket')).toHaveCount(1);
 
+  // A reload stays on the project's board, and the note is still there.
   await page.reload();
-  await backInAdmin(page);
-  await page.getByRole('button', { name: projectName, exact: true }).click();
-  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
-  await page.getByText('Rendre ce bouton plus visible sur mobile').click();
+  await expect(page.locator('[data-column="REVIEW"] .ticket')).toHaveCount(1);
+  await ticket.click();
   await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
+  await page.keyboard.press('Escape');
 
   // ------------------------------------------------------ revoke the link
 
   // Opening the dialog must not mint a second secret: the link revoked below is
   // the one the preview is actually using.
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
+  await page.getByRole('button', { name: 'Installer', exact: true }).click();
   await expect(page.locator('#link-list .link-row')).toHaveCount(1);
   await page.locator('#link-list').getByRole('button', { name: 'Révoquer' }).click();
   await expect(page.locator('#link-list')).toContainText('Révoqué');
@@ -264,48 +267,33 @@ test('invalid credentials show the credential error instead of a service outage'
   await expect(page.locator('#login output')).toHaveText('Identifiants invalides.');
 });
 
-test('on a phone the dashboard fits the screen and the closed drawer is out of reach', async ({ page }) => {
+test('on a phone the projects and the board fit the screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
-  await page.locator('#tab-tickets').click();
 
-  // The bar used to be wider than the phone, which widened the whole page and
-  // pushed the filters and the status column off screen.
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
-  for (const id of ['#nav-open', '#account', '#status', '#project-title']) {
-    const box = (await page.locator(id).boundingBox())!;
-    expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(390);
-  }
+  // The bar used to be wider than the phone, which widened the whole page.
+  const fits = async (ids: string[]) => {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    for (const id of ids) {
+      const box = (await page.locator(id).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+    }
+  };
+  await expect(page.getByRole('button', { name: '＋ Nouveau projet' })).toBeVisible();
+  await fits(['#account', '#new-project', '#all-tickets']);
 
-  // Closed, the drawer is neither drawn nor reachable by Tab.
-  const newProject = page.getByRole('button', { name: '＋ Nouveau projet' });
-  await expect(newProject).toBeHidden();
-  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click();
-  await expect(newProject).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(newProject).toBeHidden();
+  // The board scrolls its columns sideways inside itself, never the page.
+  await page.getByRole('button', { name: 'Tous les retours' }).click();
+  await expect(page.locator('[data-column="TODO"]')).toBeVisible();
+  await fits(['#account', '#project-title', '#page-filter']);
 });
 
 test('the admin can replay a pin on the preview, and the reviewer reads the answer back', async ({ page }) => {
   const projectName = `DEMO Ancrage ${Date.now()}`;
   await login(page);
 
-  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
-  await page.getByLabel('Nom').fill(projectName);
-  await page.getByLabel('Client').fill('DEMO Client B');
-  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
-  await page.getByRole('button', { name: 'Créer', exact: true }).click();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
-  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
-  await expect(page.locator('#link-output')).toHaveValue(/review=/);
-  const instructions = await page.locator('#link-output').inputValue();
-  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
-  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
-  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+  const { projectId, token } = await createProject(page, projectName, 'DEMO Client B');
 
   const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
   await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
@@ -321,7 +309,7 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
 
   await page.goto(`${API_ORIGIN}/`);
   await backInAdmin(page);
-  await page.getByRole('button', { name: projectName, exact: true }).click();
+  await openProject(page, projectName);
   await page.getByText('Le libellé du bouton est ambigu').click();
   await page.getByLabel('Réponse au client').fill('Renommé en « Voir la collection ».');
   await page.getByRole('button', { name: 'Envoyer au client' }).click();
@@ -362,20 +350,7 @@ test('client experience: monochrome UI, launcher label, pin cancellation and sho
   const projectName = `DEMO Client UX ${Date.now()}`;
   await login(page);
 
-  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
-  await page.getByLabel('Nom').fill(projectName);
-  await page.getByLabel('Client').fill('DEMO Client UX');
-  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
-  await page.getByRole('button', { name: 'Créer', exact: true }).click();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
-  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
-  await expect(page.locator('#link-output')).toHaveValue(/review=/);
-  const instructions = await page.locator('#link-output').inputValue();
-  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
-  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
-  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+  const { projectId, token } = await createProject(page, projectName, 'DEMO Client UX');
 
   const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
   await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
@@ -448,21 +423,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
   const projectName = `DEMO Screenshot ${Date.now()}`;
   await login(page);
 
-  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
-  const projDialog = page.locator('#project-dialog');
-  await projDialog.locator('input[name="name"]').fill(projectName);
-  await projDialog.locator('input[name="clientLabel"]').fill('DEMO Client Screenshot');
-  await projDialog.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
-  await projDialog.getByRole('button', { name: 'Créer', exact: true }).click();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
-  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
-  await expect(page.locator('#link-output')).toHaveValue(/review=/);
-  const instructions = await page.locator('#link-output').inputValue();
-  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
-  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
-  await page.locator('#link-dialog').getByRole('button', { name: 'Fermer' }).click();
+  const { projectId, token } = await createProject(page, projectName, 'DEMO Client Screenshot');
 
   const credentials = `api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`;
   await page.goto(`${PREVIEW_ORIGIN}/demo.html#${credentials}`);
@@ -508,16 +469,17 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
   // 3. Admin verifies both tickets have screenshot attached and visible
   await page.goto(`${API_ORIGIN}/`);
   await backInAdmin(page);
-  await page.getByRole('button', { name: projectName, exact: true }).click();
+  await openProject(page, projectName);
 
-  const ticket1 = page.getByText('Test capture avec styles OKLCH');
-  await expect(ticket1).toBeVisible();
+  // Both cards show the capture as their thumbnail, and so does each sheet.
+  await expect(page.locator('.ticket .card-shot img')).toHaveCount(2);
+  const ticket1 = page.locator('.ticket', { hasText: 'Test capture avec styles OKLCH' });
   await ticket1.click();
   await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
+  await page.keyboard.press('Escape');
 
-  const ticket2 = page.getByText('Test capture page entière sans épingle');
-  await expect(ticket2).toBeVisible();
+  const ticket2 = page.locator('.ticket', { hasText: 'Test capture page entière sans épingle' });
   await ticket2.click();
   await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
@@ -527,19 +489,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
 test('a reviewer’s text stays text in the collaborative pins on the client page', async ({ page, request }) => {
   await login(page);
   const projectName = `XSS ${Date.now()}`;
-  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
-  await page.getByLabel('Nom').fill(projectName);
-  await page.locator('#project-form [name="clientLabel"]').fill('Agence témoin');
-  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
-  await page.getByRole('button', { name: 'Créer', exact: true }).click();
-  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Liens reviewer' }).click();
-  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
-  await expect(page.locator('#link-output')).toHaveValue(/review=/);
-  const instructions = await page.locator('#link-output').inputValue();
-  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
-  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
+  const { projectId, token } = await createProject(page, projectName, 'Agence témoin');
 
   // Filed straight through the API, as a hostile reviewer holding a link could.
   const payload = '<img src=x onerror="window.__rdInjected=1">';

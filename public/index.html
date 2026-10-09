@@ -191,24 +191,20 @@
 
 <div id="app" hidden>
   <a class="skip-link" href="#main-content">Aller au contenu</a>
-  <div class="scrim" id="scrim"></div>
 
   <header class="nav">
     <!-- Two tiers, as in Vercel's dashboard: where you are and who you are on
          top; what you look at and what you can do with it underneath. -->
     <div class="nav-top">
-      <button id="nav-open" class="icon-btn mobile-only" aria-label="Ouvrir la navigation">
-        <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
-      </button>
       <div class="brand">
         <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
         <span class="wordmark" aria-label="ReviewDesk"><span aria-hidden="true">Review</span><b aria-hidden="true">Desk</b></span>
       </div>
       <span class="nav-slash" aria-hidden="true"></span>
       <div class="nav-context">
-        <span class="eyebrow" id="client-label">Tous les clients</span>
-        <span class="nav-slash small" aria-hidden="true"></span>
-        <h1 id="project-title">Tous les retours</h1>
+        <a id="crumb-home" class="crumb" href="#/projets">Projets</a>
+        <span class="nav-slash small crumb-project" aria-hidden="true"></span>
+        <h1 id="project-title" class="crumb-project">Tous les retours</h1>
         <button id="project-switch" class="icon-btn" type="button" aria-label="Changer de projet" title="Changer de projet (⌘K)">
           <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
         </button>
@@ -274,13 +270,13 @@
           <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
           <span class="label">Copier le lien</span>
         </button>
-        <button id="review-link" class="quiet">
-          <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
-          <span class="label">Liens reviewer</span>
+        <button id="review-link" class="quiet" title="Installer le widget et gérer les liens reviewer">
+          <svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>
+          <span class="label">Installer</span>
         </button>
         <button id="agent-access" class="quiet ai-entry" title="Brancher Claude Code, Codex, Cursor… en MCP ou par l’API">
           <svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg>
-          <span class="label">Accès agents</span>
+          <span class="label">Agents IA</span>
           <span class="logo-stack" aria-hidden="true">
             <svg class="logo"><use href="#i-claude"/></svg>
             <svg class="logo"><use href="#i-openai"/></svg>
@@ -295,65 +291,71 @@
   </header>
 
   <div class="shell">
-    <aside aria-labelledby="projects-title">
-      <div class="aside-head">
-        <span class="aside-title" id="projects-title">Projets</span>
-        <span class="aside-count" id="projects-count"></span>
-        <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
-             while the accessible name keeps its historical wording. -->
-        <button id="new-project" class="icon-btn" type="button" aria-label="＋ Nouveau projet" title="Nouveau projet">
-          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
-        </button>
-      </div>
-      <nav id="projects" aria-labelledby="projects-title"></nav>
-    </aside>
-
     <section class="workspace" id="main-content" tabindex="-1" aria-label="Espace de travail">
-      <div class="config" id="config-overview" hidden>
-        <span class="eyebrow">Période</span>
-        <select id="period" aria-label="Période observée">
-          <option value="7">7 derniers jours</option>
-          <option value="30" selected>30 derniers jours</option>
-          <option value="90">90 derniers jours</option>
-        </select>
-        <span id="stats-scope"></span>
+      <!-- Home: one card per client site. -->
+      <div class="home" id="home" hidden>
+        <header class="home-head">
+          <div>
+            <h2 id="home-title">Mes projets</h2>
+            <p id="home-summary"></p>
+          </div>
+          <div class="home-actions">
+            <button id="all-tickets" class="btn btn-secondary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Tous les retours
+            </button>
+            <button id="new-project" class="btn btn-primary" type="button" aria-label="＋ Nouveau projet">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span aria-hidden="true">Nouveau projet</span>
+            </button>
+          </div>
+        </header>
+        <div class="project-grid" id="project-grid"></div>
       </div>
 
-      <div class="config" id="config-tickets">
-        <!-- Named through title, not aria-label: getByLabel() matches substrings,
-             and the project dialog already has a field labelled "Client". -->
-        <select id="client" title="Filtrer par client"><option value="">Tous les clients</option></select>
-        <div class="field-search">
-          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-          <input id="page-filter" placeholder="Filtrer une page…" aria-label="Filtrer par page">
+      <!-- One project (or all of them): the board, or its overview. -->
+      <div class="project-view" id="project-view" hidden>
+        <div class="config" id="config-overview" hidden>
+          <span class="eyebrow">Période</span>
+          <select id="period" aria-label="Période observée">
+            <option value="7">7 derniers jours</option>
+            <option value="30" selected>30 derniers jours</option>
+            <option value="90">90 derniers jours</option>
+          </select>
+          <span id="stats-scope"></span>
         </div>
-        <select id="format" aria-label="Filtrer par format">
-          <option value="">Tous les formats</option>
-          <option value="mobile">Mobile</option>
-          <option value="desktop">Desktop</option>
-        </select>
-        <select id="status" aria-label="Filtrer par statut">
-          <option value="">Tous les statuts</option>
-          <option value="TODO">À traiter</option>
-          <option value="IN_PROGRESS">En cours</option>
-          <option value="REVIEW">À valider</option>
-          <option value="DONE">Traité</option>
-        </select>
-        <button id="export-prompt" class="quiet config-action">
-          <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
-          Exporter pour Claude Code
-        </button>
-        <span id="count" role="status" aria-live="polite"></span>
-      </div>
 
-      <div class="content" id="tickets-view">
-        <div id="tickets" class="tickets" role="region" aria-label="Liste des retours"></div>
-        <div id="detail" class="detail empty" role="region" aria-label="Détail du retour"></div>
-      </div>
+        <div class="config" id="config-tickets">
+          <div class="field-search">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="page-filter" placeholder="Filtrer une page…" aria-label="Filtrer par page">
+          </div>
+          <!-- Named through title, not aria-label: getByLabel() matches substrings,
+               and the project form already has a field labelled "Client". -->
+          <select id="client" title="Filtrer par client"><option value="">Tous les clients</option></select>
+          <select id="format" aria-label="Filtrer par format">
+            <option value="">Tous les formats</option>
+            <option value="mobile">Mobile</option>
+            <option value="desktop">Desktop</option>
+          </select>
+          <span id="count" role="status" aria-live="polite"></span>
+          <button id="export-prompt" class="quiet config-action">
+            <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+            Exporter pour Claude Code
+          </button>
+        </div>
 
-      <div class="overview" id="overview" hidden></div>
+        <div class="board" id="board" role="region" aria-label="Tableau des retours"></div>
+        <div class="overview" id="overview" hidden></div>
+      </div>
     </section>
   </div>
+
+  <!-- The ticket opens over the board, at full size. -->
+  <dialog id="ticket-sheet" class="sheet" aria-label="Retour">
+    <div id="detail" class="detail empty" role="region" aria-label="Détail du retour"></div>
+  </dialog>
+
+  <!-- First project, and every new one: create, install, connect. -->
+  <div id="guide" class="guide" role="dialog" aria-modal="true" aria-labelledby="guide-title" hidden></div>
 </div>
 
 <dialog id="palette" class="palette" aria-label="Palette de commandes">

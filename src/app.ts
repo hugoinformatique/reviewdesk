@@ -418,15 +418,29 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     // openCount is what the sidebar badges show. It counts every ticket that is
     // not DONE, independently of the filters in force, so the badge means the
     // same thing whatever the operator is currently looking at.
+    // The project cards of the home screen read the rest: what waits in each
+    // status, when the last ticket came in, and whether the widget has ever
+    // called home (a review link used at least once).
     const rows = await db.query(
       `SELECT p.id, p.name, p.client_label AS "clientLabel", p.origins, p.webhook_url AS "webhookUrl",
               p.created_at AS "createdAt",
-              COUNT(t.id) FILTER (WHERE t.status <> 'DONE') AS "openCount"
+              COUNT(t.id) FILTER (WHERE t.status <> 'DONE') AS "openCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'TODO') AS "todoCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'IN_PROGRESS') AS "inProgressCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'REVIEW') AS "reviewCount",
+              COUNT(t.id) FILTER (WHERE t.fix_requested_at IS NOT NULL) AS "fixRequestedCount",
+              MAX(t.created_at) AS "lastTicketAt",
+              (SELECT MAX(l.last_used_at) FROM review_links l WHERE l.project_id = p.id) AS "widgetSeenAt"
        FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
        GROUP BY p.id
        ORDER BY p.created_at`,
     );
-    return rows.rows.map((row) => ({ ...row, openCount: Number((row as { openCount: string }).openCount) }));
+    const counts = ['openCount', 'todoCount', 'inProgressCount', 'reviewCount', 'fixRequestedCount'];
+    return rows.rows.map((row) => {
+      const project = { ...(row as Record<string, unknown>) };
+      for (const key of counts) project[key] = Number(project[key] ?? 0);
+      return project;
+    });
   });
 
   /** Returns the canonical origins, or an error code the caller should send back. */

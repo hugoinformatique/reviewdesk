@@ -110,7 +110,6 @@
   --sans: 'Geist', Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: 'Geist Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  --sidebar-w: 232px;
   --nav-h: 93px;
   /* Stronger than the CSS built-ins, which are too weak to read as intentional. */
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
@@ -603,24 +602,15 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
 
 /* --------------------------------------------------------------- app shell */
 
-/* Two rows: the nav bar owns the full width, everything else lives under it. */
-/* minmax(0, 1fr), not auto: a bar wider than the screen must clip or wrap
-   inside its column instead of widening the whole page sideways. */
-#app { min-height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
-
-/* Beside the list, the app is exactly one screen tall and each pane scrolls on
-   its own: reading a long ticket must not drag the list along with it. */
-@media (min-width: 901px) {
-  #app { height: 100dvh; }
-  .shell, .workspace, .content { min-height: 0; overflow: hidden; }
-}
+/* The app is exactly one screen tall: the bar on top, the current screen under
+   it, and whatever is long (the grid, a column, the overview) scrolls inside. */
+#app { height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
 #app:not([hidden]) { display: grid; }
+/* The home has no views or project actions: the bar keeps its first tier only. */
+#app.on-home { --nav-h: 51px; }
+#app.on-home .nav-sub, #app.on-home .crumb-project, #app.on-home #project-switch { display: none; }
 
-.shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  min-height: 0;
-}
+.shell { display: grid; min-height: 0; overflow: hidden; }
 
 /* Nav bar ------------------------------------------------------------------
    Two tiers. On top, global: the brand, a breadcrumb of where you are, search
@@ -692,7 +682,9 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
 }
 
 /* A breadcrumb segment, not an eyebrow: sentence case, body size. */
-#client-label { white-space: nowrap; color: var(--text-3); text-transform: none; letter-spacing: 0; font-size: 13.5px; font-weight: 500; }
+/* A breadcrumb segment: sentence case, body size, a link back home. */
+.crumb { white-space: nowrap; color: var(--text-3); font-size: 13.5px; font-weight: 500; text-decoration: none; }
+.crumb:hover { color: var(--text); }
 
 #project-title {
   font-size: 14px;
@@ -895,120 +887,6 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
   transition: transform 0.3s var(--ease), width 0.3s var(--ease);
 }
 
-/* Project rail -------------------------------------------------------------
-   Same ground as the bar above it, so the two frame the work in an L. Rows are
-   quiet: an avatar, a name, and a count only when something is waiting. */
-
-aside {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
-  padding: 14px 10px 10px;
-  position: sticky;
-  top: var(--nav-h);
-  height: calc(100dvh - var(--nav-h));
-}
-
-.aside-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px 8px 8px;
-}
-
-.aside-title { font-size: 12px; font-weight: 600; color: var(--text-2); }
-.aside-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.aside-head #new-project { margin-left: auto; width: 26px; height: 26px; }
-.aside-head #new-project .icon { width: 15px; height: 15px; }
-
-#projects {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  flex: 1;
-  margin: 0 -4px;
-  padding: 0 4px 8px;
-  scrollbar-width: thin;
-}
-
-.project-group { display: flex; flex-direction: column; gap: 1px; margin-top: 14px; }
-
-.project-group-title {
-  padding: 0 8px 5px;
-  font-size: 11.5px;
-  font-weight: 560;
-  color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.project {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  height: 34px;
-  padding: 0 8px;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-sm);
-  color: var(--text-2);
-  position: relative;
-  transition: background 0.12s var(--ease), color 0.12s var(--ease);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .project:hover { background: var(--surface-hover); color: var(--text); }
-}
-
-.project:active { transform: scale(0.99); }
-
-.project.active { background: var(--surface-active); color: var(--text); }
-.project.active .name { font-weight: 600; }
-
-.project .proj { width: 20px; height: 20px; border-radius: 5px; font-size: 10.5px; }
-.project .proj.all .icon { width: 12px; height: 12px; }
-
-.project .name {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 520;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Open tickets: a quiet count in the "to do" ink, the work still waiting. */
-.project .badge {
-  flex: none;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: var(--r-full);
-  display: inline-grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--st-todo);
-  background: var(--st-todo-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Workspace ---------------------------------------------------------------- */
-
-.workspace {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-}
-
 /* Config bar --------------------------------------------------------------- */
 
 .config {
@@ -1063,117 +941,335 @@ aside {
   white-space: nowrap;
 }
 
-/* Split pane --------------------------------------------------------------- */
+/* Home ------------------------------------------------------------------------
+   One card per client site: what waits, whether the widget is live, whether an
+   agent is plugged in — and the one thing to do when something is missing. */
 
-.content {
+.home { overflow-y: auto; overscroll-behavior: contain; padding: 36px 40px 56px; background: var(--bg-sunken); }
+.home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; max-width: 1280px; margin: 0 auto 24px; }
+.home-head h2 { font-size: 24px; letter-spacing: -0.03em; }
+.home-head p { margin: 4px 0 0; color: var(--text-2); font-size: 13.5px; }
+.home-actions { display: flex; gap: 8px; }
+.home-actions .btn { height: 36px; }
+
+.project-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
-  min-height: 0;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
-.tickets {
-  overflow-y: auto;
-  border-right: 1px solid var(--border);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  scrollbar-width: thin;
-}
-
-/* Ticket row ---------------------------------------------------------------
-   Three columns read left to right like a sentence: which project, what was
-   said and where, then how fresh and how far along it is. */
-
-.ticket {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: 'proj summary date' 'proj summary status';
-  align-items: start;
-  gap: 4px 11px;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--r);
-  padding: 11px 12px 11px 11px;
+.project-card {
   position: relative;
-  transition: background 0.14s var(--ease), box-shadow 0.14s var(--ease), transform 0.16s var(--ease),
-              border-color 0.14s var(--ease);
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-1);
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease), transform 0.16s var(--ease);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .ticket:hover { background: var(--surface-hover); }
+  .project-card:hover { border-color: var(--border-2); box-shadow: var(--edge), var(--shadow-2); transform: translateY(-1px); }
 }
 
-.ticket:active { transform: scale(0.995); }
+/* The card is one big link; its buttons are lifted above it. */
+.project-card-link { position: absolute; inset: 0; border-radius: inherit; z-index: 1; }
+.project-card-link:focus-visible { outline-offset: 2px; border-radius: var(--r-xl); }
+.project-card-cta { position: relative; z-index: 2; justify-self: start; height: 30px; font-size: 12.5px; }
 
-/* The selected row is lifted, not just tinted: it is the one being worked on. */
-.ticket.active {
+.project-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.project-card-head .proj { width: 36px; height: 36px; border-radius: 10px; font-size: 15px; }
+.project-card-head div { display: grid; min-width: 0; }
+.project-card-head strong { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-card-head div span { font-size: 12.5px; color: var(--text-3); }
+
+.project-card-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.count-cell { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--r); background: var(--surface-2); }
+.count-cell b { font-size: 20px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.count-cell small { font-size: 11.5px; color: var(--text-3); }
+.count-cell.TODO b { color: var(--st-todo); }
+.count-cell.IN_PROGRESS b { color: var(--st-progress); }
+.count-cell.REVIEW b { color: var(--st-review); }
+
+.project-card-last { font-size: 12px; color: var(--text-3); }
+.project-card-foot { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+.health {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 540;
+}
+
+.health .icon { width: 12px; height: 12px; }
+.health.ok { background: var(--st-done-soft); color: var(--st-done); }
+
+.project-card.add {
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  min-height: 220px;
+  border-style: dashed;
+  border-width: 1.5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  font: inherit;
+  text-align: center;
+}
+
+.project-card.add .icon { width: 22px; height: 22px; margin-bottom: 4px; }
+.project-card.add strong { font-size: 14px; color: var(--text); }
+.project-card.add span { font-size: 12.5px; color: var(--text-3); }
+
+/* Project screen ---------------------------------------------------------------- */
+
+.workspace { display: grid; min-width: 0; min-height: 0; overflow: hidden; }
+.project-view { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; overflow: hidden; }
+.project-view[hidden], .home[hidden] { display: none; }
+
+/* Board ------------------------------------------------------------------------
+   One column per status, side by side; each scrolls on its own. A card is the
+   screenshot first, then what the client said, then where. */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 16px 20px 20px;
+  min-height: 0;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-sunken);
+}
+
+.board[hidden] { display: none; }
+
+.column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--bg-sunken));
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: box-shadow 0.14s var(--ease), background 0.14s var(--ease);
+}
+
+.column.drop { background: var(--surface-hover); box-shadow: inset 0 0 0 2px var(--accent); }
+
+.column-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 10px 14px; }
+.column-count { font-size: 12px; font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.column-list {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 10px 12px;
+  scrollbar-width: thin;
+}
+
+.column-empty { margin: 4px 4px 0; padding: 18px 12px; border: 1px dashed var(--border-2); border-radius: var(--r); text-align: center; font-size: 12.5px; color: var(--text-3); }
+.column .load-more { justify-self: center; margin: 4px 0 0; }
+
+.ticket {
+  display: grid;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   background: var(--surface);
-  border-color: var(--border);
-  box-shadow: var(--edge), var(--shadow-2);
+  box-shadow: var(--edge), var(--shadow-1);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease), transform 0.16s var(--ease), opacity 0.14s var(--ease);
 }
 
-.ticket.active::before {
-  content: '';
-  position: absolute;
-  left: -1px; top: 12px; bottom: 12px;
-  width: 2px;
-  border-radius: 0 2px 2px 0;
-  background: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .ticket:hover { border-color: var(--border-2); box-shadow: var(--edge), var(--shadow-2); transform: translateY(-1px); }
 }
 
-.ticket .proj { grid-area: proj; margin-top: 1px; }
+.ticket:active { transform: scale(0.99); }
+.ticket.dragging { opacity: 0.4; }
+.ticket.active { border-color: var(--text); }
 
-.ticket .summary { grid-area: summary; display: grid; gap: 5px; min-width: 0; }
+.card-shot { display: block; height: 120px; overflow: hidden; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.card-shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
 
-.ticket .summary strong {
+.card-body { display: grid; gap: 8px; padding: 11px 12px 12px; min-width: 0; }
+
+.card-title {
   font-size: 13.5px;
   font-weight: 540;
   line-height: 1.4;
-  letter-spacing: -0.01em;
   color: var(--text);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
 
-.ticket .summary small {
+.card-meta, .card-foot { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; color: var(--text-3); }
+.card-meta .proj { width: 16px; height: 16px; border-radius: 4px; font-size: 9px; }
+.card-meta .icon, .card-foot .icon { width: 12px; height: 12px; flex: none; }
+.card-page { font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-foot { justify-content: space-between; }
+.card-age { margin-right: auto; }
+.card-comments, .card-ai { display: inline-flex; align-items: center; gap: 4px; }
+.card-ai { padding: 1px 7px; border-radius: var(--r-full); background: var(--st-todo-soft); color: var(--st-todo); font-weight: 560; }
+
+.board-welcome {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 440px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.board-welcome-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--surface); box-shadow: var(--edge), 0 0 0 1px var(--border), var(--shadow-1); color: var(--text-2); }
+.board-welcome-icon .icon { width: 22px; height: 22px; }
+.board-welcome h3 { font-size: 17px; }
+.board-welcome p { margin: 0 0 6px; color: var(--text-2); font-size: 13.5px; line-height: 1.55; }
+
+.skeleton-head { height: 20px; margin: 12px; border-radius: var(--r-sm); }
+.skeleton-card { height: 150px; margin: 0 10px 10px; border-radius: var(--r-lg); }
+
+/* Sheet: the ticket over the board ------------------------------------------- */
+
+dialog.sheet {
+  width: min(1240px, calc(100vw - 48px));
+  height: min(calc(100dvh - 48px), 1040px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+
+dialog.sheet[open] { animation: sheet-in 0.22s var(--ease) both; }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(10px) scale(0.99); } }
+.sheet .detail { height: 100%; }
+
+/* Guide ------------------------------------------------------------------------- */
+
+body.guide-open { overflow: hidden; }
+
+.guide {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: start center;
+  overflow-y: auto;
+  padding: 6vh 20px 40px;
+  background: var(--bg-sunken);
+  background-image: radial-gradient(circle at 1px 1px, var(--border-2) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+.guide[hidden] { display: none; }
+
+.guide-panel {
+  width: min(680px, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--edge), var(--shadow-3);
+  animation: sheet-in 0.24s var(--ease) both;
+}
+
+.guide-top { display: flex; align-items: center; gap: 16px; padding: 14px 16px 14px 20px; border-bottom: 1px solid var(--border); }
+.guide-brand { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--accent-fg); flex: none; }
+.guide-brand .icon { width: 16px; height: 16px; }
+.guide-close { margin-left: auto; }
+.guide-close .icon { transform: rotate(45deg); }
+
+.guide-steps { display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.guide-steps li { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-3); }
+.guide-steps li + li::before { content: ''; width: 22px; height: 1px; margin-right: 2px; background: var(--border-2); }
+.guide-steps li.current { color: var(--text); font-weight: 600; }
+.guide-steps li.done { color: var(--text-2); }
+
+.guide-step-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border-2); font-size: 11px; font-weight: 600; }
+.guide-steps li.current .guide-step-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.guide-steps li.done .guide-step-mark { background: var(--st-done-soft); border-color: transparent; color: var(--st-done); }
+.guide-step-mark .icon { width: 11px; height: 11px; stroke-width: 2.4; }
+
+.guide-body { display: grid; gap: 18px; padding: 28px 32px 30px; }
+.guide-head { display: grid; gap: 6px; }
+.guide-eyebrow { font-size: 12px; font-weight: 600; color: var(--st-todo); }
+.guide-head h2 { font-size: 22px; letter-spacing: -0.03em; }
+.guide-head p { margin: 0; color: var(--text-2); font-size: 14px; }
+
+.guide-form { display: grid; gap: 16px; }
+.guide-form input:not([type='checkbox']) { height: 40px; padding: 0 12px; font-size: 14px; border-radius: var(--r); }
+.guide-check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 450; color: var(--text-2); }
+.guide-check input { width: 16px; height: 16px; margin: 0; }
+.guide-primary { justify-self: end; height: 38px; padding: 0 18px; font-size: 13.5px; }
+
+.guide-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+
+.guide-tab {
   display: flex;
   align-items: center;
-  gap: 4px 10px;
-  min-width: 0;
-  font-size: 11.5px;
-  color: var(--text-3);
-  overflow: hidden;
-  white-space: nowrap;
+  gap: 7px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 540;
+  text-align: left;
 }
 
-.ticket .summary small > span {
-  display: inline-flex;
-  align-items: center;
+.guide-tab .logo { width: 16px; height: 16px; flex: none; }
+.guide-tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-tab[aria-selected='true'] { border-color: var(--text); color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.guide-where { margin: -6px 0 0; font-size: 12.5px; color: var(--text-3); }
+.guide a.btn { text-decoration: none; }
+.guide-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.guide-skip { font-size: 12.5px; color: var(--text-3); }
+
+.guide-agents { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+
+.guide-agent {
+  display: grid;
+  justify-items: start;
   gap: 4px;
-  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease);
 }
 
-/* The page path gives way first; the device and capture marks never overlap it. */
-.ticket .summary small > span { flex: none; }
-.ticket .summary small > span:first-child { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; display: block; }
-.ticket .summary small .icon { width: 12px; height: 12px; }
-
-.ticket .date {
-  grid-area: date;
-  justify-self: end;
-  font-size: 11.5px;
-  color: var(--text-3);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.ticket .status { grid-area: status; justify-self: end; }
+.guide-agent .logo { width: 22px; height: 22px; margin-bottom: 6px; }
+.guide-agent strong { font-size: 13.5px; }
+.guide-agent span { font-size: 11.5px; color: var(--text-3); }
+.guide-agent:hover { border-color: var(--border-2); box-shadow: var(--shadow-2); }
 
 /* Project avatar: an initial on a hue picked from the project id, so the same
    project wears the same colour in the rail, the list and the palette. */
@@ -1568,8 +1664,8 @@ aside {
 
 .detail-bar-spacer { flex: 1; }
 
-/* Beside the list, "back to the list" means nothing; over it, it is the exit. */
-.detail .detail-back { display: none; }
+/* The sheet's way back to the board. */
+.detail .detail-back { display: inline-flex; }
 
 .detail-stepper { display: flex; align-items: center; gap: 2px; }
 .detail-stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
@@ -1578,7 +1674,7 @@ aside {
 .detail-bar .anchor-link { height: 32px; text-decoration: none; }
 
 /* A scroll that reaches its end stops there instead of moving what is behind. */
-.tickets, .detail-body, .detail-scroll, .detail-rail { overscroll-behavior: contain; }
+.detail-body, .detail-scroll, .detail-rail { overscroll-behavior: contain; }
 
 /* Narrow pane: one scroll for everything, composer at the end of the thread. */
 .detail-body {
@@ -2574,44 +2670,15 @@ dialog output:empty { display: none; }
   white-space: pre-wrap;
 }
 
-/* Wide and ultrawide -------------------------------------------------------
-   A 21:9 34" panel is ~3440px. Left unchecked the detail pane becomes one
-   column several thousand pixels wide, which is unreadable — a line of text
-   wants roughly 60-80 characters whatever the monitor can do. So the extra
-   width goes into a wider list and a real context rail, never into longer
-   lines. */
+/* Wide screens ----------------------------------------------------------------
+   Extra width goes to the board's columns, never to longer lines of text. */
 
 @media (min-width: 1500px) {
-  .content { grid-template-columns: minmax(360px, 520px) minmax(0, 1fr); }
   .config { padding-inline: 26px; }
+  .board { padding-inline: 26px; gap: 16px; }
 }
 
-@media (min-width: 2300px) {
-  :root { --sidebar-w: 280px; }
-  .content { grid-template-columns: minmax(440px, 760px) minmax(0, 1fr); }
-  /* Rows get room for the date and the status on one line instead of stacking. */
-  .ticket {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    grid-template-areas: 'proj summary status date';
-    align-items: center;
-    gap: 16px;
-  }
-  .ticket .date { min-width: 92px; text-align: right; }
-}
-
-/* 3440px and beyond: spend the remaining width on the list and the context
-   rail, never on the prose columns. */
-@media (min-width: 3000px) {
-  .content { grid-template-columns: minmax(440px, 880px) minmax(0, 1fr); }
-  .ticket .summary strong { -webkit-line-clamp: 1; }
-}
-
-/* Mobile ------------------------------------------------------------------- */
-
-/* Both only exist below the breakpoint; on desktop they must not become grid
-   items. `button.mobile-only` matches the specificity of `.icon-btn` above and
-   wins on order. */
-button.mobile-only, .scrim { display: none; }
+/* Narrow screens ---------------------------------------------------------------- */
 
 @media (max-width: 1100px) {
   /* The label of a nav action goes first; the icon still says which is which. */
@@ -2620,74 +2687,45 @@ button.mobile-only, .scrim { display: none; }
 }
 
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
-
-  .nav-top { padding-inline: 8px 12px; gap: 6px; }
+  .nav-top { padding-inline: 12px; gap: 6px; }
   .nav-search { width: 32px; padding: 0; justify-content: center; }
   .nav-search span, .nav-search kbd { display: none; }
-
-  aside {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: 264px;
-    height: 100dvh;
-    z-index: 45;
-    transform: translateX(-100%);
-    /* Hidden once off screen: its shadow no longer bleeds on the left edge,
-       and Tab no longer walks through links nobody can see. */
-    visibility: hidden;
-    transition: transform 0.26s var(--ease), visibility 0s linear 0.26s;
-    box-shadow: var(--shadow-3);
-  }
-
-  #app.nav-open aside { transform: none; visibility: visible; transition-delay: 0s; }
-
-  .scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 44;
-    background: #11111166;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.26s var(--ease);
-  }
-
-  #app.nav-open .scrim { opacity: 1; pointer-events: auto; }
-
-  button.mobile-only { display: inline-grid; }
 
   .config { padding: 9px 14px; }
   .config select, .field-search { flex: 1 1 126px; max-width: none; }
 
-  /* One pane at a time: the detail slides over the list. */
-  .content { grid-template-columns: 1fr; }
-  .tickets { border-right: 0; }
-  .detail {
-    position: fixed;
-    inset: var(--nav-h) 0 0;
-    z-index: 30;
-  }
+  /* Columns become a carousel: one and a bit visible, swiped sideways. */
+  .board { grid-template-columns: repeat(4, 82vw); scroll-snap-type: x mandatory; padding-inline: 14px; }
+  .column { scroll-snap-align: start; }
+
+  .home { padding: 24px 16px 40px; }
+
+  dialog.sheet { width: 100vw; height: 100dvh; border-radius: 0; border: 0; }
   .detail-scroll { padding: 16px 16px 0; }
-  /* The pane covers the list; the list must not scroll away beneath it. */
-  body:has(.detail:not(.empty)) { overflow: hidden; }
   .composer, .detail-rail { padding-inline: 16px; }
-  .detail.empty { display: none; }
-  .detail .detail-back { display: inline-flex; }
   .detail-bar { padding-inline: 12px; }
   .detail-position { display: none; }
   .detail-bar .anchor-link { width: 36px; padding: 0; }
   .detail-bar .anchor-link span, .composer-hint { display: none; }
+
+  .guide { padding: 0; }
+  .guide-panel { border-radius: 0; border: 0; min-height: 100dvh; }
+  .guide-body { padding: 22px 18px; }
+  .guide-tabs, .guide-agents { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .guide-steps li span:not(.guide-step-mark) { display: none; }
 }
 
 /* Phone width: the breadcrumb keeps the project name only, and the actions
    fold to their icons. */
 @media (max-width: 640px) {
-  .wordmark, .nav-slash, #client-label { display: none; }
+  .wordmark, .nav-slash, .crumb { display: none; }
   .nav-sub { padding-inline: 6px 8px; gap: 8px; }
   .nav-tab { padding-inline: 9px; }
   .nav-tab .icon { display: none; }
   .nav-actions { gap: 2px; }
+  .home-head { align-items: stretch; }
+  .home-actions { width: 100%; }
+  .home-actions .btn { flex: 1; }
 }
 
 /* Connection wizard ---------------------------------------------------------
@@ -3431,17 +3469,10 @@ button.mobile-only, .scrim { display: none; }
 
 /* Switching view is a keyboard-speed action once you know the app, so it fades
    rather than travels: 160ms, opacity only. */
-#overview:not([hidden]), #tickets-view:not([hidden]) { animation: fade 0.16s var(--ease) both; }
+#overview:not([hidden]), #board:not([hidden]), #home:not([hidden]) { animation: fade 0.16s var(--ease) both; }
 
 /* A list that lands all at once reads as a screenshot. Staggering the first
    rows — and only the first rows — makes it read as arriving. */
-.ticket { animation: rise 0.26s var(--ease) backwards; }
-.ticket:nth-child(1) { animation-delay: 0ms; }
-.ticket:nth-child(2) { animation-delay: 28ms; }
-.ticket:nth-child(3) { animation-delay: 56ms; }
-.ticket:nth-child(4) { animation-delay: 84ms; }
-.ticket:nth-child(5) { animation-delay: 112ms; }
-.ticket:nth-child(n + 6) { animation-delay: 140ms; }
 
 .kpi { animation: rise 0.3s var(--ease) backwards; }
 .kpi:nth-child(2) { animation-delay: 30ms; }
@@ -3469,18 +3500,18 @@ dialog[open]::backdrop { animation: fade 0.2s var(--ease); }
 
 /* Scrollbars ---------------------------------------------------------------- */
 
-.tickets, .detail, .overview, #projects { scrollbar-color: var(--border-2) transparent; }
-.tickets::-webkit-scrollbar, .detail::-webkit-scrollbar,
-.overview::-webkit-scrollbar, #projects::-webkit-scrollbar { width: 10px; height: 10px; }
-.tickets::-webkit-scrollbar-thumb, .detail::-webkit-scrollbar-thumb,
-.overview::-webkit-scrollbar-thumb, #projects::-webkit-scrollbar-thumb {
+.column-list, .board, .detail, .overview, .home { scrollbar-color: var(--border-2) transparent; }
+.column-list::-webkit-scrollbar, .detail::-webkit-scrollbar,
+.overview::-webkit-scrollbar, .home::-webkit-scrollbar { width: 10px; height: 10px; }
+.column-list::-webkit-scrollbar-thumb, .detail::-webkit-scrollbar-thumb,
+.overview::-webkit-scrollbar-thumb, .home::-webkit-scrollbar-thumb {
   background: var(--border-2);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: var(--r-full);
 }
-.tickets::-webkit-scrollbar-track, .detail::-webkit-scrollbar-track,
-.overview::-webkit-scrollbar-track, #projects::-webkit-scrollbar-track { background: transparent; }
+.column-list::-webkit-scrollbar-track, .detail::-webkit-scrollbar-track,
+.overview::-webkit-scrollbar-track, .home::-webkit-scrollbar-track { background: transparent; }
 
 /* Loading ------------------------------------------------------------------- */
 
@@ -3525,7 +3556,7 @@ dialog[open]::backdrop { animation: fade 0.2s var(--ease); }
     transition-duration: 0.01ms !important;
   }
 
-  #overview:not([hidden]), #tickets-view:not([hidden]), .detail:not(.empty), dialog[open] {
+  #overview:not([hidden]), #board:not([hidden]), #home:not([hidden]), .detail:not(.empty), dialog[open] {
     animation: fade 0.15s linear both !important;
   }
 
