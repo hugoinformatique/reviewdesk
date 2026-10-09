@@ -324,52 +324,59 @@ fetchPublicBranding()
  * nav) want the project's own name, not "Name Client" run together.
  */
 function projectButton(id: string, name: string, secondary: string, openCount = 0) {
-  const button = document.createElement('button');
+  const button = el('button', `project ${selectedProject === id ? 'active' : ''}`);
   button.type = 'button';
-  button.className = `project ${selectedProject === id ? 'active' : ''}`;
   button.setAttribute('aria-label', name);
+  if (selectedProject === id) button.setAttribute('aria-current', 'page');
   button.title = secondary ? `${name} — ${secondary}` : name;
-
-  const stack = document.createElement('span');
-  stack.className = 'stack';
-  stack.setAttribute('aria-hidden', 'true');
-  const label = document.createElement('span');
-  label.className = 'name';
-  label.textContent = name;
-  stack.append(label);
-  if (secondary) {
-    const client = document.createElement('span');
-    client.className = 'client';
-    client.textContent = secondary;
-    stack.append(client);
-  }
-
-  button.append(projectAvatar(id, name), stack);
+  const label = el('span', 'name', name);
+  label.setAttribute('aria-hidden', 'true');
+  button.append(projectAvatar(id, name), label);
+  // Open tickets only: a project with nothing waiting stays quiet.
   if (openCount > 0) {
-    const badge = document.createElement('span');
-    badge.className = 'badge';
+    const badge = el('span', 'badge', String(openCount));
     badge.setAttribute('aria-hidden', 'true');
-    badge.textContent = String(openCount);
     button.append(badge);
   }
-  button.onclick = () => chooseProject(id);
+  button.onclick = () => {
+    toggleNav(false);
+    void chooseProject(id);
+  };
   return button;
 }
 
+/**
+ * The rail lists projects under their client: an agency thinks "which client",
+ * then "which site". "All projects" stays on top as the way back out.
+ */
 function renderProjects() {
   const nav = $('#projects');
   nav.replaceChildren();
   const open = projects.reduce((sum, project) => sum + project.openCount, 0);
-  nav.append(
-    projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`, open),
-  );
+  $('#projects-count').textContent = String(projects.length);
+  nav.append(projectButton('', 'Tous les projets', `${projects.length} projet${projects.length === 1 ? '' : 's'}`, open));
+
+  const byClient = new Map<string, Project[]>();
   for (const project of projects) {
-    nav.append(projectButton(project.id, project.name, project.clientLabel, project.openCount));
+    const group = byClient.get(project.clientLabel) ?? [];
+    group.push(project);
+    byClient.set(project.clientLabel, group);
   }
+  for (const label of [...byClient.keys()].sort((a, b) => a.localeCompare(b, 'fr'))) {
+    // The client's name is read as plain text before its projects; no
+    // aria-label, which would make it a second field named like the client.
+    const group = el('div', 'project-group');
+    group.append(el('div', 'project-group-title', label));
+    for (const project of byClient.get(label)!) {
+      group.append(projectButton(project.id, project.name, project.clientLabel, project.openCount));
+    }
+    nav.append(group);
+  }
+
   const client = $<HTMLSelectElement>('#client');
   const previous = client.value;
   client.replaceChildren(new Option('Tous les clients', ''));
-  for (const label of [...new Set(projects.map((project) => project.clientLabel))].sort()) {
+  for (const label of [...byClient.keys()].sort()) {
     client.append(new Option(label, label));
   }
   client.value = previous;
@@ -380,7 +387,7 @@ async function chooseProject(id: string) {
   selectedTicket = '';
   const project = projects.find((candidate) => candidate.id === id);
   $('#project-title').textContent = project?.name ?? 'Tous les retours';
-  $('#client-label').textContent = (project?.clientLabel ?? 'TOUS LES CLIENTS').toUpperCase();
+  $('#client-label').textContent = project?.clientLabel ?? 'Tous les clients';
   $('#app').classList.remove('nav-open');
   renderProjects();
   // Both views are scoped by the project, so whichever is on screen reloads.
@@ -1104,14 +1111,37 @@ function humanDuration(seconds: number): string {
 }
 
 /**
- * A KPI tile: the figure, what it counts, and one line of context underneath —
- * either a comparison with the previous period of the same length, or the
- * detail that makes the number actionable.
+ * A KPI cell: what it counts, the figure, one line of context underneath, and
+ * for the two flows (received, resolved) a sparkline of the period.
  */
-function kpi(label: string, value: string, note: string, tone: 'plain' | 'up' | 'down' = 'plain') {
+function kpi(label: string, value: string, note: string, tone: 'plain' | 'up' | 'down' = 'plain', trend?: number[]) {
   const card = el('div', 'kpi');
-  card.append(el('span', 'kpi-label', label), el('strong', 'kpi-value', value), el('span', `kpi-note ${tone}`, note));
+  const top = el('div', 'kpi-top');
+  top.append(el('strong', 'kpi-value', value));
+  if (trend && trend.some(Boolean)) top.append(sparkline(trend));
+  card.append(el('span', 'kpi-label', label), top, el('span', `kpi-note ${tone}`, note));
   return card;
+}
+
+/** A decorative line of the daily counts; the figure beside it is the data. */
+function sparkline(values: number[]) {
+  const peak = Math.max(1, ...values);
+  const width = 72;
+  const height = 24;
+  const step = width / Math.max(1, values.length - 1);
+  const points = values.map((value, index) => `${(index * step).toFixed(1)},${(height - 2 - (value / peak) * (height - 4)).toFixed(1)}`);
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('class', 'sparkline');
+  svg.setAttribute('aria-hidden', 'true');
+  const area = document.createElementNS(SVG_NS, 'polygon');
+  area.setAttribute('points', `0,${height} ${points.join(' ')} ${width},${height}`);
+  area.setAttribute('class', 'sparkline-area');
+  const line = document.createElementNS(SVG_NS, 'polyline');
+  line.setAttribute('points', points.join(' '));
+  line.setAttribute('class', 'sparkline-line');
+  svg.append(area, line);
+  return svg;
 }
 
 function deltaNote(current: number, previous: number, days: number): { text: string; tone: 'plain' | 'up' | 'down' } {
@@ -1123,23 +1153,30 @@ function deltaNote(current: number, previous: number, days: number): { text: str
   return { text: `${change > 0 ? '+' : '−'}${Math.abs(change)} % ${period}`, tone: change > 0 ? 'up' : 'down' };
 }
 
-/**
- * Received against resolved, one pair of bars per day. Drawn as inline SVG
- * rather than pulled from a chart library: the admin ships no third-party
- * script, and its CSP would refuse one anyway.
- */
-function activityChart(stats: Stats) {
+function periodDays(stats: Stats) {
   const days: string[] = [];
   for (let index = stats.days - 1; index >= 0; index--) {
     days.push(new Date(Date.now() - index * 86_400_000).toISOString().slice(0, 10));
   }
+  return days;
+}
+
+/**
+ * Received against resolved, one pair of bars per day, with a hover read-out.
+ * Drawn as inline SVG rather than pulled from a chart library: the admin
+ * ships no third-party script, and its CSP would refuse one anyway.
+ */
+function activityChart(stats: Stats) {
+  const days = periodDays(stats);
   const received = days.map((day) => stats.daily.received[day] ?? 0);
   const resolved = days.map((day) => stats.daily.resolved[day] ?? 0);
   const peak = Math.max(1, ...received, ...resolved);
+  // A rounder top for the scale, so the gridlines land on readable numbers.
+  const top = peak <= 4 ? peak : Math.ceil(peak / 4) * 4;
 
-  const slot = 10;
+  const slot = 12;
   const width = days.length * slot;
-  const height = 72;
+  const height = 100;
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('preserveAspectRatio', 'none');
@@ -1150,6 +1187,17 @@ function activityChart(stats: Stats) {
     `${received.reduce((sum, count) => sum + count, 0)} retours reçus et ${resolved.reduce((sum, count) => sum + count, 0)} traités sur ${stats.days} jours`,
   );
 
+  for (const ratio of [0.25, 0.5, 0.75, 1]) {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('x2', String(width));
+    line.setAttribute('y1', String(height - ratio * height));
+    line.setAttribute('y2', String(height - ratio * height));
+    line.setAttribute('class', 'chart-grid');
+    svg.append(line);
+  }
+
+  // Each bar spans 40% of its day; the pair sits centred with a hairline gap.
   days.forEach((day, index) => {
     const pairs: [number, string][] = [
       [received[index]!, 'bar-received'],
@@ -1157,41 +1205,55 @@ function activityChart(stats: Stats) {
     ];
     pairs.forEach(([value, className], side) => {
       if (!value) return;
-      const barHeight = Math.max(1.5, (value / peak) * (height - 6));
+      const barHeight = Math.max(2, (value / top) * height);
       const rect = document.createElementNS(SVG_NS, 'rect');
-      rect.setAttribute('x', String(index * slot + 1 + side * 4));
+      rect.setAttribute('x', String(index * slot + 1.6 + side * 4.6));
       rect.setAttribute('y', String(height - barHeight));
-      rect.setAttribute('width', '3.4');
+      rect.setAttribute('width', '4.2');
       rect.setAttribute('height', String(barHeight));
       rect.setAttribute('class', className);
-      const title = document.createElementNS(SVG_NS, 'title');
-      title.textContent = `${day} — ${value} ${className === 'bar-received' ? 'reçu(s)' : 'traité(s)'}`;
-      rect.append(title);
       svg.append(rect);
     });
   });
 
-  // Two hairlines at a third and two thirds of the peak: enough to read a
-  // height off the chart, faint enough not to compete with the bars.
-  for (const ratio of [1 / 3, 2 / 3]) {
-    const line = document.createElementNS(SVG_NS, 'line');
-    line.setAttribute('x1', '0');
-    line.setAttribute('x2', String(width));
-    line.setAttribute('y1', String(height - ratio * (height - 6)));
-    line.setAttribute('y2', String(height - ratio * (height - 6)));
-    line.setAttribute('class', 'chart-grid');
-    svg.prepend(line);
+  // Hover read-out: one invisible column per day over the drawing.
+  const plot = el('div', 'chart-plot');
+  const hits = el('div', 'chart-hits');
+  hits.setAttribute('aria-hidden', 'true');
+  const tip = el('div', 'chart-tip');
+  tip.hidden = true;
+  days.forEach((day, index) => {
+    const hit = el('span', 'chart-hit');
+    hit.onmouseenter = () => {
+      tip.hidden = false;
+      tip.replaceChildren(
+        el('strong', '', formatDay(`${day}T12:00:00Z`)),
+        el('span', 'tip-received', `${received[index]} reçu${received[index] === 1 ? '' : 's'}`),
+        el('span', 'tip-resolved', `${resolved[index]} traité${resolved[index] === 1 ? '' : 's'}`),
+      );
+      const ratio = (index + 0.5) / days.length;
+      tip.classList.toggle('flip', ratio > 0.7);
+      tip.style.left = `${ratio * 100}%`;
+    };
+    hits.append(hit);
+  });
+  hits.onmouseleave = () => {
+    tip.hidden = true;
+  };
+  plot.append(svg, hits, tip);
+
+  const scale = el('div', 'chart-scale');
+  scale.append(el('span', '', String(top)), el('span', '', String(Math.round(top / 2))), el('span', '', '0'));
+  const frame = el('div', 'chart-frame');
+  frame.append(scale, plot);
+
+  // Five dates along the axis instead of two: the eye places a bar by them.
+  const axis = el('div', 'chart-axis');
+  for (const ratio of [0, 0.25, 0.5, 0.75, 1]) {
+    const index = Math.round(ratio * (days.length - 1));
+    axis.append(el('span', '', index === days.length - 1 ? 'aujourd’hui' : formatDay(`${days[index]}T12:00:00Z`)));
   }
 
-  const frame = el('div', 'chart-frame');
-  const scale = el('div', 'chart-scale');
-  scale.append(el('span', '', String(peak)), el('span', '', '0'));
-  frame.append(scale, svg);
-
-  const axis = el('div', 'chart-axis');
-  axis.append(el('span', '', formatDay(`${days[0]}T12:00:00Z`)), el('span', '', 'aujourd’hui'));
-
-  // Without a key, two shades of grey are just two shades of grey.
   const legend = el('div', 'chart-legend');
   for (const [className, label, total] of [
     ['key-received', 'reçus', received.reduce((sum, count) => sum + count, 0)],
@@ -1207,32 +1269,35 @@ function activityChart(stats: Stats) {
   return block;
 }
 
-/** One horizontal bar per status, in the same ink-to-grey ramp as the list. */
+/** The whole backlog as one stacked bar, then the figures it is made of. */
 function statusBreakdown(stats: Stats) {
   const list = el('div', 'breakdown');
-  const peak = Math.max(1, ...Object.values(stats.byStatus));
+  const total = Math.max(1, stats.total);
+  const stack = el('div', 'breakdown-stack');
+  stack.setAttribute('aria-hidden', 'true');
+  const rows = el('div', 'breakdown-rows');
   for (const [status, label] of Object.entries(STATUS_LABELS)) {
     const count = stats.byStatus[status] ?? 0;
+    if (count) {
+      const part = el('span', `breakdown-fill ${status}`);
+      part.style.flexGrow = String(count);
+      stack.append(part);
+    }
     const row = el('div', 'breakdown-row');
     const name = el('span', `status ${status}`);
     const dot = el('span', 'dot');
     dot.setAttribute('aria-hidden', 'true');
     name.append(dot, document.createTextNode(label));
-    const track = el('span', 'breakdown-track');
-    const fill = el('span', `breakdown-fill ${status}`);
-    fill.style.width = `${(count / peak) * 100}%`;
-    track.append(fill);
-    const value = el('span', 'breakdown-value', String(count));
-    row.append(name, track, value);
-    list.append(row);
+    row.append(name, el('span', 'breakdown-share', `${Math.round((count / total) * 100)} %`), el('span', 'breakdown-value', String(count)));
+    rows.append(row);
   }
+  if (!stats.total) stack.append(el('span', 'breakdown-fill'));
   const open = (stats.byStatus.TODO ?? 0) + (stats.byStatus.IN_PROGRESS ?? 0) + (stats.byStatus.REVIEW ?? 0);
-  const share = stats.total ? Math.round((open / stats.total) * 100) : 0;
   const footer = el('p', 'breakdown-note');
   footer.textContent = stats.total
-    ? `${open} retour${open === 1 ? '' : 's'} encore ouvert${open === 1 ? '' : 's'}, soit ${share} % de tout ce qui a été reçu.`
+    ? `${open} retour${open === 1 ? '' : 's'} encore ouvert${open === 1 ? '' : 's'}, soit ${Math.round((open / stats.total) * 100)} % de tout ce qui a été reçu.`
     : 'Aucun retour reçu pour l’instant.';
-  list.append(footer);
+  list.append(stack, rows, footer);
   return list;
 }
 
@@ -1242,6 +1307,7 @@ function projectTable(stats: Stats) {
   const headRow = el('tr');
   for (const [label, className] of [
     ['Projet', ''],
+    ['Avancement', 'progress'],
     ['À traiter', 'num'],
     ['En cours', 'num'],
     ['À valider', 'num'],
@@ -1254,10 +1320,30 @@ function projectTable(stats: Stats) {
   for (const project of stats.projects) {
     const row = el('tr');
     const cell = el('td');
-    cell.append(el('strong', '', project.name), el('span', 'muted', project.clientLabel));
-    row.append(cell);
+    const who = el('div', 'stat-project');
+    const names = el('div');
+    names.append(el('strong', '', project.name), el('span', 'muted', project.clientLabel));
+    who.append(projectAvatar(project.id, project.name), names);
+    cell.append(who);
+    // The same four inks as the list, as one bar: where the project stands.
+    const progress = el('td', 'progress');
+    const bar = el('div', 'breakdown-stack slim');
+    bar.setAttribute('aria-hidden', 'true');
+    for (const [status, count] of [
+      ['TODO', project.todo],
+      ['IN_PROGRESS', project.inProgress],
+      ['REVIEW', project.review],
+      ['DONE', project.done],
+    ] as const) {
+      if (!count) continue;
+      const part = el('span', `breakdown-fill ${status}`);
+      part.style.flexGrow = String(count);
+      bar.append(part);
+    }
+    progress.append(bar);
+    row.append(cell, progress);
     for (const count of [project.todo, project.inProgress, project.review, project.done]) {
-      row.append(el('td', 'num', String(count)));
+      row.append(el('td', count ? 'num' : 'num zero', String(count)));
     }
     // Clicking a line is the obvious move once the numbers say where the work is.
     row.onclick = () => {
@@ -1271,6 +1357,29 @@ function projectTable(stats: Stats) {
   return scroll;
 }
 
+function pageList(stats: Stats) {
+  const list = el('div', 'page-list');
+  if (!stats.pages.length) list.append(el('p', 'thread-empty', 'Aucun retour sur la période.'));
+  const peak = Math.max(1, ...stats.pages.map((page) => page.count));
+  for (const page of stats.pages) {
+    const row = el('div', 'page-row');
+    let label = page.pageUrl;
+    try {
+      label = new URL(page.pageUrl).pathname || '/';
+    } catch {
+      // A stored URL that no longer parses stays readable as written.
+    }
+    // The row is its own bar: the tint behind the name is the share of reports.
+    const meter = el('span', 'page-meter');
+    meter.style.width = `${(page.count / peak) * 100}%`;
+    const name = el('span', 'page-name', label);
+    name.title = page.pageUrl;
+    row.append(meter, name, el('span', 'page-count', `${page.count} · ${page.open} ouvert${page.open === 1 ? '' : 's'}`));
+    list.append(row);
+  }
+  return list;
+}
+
 function activityFeed(stats: Stats) {
   const list = el('div', 'feed');
   if (!stats.activity.length) {
@@ -1278,9 +1387,13 @@ function activityFeed(stats: Stats) {
     return list;
   }
   for (const entry of stats.activity) {
+    const name = entry.authorLabel || (entry.author === 'agent' ? 'Agent' : 'Équipe');
     const item = el('div', `feed-row ${entry.author}`);
+    const avatar = el('span', 'comment-avatar', (name.trim()[0] ?? '?').toUpperCase());
+    avatar.setAttribute('aria-hidden', 'true');
+    const body = el('div', 'feed-body');
     const head = el('div', 'feed-head');
-    head.append(el('strong', '', entry.authorLabel || (entry.author === 'agent' ? 'Agent' : 'Équipe')));
+    head.append(el('strong', '', name));
     if (entry.statusTo && entry.statusTo !== entry.statusFrom) {
       head.append(
         el(
@@ -1301,7 +1414,8 @@ function activityFeed(stats: Stats) {
       if (known) openTicket(known.id);
       else toast('Ce retour est hors des filtres actuels.', 'error');
     };
-    item.append(head, subject);
+    body.append(head, subject);
+    item.append(avatar, body);
     list.append(item);
   }
   return list;
@@ -1319,6 +1433,7 @@ function renderOverview(stats: Stats) {
   const host = $('#overview');
   host.replaceChildren();
 
+  const days = periodDays(stats);
   const open = stats.byStatus.TODO! + stats.byStatus.IN_PROGRESS! + stats.byStatus.REVIEW!;
   const kpis = el('div', 'kpi-row');
   kpis.append(
@@ -1331,11 +1446,23 @@ function renderOverview(stats: Stats) {
     kpi('Ouverts', String(open), `dont ${stats.stale} depuis plus de 7 jours`, stats.stale > 0 ? 'up' : 'plain'),
     (() => {
       const delta = deltaNote(stats.received, stats.receivedPrevious, stats.days);
-      return kpi(`Reçus · ${stats.days} j`, String(stats.received), delta.text, delta.tone);
+      return kpi(
+        `Reçus · ${stats.days} j`,
+        String(stats.received),
+        delta.text,
+        delta.tone,
+        days.map((day) => stats.daily.received[day] ?? 0),
+      );
     })(),
     (() => {
       const delta = deltaNote(stats.resolved, stats.resolvedPrevious, stats.days);
-      return kpi(`Traités · ${stats.days} j`, String(stats.resolved), delta.text, delta.tone);
+      return kpi(
+        `Traités · ${stats.days} j`,
+        String(stats.resolved),
+        delta.text,
+        delta.tone,
+        days.map((day) => stats.daily.resolved[day] ?? 0),
+      );
     })(),
     kpi(
       'Délai moyen',
@@ -1344,58 +1471,42 @@ function renderOverview(stats: Stats) {
     ),
   );
 
-  const grid = el('div', 'panel-grid');
   // The checklist sits above everything until the instance is genuinely set up,
   // then vanishes without leaving a trace of itself.
-  if (onboarding && onboarding.connectedAgents === 0) grid.append(onboardingPanel(onboarding));
+  if (onboarding && onboarding.connectedAgents === 0) host.append(onboardingPanel(onboarding));
   // Nothing has happened yet: a wall of zeros teaches less than the checklist.
-  if (onboarding && onboarding.tickets === 0) {
-    host.append(grid);
-    return;
-  }
-  grid.append(
+  if (onboarding && onboarding.tickets === 0) return;
+
+  const main = el('div', 'overview-main');
+  main.append(
     panel('Activité', `reçus et traités, ${stats.days} derniers jours`, activityChart(stats), 'chart'),
-    panel('Répartition', `${stats.total} retour${stats.total === 1 ? '' : 's'} au total`, statusBreakdown(stats), 'breakdown'),
     panel('Par projet', 'cliquez une ligne pour filtrer', projectTable(stats), 'projects'),
-    panel(
-      'Pages les plus signalées',
-      `sur ${stats.days} jours`,
-      (() => {
-        const list = el('div', 'page-list');
-        if (!stats.pages.length) list.append(el('p', 'thread-empty', 'Aucun retour sur la période.'));
-        for (const page of stats.pages) {
-          const row = el('div', 'page-row');
-          let label = page.pageUrl;
-          try {
-            label = new URL(page.pageUrl).pathname || '/';
-          } catch {
-            // A stored URL that no longer parses stays readable as written.
-          }
-          const name = el('span', 'page-name', label);
-          name.title = page.pageUrl;
-          row.append(name, el('span', 'page-count', `${page.count} · ${page.open} ouvert${page.open === 1 ? '' : 's'}`));
-          list.append(row);
-        }
-        return list;
-      })(),
-      'pages',
-    ),
+    panel('Pages les plus signalées', `sur ${stats.days} jours`, pageList(stats), 'pages'),
+  );
+  const side = el('div', 'overview-side');
+  side.append(
+    panel('Répartition', `${stats.total} retour${stats.total === 1 ? '' : 's'} au total`, statusBreakdown(stats), 'breakdown'),
     panel('Derniers mouvements', 'journal, tous retours confondus', activityFeed(stats), 'feed'),
   );
+  const grid = el('div', 'panel-grid');
+  grid.append(main, side);
 
-  host.append(kpis, grid);
+  host.prepend(kpis);
+  host.append(grid);
 }
 
 /** The shape of the answer, drawn while the answer is on its way. */
 function renderStatsSkeleton() {
   const host = $('#overview');
   if (host.querySelector('.kpi-row')) return;
-  const kpis = el('div', 'kpi-row');
+  const kpis = el('div', 'kpi-row skeleton-row');
   for (let index = 0; index < 5; index++) kpis.append(el('div', 'skeleton skeleton-kpi'));
+  const main = el('div', 'overview-main');
+  for (const variant of ['chart', 'projects']) main.append(el('div', `skeleton skeleton-panel panel-${variant}`));
+  const side = el('div', 'overview-side');
+  for (const variant of ['breakdown', 'feed']) side.append(el('div', `skeleton skeleton-panel panel-${variant}`));
   const grid = el('div', 'panel-grid');
-  for (const variant of ['chart', 'breakdown', 'projects', 'pages', 'feed']) {
-    grid.append(el('div', `skeleton skeleton-panel panel-${variant}`));
-  }
+  grid.append(main, side);
   host.replaceChildren(kpis, grid);
 }
 
@@ -1427,6 +1538,7 @@ function applyView() {
   $<HTMLElement>('#config-tickets').hidden = overview;
   $('#tab-overview').setAttribute('aria-current', String(overview));
   $('#tab-tickets').setAttribute('aria-current', String(!overview));
+  placeTabIndicator();
 }
 
 async function showOverview() {
@@ -1492,17 +1604,19 @@ function paletteItems(): PaletteItem[] {
     { group: 'Actions', label: 'Accès agents', keywords: 'claude cursor mcp ia', leading: paletteIcon('i-robot'), run: click('#agent-access') },
     { group: 'Actions', label: 'Exporter pour Claude Code', keywords: 'prompt markdown', leading: paletteIcon('i-copy'), run: click('#export-prompt') },
     { group: 'Actions', label: 'Personnalisation de l’instance', keywords: 'marque blanche logo couleur branding', leading: paletteIcon('i-image'), run: click('#branding') },
-    { group: 'Actions', label: 'Basculer le thème clair / sombre', keywords: 'dark mode nuit', leading: paletteIcon('i-moon'), run: click('#theme') },
+    { group: 'Actions', label: 'Basculer le thème clair / sombre', keywords: 'dark mode nuit', leading: paletteIcon('i-moon'), run: toggleTheme },
     { group: 'Actions', label: 'Se déconnecter', keywords: 'logout quitter', leading: paletteIcon('i-logout'), run: click('#logout') },
   );
   return items;
 }
 
 const palette = initPalette(paletteItems);
-$('#palette-open').addEventListener('click', () => {
+$('#nav-search').addEventListener('click', () => {
   toggleNav(false);
   palette.open();
 });
+$('#project-switch').addEventListener('click', () => palette.open());
+$('#menu-palette').addEventListener('click', () => palette.open());
 $('#tab-tickets').addEventListener('click', () => void showTickets());
 $('#period').addEventListener('change', () => void loadStats());
 
@@ -2547,35 +2661,37 @@ function onboardingPanel(state: Onboarding) {
     },
   ];
   const done = steps.filter((step) => step.done).length;
+  // Only the first unfinished step gets a button: a checklist with four calls
+  // to action has none.
+  const current = steps.findIndex((step) => !step.done);
 
   const section = el('section', 'panel onboarding');
-  const head = el('div', 'panel-head');
-  head.append(el('h2', '', 'Démarrage'), el('span', 'panel-hint', `${done} sur ${steps.length}`));
-  section.append(head);
-
+  const head = el('div', 'onboarding-head');
+  const title = el('div', 'onboarding-title');
+  title.append(el('h2', '', 'Démarrage'), el('span', 'panel-hint', `${done} sur ${steps.length}`));
   const track = el('div', 'onboarding-track');
   const fill = el('span', 'onboarding-fill');
   fill.style.width = `${(done / steps.length) * 100}%`;
   track.append(fill);
-  section.append(track);
+  head.append(title, track);
+  const next = steps[current];
+  if (next) {
+    const action = el('button', 'btn btn-primary', next.action);
+    action.type = 'button';
+    action.onclick = next.run;
+    head.append(action);
+  }
+  section.append(head);
 
-  const list = el('div', 'onboarding-steps');
+  const list = el('ol', 'onboarding-steps');
   for (const [index, step] of steps.entries()) {
-    const row = el('div', `onboarding-step ${step.done ? 'done' : ''}`);
+    const row = el('li', `onboarding-step ${step.done ? 'done' : ''} ${index === current ? 'current' : ''}`);
     const mark = el('span', 'onboarding-mark');
     if (step.done) mark.append(icon('i-check'));
     else mark.textContent = String(index + 1);
     const text = el('div', 'onboarding-text');
     text.append(el('strong', '', step.title), el('span', '', step.body));
     row.append(mark, text);
-    // The first unfinished step is the one that gets the button: a checklist
-    // with four calls to action has none.
-    if (!step.done && steps.slice(0, index).every((previous) => previous.done)) {
-      const action = el('button', 'btn btn-primary', step.action);
-      action.type = 'button';
-      action.onclick = step.run;
-      row.append(action);
-    }
     list.append(row);
   }
   section.append(list);
@@ -2685,20 +2801,113 @@ function applyTheme(theme: string | null) {
   else delete document.documentElement.dataset.theme;
 }
 
-$('#theme').addEventListener('click', () => {
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  const current = document.documentElement.dataset.theme ?? (dark ? 'dark' : 'light');
-  const next = current === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
+type ThemeChoice = 'light' | 'dark' | 'system';
+
+function storedTheme(): ThemeChoice {
+  try {
+    const value = localStorage.getItem('reviewdesk-theme');
+    return value === 'light' || value === 'dark' ? value : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+function setTheme(choice: ThemeChoice) {
+  applyTheme(choice === 'system' ? null : choice);
   // The brand accent used as text has to clear contrast against whichever
   // background is now showing, so it is re-derived rather than kept.
   refreshBrandingForTheme();
   try {
-    localStorage.setItem('reviewdesk-theme', next);
+    if (choice === 'system') localStorage.removeItem('reviewdesk-theme');
+    else localStorage.setItem('reviewdesk-theme', choice);
   } catch {
     // Private mode or blocked storage: the choice simply lasts for this page.
   }
+  for (const option of document.querySelectorAll<HTMLElement>('[data-theme-choice]')) {
+    option.setAttribute('aria-checked', String(option.dataset.themeChoice === choice));
+  }
+}
+
+/** Light ⇄ dark from whatever is showing now; the palette's one-key switch. */
+function toggleTheme() {
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const current = document.documentElement.dataset.theme ?? (dark ? 'dark' : 'light');
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+for (const option of document.querySelectorAll<HTMLElement>('[data-theme-choice]')) {
+  option.setAttribute('aria-checked', String(option.dataset.themeChoice === storedTheme()));
+  option.addEventListener('click', () => setTheme(option.dataset.themeChoice as ThemeChoice));
+}
+
+// ------------------------------------------------------------ account menu
+
+const accountButton = $<HTMLButtonElement>('#account');
+const accountMenu = $<HTMLElement>('#account-menu');
+
+function menuItems() {
+  return [...accountMenu.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
+}
+
+function setAccountMenu(open: boolean, focusFirst = false) {
+  accountMenu.hidden = !open;
+  accountButton.setAttribute('aria-expanded', String(open));
+  if (open && focusFirst) menuItems()[0]?.focus();
+}
+
+accountButton.addEventListener('click', () => setAccountMenu(accountMenu.hidden, true));
+accountMenu.addEventListener('click', (event) => {
+  // Choosing a theme keeps the menu open to compare; anything else closes it.
+  if ((event.target as HTMLElement).closest('[role="menuitem"]')) setAccountMenu(false);
 });
+accountMenu.addEventListener('keydown', (event) => {
+  const items = menuItems();
+  const index = items.indexOf(document.activeElement as HTMLElement);
+  if (event.key === 'ArrowDown') items[(index + 1) % items.length]?.focus();
+  else if (event.key === 'ArrowUp') items[(index - 1 + items.length) % items.length]?.focus();
+  else if (event.key === 'Escape') {
+    setAccountMenu(false);
+    accountButton.focus();
+  } else return;
+  event.preventDefault();
+  event.stopPropagation();
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!accountMenu.hidden && !(event.target as HTMLElement).closest('.account')) setAccountMenu(false);
+});
+
+// ---------------------------------------------------------- tab indicator
+
+/**
+ * The view tabs carry two moving marks, after Vercel's: a soft highlight that
+ * follows the pointer, and an underline that slides to the current view.
+ */
+const tabsNav = $<HTMLElement>('.nav-tabs');
+const tabsHover = $<HTMLElement>('.tabs-hover');
+
+function placeUnder(mark: HTMLElement, tab: HTMLElement) {
+  mark.style.transform = `translateX(${tab.offsetLeft}px)`;
+  mark.style.width = `${tab.offsetWidth}px`;
+}
+
+// A function declaration that reads the DOM itself: applyView() may run it
+// before the constants above have been initialised.
+function placeTabIndicator() {
+  const current = document.querySelector<HTMLElement>('.nav-tab[aria-current="true"]');
+  const indicator = document.querySelector<HTMLElement>('.tabs-indicator');
+  if (current && indicator) placeUnder(indicator, current);
+}
+
+for (const tab of tabsNav.querySelectorAll<HTMLElement>('.nav-tab')) {
+  tab.addEventListener('pointerenter', () => {
+    placeUnder(tabsHover, tab);
+    tabsHover.classList.add('on');
+  });
+}
+tabsNav.addEventListener('pointerleave', () => tabsHover.classList.remove('on'));
+addEventListener('resize', placeTabIndicator);
+// Geist arrives after first paint and changes every tab's width.
+void document.fonts?.ready.then(placeTabIndicator);
 
 // ------------------------------------------------------------ mobile drawers
 

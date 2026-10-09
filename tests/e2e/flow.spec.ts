@@ -273,7 +273,7 @@ test('on a phone the dashboard fits the screen and the closed drawer is out of r
   // pushed the filters and the status column off screen.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
-  for (const id of ['#nav-open', '#logout', '#status', '#project-title']) {
+  for (const id of ['#nav-open', '#account', '#status', '#project-title']) {
     const box = (await page.locator(id).boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(390);

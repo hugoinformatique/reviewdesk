@@ -191,66 +191,113 @@
   <div class="scrim" id="scrim"></div>
 
   <header class="nav">
-    <button id="nav-open" class="icon-btn mobile-only" aria-label="Ouvrir la navigation">
-      <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
-    </button>
-    <div class="brand">
-      <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
-      <span class="wordmark" aria-label="ReviewDesk"><span aria-hidden="true">Review</span><b aria-hidden="true">Desk</b></span>
+    <!-- Two tiers, as in Vercel's dashboard: where you are and who you are on
+         top; what you look at and what you can do with it underneath. -->
+    <div class="nav-top">
+      <button id="nav-open" class="icon-btn mobile-only" aria-label="Ouvrir la navigation">
+        <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+      <div class="brand">
+        <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+        <span class="wordmark" aria-label="ReviewDesk"><span aria-hidden="true">Review</span><b aria-hidden="true">Desk</b></span>
+      </div>
+      <span class="nav-slash" aria-hidden="true"></span>
+      <div class="nav-context">
+        <span class="eyebrow" id="client-label">TOUS LES CLIENTS</span>
+        <span class="nav-slash small" aria-hidden="true"></span>
+        <h1 id="project-title">Tous les retours</h1>
+        <button id="project-switch" class="icon-btn" type="button" aria-label="Changer de projet" title="Changer de projet (⌘K)">
+          <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </button>
+      </div>
+      <div class="nav-tools">
+        <button id="nav-search" class="nav-search" type="button" aria-label="Rechercher" aria-keyshortcuts="Control+K Meta+K">
+          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+          <span>Rechercher…</span>
+          <kbd aria-hidden="true">⌘K</kbd>
+        </button>
+        <div class="account">
+          <button id="account" class="avatar" type="button" aria-label="Compte et préférences" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">A</button>
+          <div id="account-menu" class="menu" role="menu" aria-label="Compte et préférences" hidden>
+            <div class="menu-identity" role="presentation">
+              <span class="avatar small" aria-hidden="true">A</span>
+              <span><strong>Administrateur</strong><small>Cette instance</small></span>
+            </div>
+            <div class="menu-sep" role="separator"></div>
+            <button id="branding" class="menu-item" type="button" role="menuitem">
+              <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>
+              Personnalisation de l’instance
+            </button>
+            <button id="menu-palette" class="menu-item" type="button" role="menuitem">
+              <svg class="icon" aria-hidden="true"><use href="#i-command"/></svg>
+              Palette de commandes
+              <kbd aria-hidden="true">⌘K</kbd>
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <div class="menu-label" role="presentation">Thème</div>
+            <div class="menu-theme" role="group" aria-label="Thème">
+              <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
+                <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>Clair
+              </button>
+              <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
+                <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>Sombre
+              </button>
+              <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false">
+                <svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg>Auto
+              </button>
+            </div>
+            <div class="menu-sep" role="separator"></div>
+            <button id="logout" class="menu-item danger" type="button" role="menuitem">
+              <svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>
+              Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <nav class="nav-tabs" aria-label="Vues">
-      <button id="tab-overview" class="nav-tab" type="button" aria-current="false">Vue d’ensemble</button>
-      <button id="tab-tickets" class="nav-tab" type="button" aria-current="true">Retours</button>
-    </nav>
-    <div class="nav-context">
-      <span class="eyebrow" id="client-label">TOUS LES CLIENTS</span>
-      <h1 id="project-title">Tous les retours</h1>
-    </div>
-    <div class="nav-actions">
-      <button id="copy-quick-link" class="quiet" title="Copier le lien direct pour le client">
-        <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
-        <span class="label">Copier le lien</span>
-      </button>
-      <button id="review-link" class="quiet">
-        <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
-        <span class="label">Liens reviewer</span>
-      </button>
-      <button id="agent-access" class="quiet">
-        <svg class="icon" aria-hidden="true"><use href="#i-robot"/></svg>
-        <span class="label">Accès agents</span>
-      </button>
-      <button id="edit-project" class="icon-btn" aria-label="Réglages du projet">
-        <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
-      </button>
-      <span class="nav-sep" aria-hidden="true"></span>
-      <button id="branding" class="icon-btn" aria-label="Personnalisation de l’instance" title="Personnalisation">
-        <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>
-      </button>
-      <button id="theme" class="icon-btn theme-toggle" aria-label="Basculer le thème">
-        <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
-        <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
-      </button>
-      <button id="logout" class="avatar" aria-label="Se déconnecter">A</button>
+    <div class="nav-sub">
+      <nav class="nav-tabs" aria-label="Vues">
+        <span class="tabs-hover" aria-hidden="true"></span>
+        <span class="tabs-indicator" aria-hidden="true"></span>
+        <button id="tab-overview" class="nav-tab" type="button" aria-current="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>Vue d’ensemble
+        </button>
+        <button id="tab-tickets" class="nav-tab" type="button" aria-current="true">
+          <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Retours
+        </button>
+      </nav>
+      <div class="nav-actions">
+        <button id="copy-quick-link" class="quiet" title="Copier le lien direct pour le client">
+          <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
+          <span class="label">Copier le lien</span>
+        </button>
+        <button id="review-link" class="quiet">
+          <svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>
+          <span class="label">Liens reviewer</span>
+        </button>
+        <button id="agent-access" class="quiet">
+          <svg class="icon" aria-hidden="true"><use href="#i-robot"/></svg>
+          <span class="label">Accès agents</span>
+        </button>
+        <button id="edit-project" class="icon-btn" aria-label="Réglages du projet" title="Réglages du projet">
+          <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
   <div class="shell">
     <aside aria-labelledby="projects-title">
-      <button id="palette-open" class="search-trigger" type="button" aria-keyshortcuts="Control+K Meta+K">
-        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-        <span>Rechercher…</span>
-        <kbd aria-hidden="true">⌘K</kbd>
-      </button>
-      <div class="aside-title" id="projects-title">Projets</div>
-      <nav id="projects" aria-labelledby="projects-title"></nav>
-      <div class="aside-foot">
+      <div class="aside-head">
+        <span class="aside-title" id="projects-title">Projets</span>
+        <span class="aside-count" id="projects-count"></span>
         <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
              while the accessible name keeps its historical wording. -->
-        <button id="new-project" class="quiet" aria-label="＋ Nouveau projet">
+        <button id="new-project" class="icon-btn" type="button" aria-label="＋ Nouveau projet" title="Nouveau projet">
           <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
-          <span aria-hidden="true">Nouveau projet</span>
         </button>
       </div>
+      <nav id="projects" aria-labelledby="projects-title"></nav>
     </aside>
 
     <section class="workspace" id="main-content" tabindex="-1" aria-label="Espace de travail">

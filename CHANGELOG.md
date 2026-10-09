@@ -23,6 +23,17 @@ Refonte de l'interface : administration, widget client et intégration.
 
 - Refonte de l'interface, administration et widget (inspirations 21st.dev :
   « Dashboard Sidebar » et « Popover Form », réécrites sans dépendance).
+- Barre du haut sur deux niveaux, à la Vercel (inspiration 21st.dev « Vercel
+  Tabs ») : marque et fil d'Ariane client / projet avec sélecteur, recherche
+  `⌘K` et menu compte (personnalisation, thème clair / sombre / auto,
+  déconnexion) ; dessous, les vues avec surlignage au survol et soulignement
+  glissant, et les actions du projet.
+- Rail des projets regroupés par client, lignes compactes, bouton « + » dans
+  l'en-tête.
+- Vue d'ensemble : KPI en une bande avec courbes des reçus et traités,
+  démarrage compact, graphique d'activité plus haut avec lecture au survol,
+  répartition en barre empilée, avancement par projet, pages en barres,
+  derniers mouvements en fil.
 - Palette de commandes `⌘K` / `Ctrl+K` (`src/admin/palette.ts`) : vues,
   projets, retours récents et actions, au clavier, recherche sans accents.
 - Couleurs de statut sémantiques (bleu à traiter, ambre en cours, cyan à
@@ -88,6 +99,8 @@ Refonte de l'interface : administration, widget client et intégration.
 - L'assistant de personnalisation revenait à chaque chargement tant qu'il
   n'était pas terminé ; « Configurer plus tard » est maintenant retenu par le
   navigateur (Personnalisation et `⌘K` le rouvrent).
+- Vue d'ensemble : dans la hauteur fixe de l'écran, la bande des KPI
+  s'écrasait à 2 px (grille sans hauteur de ligne au contenu).
 - **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
   l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
   lien pouvait exécuter du script sur la page du client chez les autres
