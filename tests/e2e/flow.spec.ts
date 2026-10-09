@@ -12,14 +12,14 @@ async function login(page: Page) {
   await page.getByRole('button', { name: 'Se connecter' }).click();
   // Signing in lands on the projects, never on the branding wizard.
   await expect(page.locator('#home')).toBeVisible();
-  await expect(page.locator('#project-grid .project-card.add')).toBeVisible();
+  await expect(page.locator('#home-stats .stat-card')).toHaveCount(4);
   await expect(page.getByRole('dialog', { name: 'Personnalisation de l’instance' })).toBeHidden();
 }
 
 /** Back in the admin with a session: the projects, nothing in the way. */
 async function backInAdmin(page: Page) {
   await expect(page.locator('#home')).toBeVisible();
-  await expect(page.locator('#project-grid .project-card.add')).toBeVisible();
+  await expect(page.locator('#home-stats .stat-card')).toHaveCount(4);
   await expect(page.getByRole('dialog', { name: 'Personnalisation de l’instance' })).toBeHidden();
 }
 
@@ -274,11 +274,11 @@ test('invalid credentials show the credential error instead of a service outage'
   await expect(page.locator('#login output')).toHaveText('Identifiants invalides.');
 });
 
-test('on a phone the projects and the board fit the screen', async ({ page }) => {
+test('on a phone the dashboard and the board fit the screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
 
-  // The bar used to be wider than the phone, which widened the whole page.
+  // Nothing may widen the page past the phone.
   const fits = async (ids: string[]) => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
     for (const id of ids) {
@@ -287,13 +287,21 @@ test('on a phone the projects and the board fit the screen', async ({ page }) =>
       expect(box.x + box.width).toBeLessThanOrEqual(390);
     }
   };
-  await expect(page.getByRole('button', { name: '＋ Nouveau projet' })).toBeVisible();
-  await fits(['#account', '#new-project', '#all-tickets']);
+  await fits(['#nav-open', '#project-title']);
+
+  // The rail is a drawer: closed, it is neither drawn nor reachable.
+  const newProject = page.getByRole('button', { name: '＋ Nouveau projet' });
+  await expect(newProject).toBeHidden();
+  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click();
+  await expect(newProject).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(newProject).toBeHidden();
 
   // The board scrolls its columns sideways inside itself, never the page.
-  await page.getByRole('button', { name: 'Tous les retours' }).click();
+  await page.getByRole('button', { name: 'Ouvrir la navigation' }).click();
+  await page.getByRole('link', { name: 'Tous les retours' }).click();
   await expect(page.locator('[data-column="TODO"]')).toBeVisible();
-  await fits(['#account', '#project-title', '#page-filter']);
+  await fits(['#nav-open', '#project-title', '#page-filter']);
 });
 
 test('the admin can replay a pin on the preview, and the reviewer reads the answer back', async ({ page }) => {

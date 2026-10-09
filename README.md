@@ -229,9 +229,11 @@ Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. Le parcours :
    connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
    nouveau projet. La marque blanche se règle quand on le souhaite, depuis le
    menu du compte.
-2. **Mes projets** : une carte par site client (aperçu tiré de la dernière
-   capture, retours par statut, widget actif ou non), les chiffres globaux, les
-   retours à traiter en priorité et l'état des agents IA.
+2. **Tableau de bord** (d'après « App Dashboard » de shadcnstore sur
+   21st.dev) : une barre latérale (tableau de bord, tous les retours, agents
+   IA, personnalisation, projets avec leurs retours à traiter, compte), quatre
+   chiffres, les retours reçus et traités sur 30 jours, l'avancement de chaque
+   projet et l'activité récente.
 3. **Un projet** : ses retours en **tableau** (une colonne par statut,
    glisser-déposer pour changer de statut) ou en **liste** (sections
    repliables), au choix, mémorisé par le navigateur ; ou sa **vue d'ensemble**.

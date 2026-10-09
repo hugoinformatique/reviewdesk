@@ -21,9 +21,10 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Ajouté
 
-- Nouveau parcours de l'administration : accueil « Mes projets » (cartes avec
-  aperçu du site, chiffres globaux, retours à traiter en priorité, état des
-  agents), retours d'un projet en tableau Kanban ou en liste (glisser-déposer
+- Nouveau parcours de l'administration : tableau de bord d'après « App
+  Dashboard » de shadcnstore (21st.dev) — barre latérale avec les projets,
+  quatre chiffres, courbes reçus / traités, projets actifs avec avancement,
+  activité récente —, retours d'un projet en tableau Kanban ou en liste (glisser-déposer
   pour changer de statut), fiche d'un retour en grand par-dessus, guide de
   création en trois étapes (projet, installation vérifiée en direct, agent
   IA), adresses par écran (`#/projets`, `#/p/…`, `#/p/…/t/…`).
@@ -89,9 +90,9 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Modifié
 
-- **Rupture d'usage** : la colonne latérale des projets disparaît (accueil
-  « Mes projets », fil d'Ariane et `⌘K` la remplacent) ; l'assistant de marque
-  blanche ne s'ouvre plus de lui-même ; « Liens reviewer » devient
+- **Rupture d'usage** : la navigation passe dans une barre latérale (tiroir
+  sur mobile) ; l'assistant de marque blanche ne s'ouvre plus de lui-même et
+  se retrouve sous « Personnalisation » ; « Liens reviewer » devient
   « Installer » et « Accès agents » devient « Agents IA ».
 - **Rupture d'usage** : plus de bouton « Enregistrer » commun. Le statut est
   enregistré dès qu'il est choisi, la note interne (ex-« Réponse interne ») a

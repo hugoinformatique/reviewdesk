@@ -192,79 +192,95 @@
 <div id="app" hidden>
   <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-  <header class="nav">
-    <!-- Two tiers, as in Vercel's dashboard: where you are and who you are on
-         top; what you look at and what you can do with it underneath. -->
-    <div class="nav-top">
-      <div class="brand">
-        <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
-        <span class="wordmark" aria-label="ReviewDesk"><span aria-hidden="true">Review</span><b aria-hidden="true">Desk</b></span>
+  <!-- After shadcnstore's « App Dashboard » (21st.dev): a navigation rail on
+       the left, a 64px title bar, and the page under it. -->
+  <aside class="sidebar" id="sidebar" aria-label="Navigation">
+    <div class="brand">
+      <span class="mark"><svg class="icon" aria-hidden="true"><use href="#i-brand"/></svg></span>
+      <span class="wordmark" aria-label="ReviewDesk"><span aria-hidden="true">Review</span><b aria-hidden="true">Desk</b></span>
+    </div>
+    <button id="nav-search" class="nav-search" type="button" aria-label="Rechercher" aria-keyshortcuts="Control+K Meta+K">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <span>Rechercher…</span>
+      <kbd aria-hidden="true">⌘K</kbd>
+    </button>
+    <nav class="side-nav" aria-label="Principal">
+      <a class="side-link" id="nav-home" href="#/projets">
+        <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Tableau de bord</span>
+      </a>
+      <a class="side-link" id="nav-all" href="#/p/all">
+        <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg><span>Tous les retours</span>
+        <span class="side-count" id="nav-all-count"></span>
+      </a>
+      <button class="side-link ai-entry" id="agent-access" type="button" title="Brancher Claude Code, Codex, Cursor… en MCP ou par l’API">
+        <svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg><span>Agents IA</span>
+        <span class="logo-stack" aria-hidden="true">
+          <svg class="logo"><use href="#i-claude"/></svg>
+          <svg class="logo"><use href="#i-openai"/></svg>
+          <svg class="logo"><use href="#i-cursor"/></svg>
+        </span>
+      </button>
+      <button class="side-link" id="branding" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg><span>Personnalisation</span>
+      </button>
+    </nav>
+    <div class="side-section">
+      <span id="side-projects-title">Projets</span>
+      <!-- The label lives in aria-label so the drawn glyph stays a crisp icon
+           while the accessible name keeps its historical wording. -->
+      <button id="new-project" class="icon-btn" type="button" aria-label="＋ Nouveau projet" title="Nouveau projet">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+      </button>
+    </div>
+    <nav class="side-projects" id="sidebar-projects" aria-labelledby="side-projects-title"></nav>
+    <div class="side-foot account">
+      <button id="account" class="account-button" type="button" aria-label="Compte et préférences" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+        <span class="avatar small" aria-hidden="true">A</span>
+        <span class="account-name" aria-hidden="true"><strong>Administrateur</strong><small>Cette instance</small></span>
+        <svg class="icon" aria-hidden="true"><use href="#i-chevron-up"/></svg>
+      </button>
+      <div id="account-menu" class="menu" role="menu" aria-label="Compte et préférences" hidden>
+        <button id="menu-palette" class="menu-item" type="button" role="menuitem">
+          <svg class="icon" aria-hidden="true"><use href="#i-command"/></svg>
+          Palette de commandes
+          <kbd aria-hidden="true">⌘K</kbd>
+        </button>
+        <div class="menu-sep" role="separator"></div>
+        <div class="menu-label" role="presentation">Thème</div>
+        <div class="menu-theme" role="group" aria-label="Thème">
+          <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>Clair
+          </button>
+          <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>Sombre
+          </button>
+          <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg>Auto
+          </button>
+        </div>
+        <div class="menu-sep" role="separator"></div>
+        <button id="logout" class="menu-item danger" type="button" role="menuitem">
+          <svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>
+          Se déconnecter
+        </button>
       </div>
-      <span class="nav-slash" aria-hidden="true"></span>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button id="nav-open" class="icon-btn mobile-only" type="button" aria-label="Ouvrir la navigation">
+        <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
       <div class="nav-context">
-        <a id="crumb-home" class="crumb" href="#/projets">Projets</a>
+        <a id="crumb-home" class="crumb crumb-project" href="#/projets">Tableau de bord</a>
         <span class="nav-slash small crumb-project" aria-hidden="true"></span>
-        <h1 id="project-title" class="crumb-project">Tous les retours</h1>
-        <button id="project-switch" class="icon-btn" type="button" aria-label="Changer de projet" title="Changer de projet (⌘K)">
+        <h1 id="project-title">Bonjour</h1>
+        <button id="project-switch" class="icon-btn crumb-project" type="button" aria-label="Changer de projet" title="Changer de projet (⌘K)">
           <svg class="icon" aria-hidden="true"><use href="#i-chevron-down"/></svg>
         </button>
       </div>
-      <div class="nav-tools">
-        <button id="nav-search" class="nav-search" type="button" aria-label="Rechercher" aria-keyshortcuts="Control+K Meta+K">
-          <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-          <span>Rechercher…</span>
-          <kbd aria-hidden="true">⌘K</kbd>
-        </button>
-        <div class="account">
-          <button id="account" class="avatar" type="button" aria-label="Compte et préférences" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">A</button>
-          <div id="account-menu" class="menu" role="menu" aria-label="Compte et préférences" hidden>
-            <div class="menu-identity" role="presentation">
-              <span class="avatar small" aria-hidden="true">A</span>
-              <span><strong>Administrateur</strong><small>Cette instance</small></span>
-            </div>
-            <div class="menu-sep" role="separator"></div>
-            <button id="branding" class="menu-item" type="button" role="menuitem">
-              <svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>
-              Personnalisation de l’instance
-            </button>
-            <button id="menu-palette" class="menu-item" type="button" role="menuitem">
-              <svg class="icon" aria-hidden="true"><use href="#i-command"/></svg>
-              Palette de commandes
-              <kbd aria-hidden="true">⌘K</kbd>
-            </button>
-            <div class="menu-sep" role="separator"></div>
-            <div class="menu-label" role="presentation">Thème</div>
-            <div class="menu-theme" role="group" aria-label="Thème">
-              <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">
-                <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>Clair
-              </button>
-              <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">
-                <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>Sombre
-              </button>
-              <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false">
-                <svg class="icon" aria-hidden="true"><use href="#i-monitor"/></svg>Auto
-              </button>
-            </div>
-            <div class="menu-sep" role="separator"></div>
-            <button id="logout" class="menu-item danger" type="button" role="menuitem">
-              <svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>
-              Se déconnecter
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="nav-sub">
-      <nav class="nav-tabs" aria-label="Vues">
-        <span class="tabs-hover" aria-hidden="true"></span>
-        <span class="tabs-indicator" aria-hidden="true"></span>
-        <button id="tab-overview" class="nav-tab" type="button" aria-current="false">
-          <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>Vue d’ensemble
-        </button>
-        <button id="tab-tickets" class="nav-tab" type="button" aria-current="true">
-          <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Retours
-        </button>
-      </nav>
       <div class="nav-actions">
         <button id="copy-quick-link" class="quiet" title="Copier le lien direct pour le client">
           <svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>
@@ -274,58 +290,34 @@
           <svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>
           <span class="label">Installer</span>
         </button>
-        <button id="agent-access" class="quiet ai-entry" title="Brancher Claude Code, Codex, Cursor… en MCP ou par l’API">
-          <svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg>
-          <span class="label">Agents IA</span>
-          <span class="logo-stack" aria-hidden="true">
-            <svg class="logo"><use href="#i-claude"/></svg>
-            <svg class="logo"><use href="#i-openai"/></svg>
-            <svg class="logo"><use href="#i-cursor"/></svg>
-          </span>
-        </button>
         <button id="edit-project" class="icon-btn" aria-label="Réglages du projet" title="Réglages du projet">
           <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
         </button>
       </div>
+    </header>
+    <div class="nav-sub">
+      <nav class="nav-tabs" aria-label="Vues">
+        <span class="tabs-hover" aria-hidden="true"></span>
+        <span class="tabs-indicator" aria-hidden="true"></span>
+        <button id="tab-tickets" class="nav-tab" type="button" aria-current="true">
+          <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Retours
+        </button>
+        <button id="tab-overview" class="nav-tab" type="button" aria-current="false">
+          <svg class="icon" aria-hidden="true"><use href="#i-chart"/></svg>Vue d’ensemble
+        </button>
+      </nav>
     </div>
-  </header>
-
-  <div class="shell">
     <section class="workspace" id="main-content" tabindex="-1" aria-label="Espace de travail">
       <!-- Home: one card per client site. -->
       <div class="home" id="home" hidden>
         <div class="home-inner">
-          <header class="home-head">
-            <div>
-              <h2 id="home-title">Mes projets</h2>
-              <p id="home-summary"></p>
-            </div>
-            <div class="home-actions">
-              <button id="all-tickets" class="btn btn-secondary" type="button">
-                <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Tous les retours
-              </button>
-              <button id="new-project" class="btn btn-primary" type="button" aria-label="＋ Nouveau projet">
-                <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span aria-hidden="true">Nouveau projet</span>
-              </button>
-            </div>
-          </header>
-          <div class="home-stats" id="home-stats"></div>
-          <div class="home-layout">
-            <section class="home-projects" aria-labelledby="home-projects-title">
-              <h3 class="home-section-title" id="home-projects-title">Projets</h3>
-              <div class="project-grid" id="project-grid"></div>
-            </section>
-            <aside class="home-side">
-              <section class="home-panel" aria-labelledby="home-queue-title">
-                <div class="home-panel-head">
-                  <h3 class="home-section-title" id="home-queue-title">À traiter en priorité</h3>
-                  <button id="home-queue-all" class="quiet" type="button">Tout voir</button>
-                </div>
-                <div class="home-queue" id="home-queue"></div>
-              </section>
-              <section class="home-panel" id="home-agents"></section>
-            </aside>
+          <div class="dash-stats" id="home-stats"></div>
+          <section class="dash-card" id="home-chart" aria-labelledby="home-chart-title"></section>
+          <div class="dash-grid">
+            <section class="dash-card" id="home-projects" aria-label="Projets actifs"></section>
+            <section class="dash-card" id="home-activity" aria-label="Activité récente"></section>
           </div>
+          <div id="home-agents"></div>
         </div>
       </div>
 

@@ -373,10 +373,17 @@ async function renderRoute() {
   else closeSheet();
 }
 
+/** The rail is a drawer below 900px. */
+function toggleNav(open: boolean) {
+  $('#app').classList.toggle('nav-open', open);
+}
+
 function showScreen(screen: 'home' | 'project') {
   $<HTMLElement>('#home').hidden = screen !== 'home';
   $<HTMLElement>('#project-view').hidden = screen !== 'project';
   $('#app').classList.toggle('on-home', screen === 'home');
+  if (screen === 'home') $('#project-title').textContent = 'Bonjour';
+  renderSidebar();
 }
 
 function renderProjectHeader() {
@@ -672,52 +679,279 @@ function guideAgentStep(): HTMLElement[] {
 // --------------------------------------------------------------------- home
 
 /**
- * The home: the state of every client site at a glance, the tickets that wait
- * the longest, and whether an agent is there to take them.
+ * The dashboard, after shadcnstore's « App Dashboard » (21st.dev): four figure
+ * cards, received against resolved over the period, the projects with their
+ * progress, and what happened lately. Every number comes from /api/stats.
  */
 async function renderHome() {
-  const sum = (key: 'todoCount' | 'inProgressCount' | 'reviewCount' | 'fixRequestedCount') =>
-    projects.reduce((total, project) => total + project[key], 0);
-  const todo = sum('todoCount');
-  $('#home-summary').textContent = projects.length
-    ? todo
-      ? `${todo} retour${todo > 1 ? 's' : ''} attend${todo > 1 ? 'ent' : ''} une réponse sur ${projects.length} projet${projects.length > 1 ? 's' : ''}.`
-      : `Rien n’attend : ${projects.length} projet${projects.length > 1 ? 's' : ''} à jour.`
-    : 'Créez un premier projet pour recevoir les retours de vos clients.';
-
-  const stats = $('#home-stats');
-  stats.replaceChildren();
-  for (const [label, value, status] of [
-    ['À traiter', todo, 'TODO'],
-    ['En cours', sum('inProgressCount'), 'IN_PROGRESS'],
-    ['À valider', sum('reviewCount'), 'REVIEW'],
-    ['Confiés à un agent', sum('fixRequestedCount'), 'AI'],
-  ] as const) {
-    const tile = el('div', `home-stat ${status}`);
-    const dot = el('span', 'home-stat-dot');
-    dot.setAttribute('aria-hidden', 'true');
-    if (status === 'AI') dot.append(icon('i-sparkle'));
-    tile.append(dot, el('strong', '', String(value)), el('span', '', label));
-    stats.append(tile);
-  }
-
-  const grid = $('#project-grid');
-  grid.replaceChildren(...projects.map(projectCard));
-  const add = el('button', 'project-card add');
-  add.type = 'button';
-  const plus = el('span', 'add-icon');
-  plus.append(icon('i-plus'));
-  add.append(plus, el('strong', '', 'Nouveau projet'), el('span', '', 'Un site à faire relire par un client'));
-  add.onclick = () => openGuide();
-  grid.append(add);
-
-  // The side column loads after the grid: the projects never wait for it.
-  const [queue, agents] = await Promise.all([
-    (api('/api/tickets?status=TODO&limit=6') as Promise<{ tickets: Ticket[]; total: number }>).catch(() => null),
+  renderSidebar();
+  const [stats, agents] = await Promise.all([
+    (api('/api/stats?days=30') as Promise<Stats>).catch(() => null),
     connectedAgentLabels(),
   ]);
-  renderHomeQueue(queue);
-  renderHomeAgents(agents);
+  if (!stats) {
+    $('#home-stats').replaceChildren(
+      emptyState('i-chart', 'Tableau de bord indisponible', 'Le serveur n’a pas répondu. Réessayez dans un instant.'),
+    );
+    return;
+  }
+
+  const todo = stats.byStatus.TODO ?? 0;
+  const inProgress = stats.byStatus.IN_PROGRESS ?? 0;
+  const review = stats.byStatus.REVIEW ?? 0;
+  const queued = projects.reduce((sum, project) => sum + project.fixRequestedCount, 0);
+  $('#home-stats').replaceChildren(
+    statCard('À traiter', String(todo), stats.oldestTodo ? `le plus ancien ${formatAge(stats.oldestTodo)}` : 'rien en attente', 'i-inbox', 'TODO'),
+    statCard('En cours', String(inProgress), queued ? `dont ${queued} confié${queued > 1 ? 's' : ''} à un agent` : 'personne n’attend', 'i-clock', 'IN_PROGRESS'),
+    statCard('À valider', String(review), 'à confirmer avec le client', 'i-eye', 'REVIEW'),
+    statCard(
+      'Délai moyen',
+      stats.resolutionSeconds === null ? '—' : humanDuration(stats.resolutionSeconds),
+      'du dépôt au statut « traité »',
+      'i-chart',
+      'DONE',
+    ),
+  );
+
+  const chart = $('#home-chart');
+  const head = el('header', 'dash-card-head');
+  const title = el('h2', '', 'Retours reçus et traités');
+  title.id = 'home-chart-title';
+  head.append(title, el('p', '', 'Chaque jour, sur les 30 derniers jours, tous projets confondus'));
+  chart.replaceChildren(head, trendChart(stats));
+
+  renderHomeProjects(stats);
+  renderHomeActivity(stats);
+  $('#home-agents').replaceChildren(aiCard(agents, queued));
+}
+
+function statCard(label: string, value: string, hint: string, iconId: string, tone: string) {
+  const card = el('div', `stat-card ${tone}`);
+  const head = el('div', 'stat-card-head');
+  head.append(el('span', '', label), icon(iconId));
+  card.append(head, el('strong', 'stat-card-value', value), el('span', 'stat-card-hint', hint));
+  return card;
+}
+
+/** Smooth path through the points (Catmull-Rom turned into cubic Béziers). */
+function smoothPath(points: [number, number][]) {
+  if (points.length < 2) return '';
+  let d = `M${points[0]![0]},${points[0]![1]}`;
+  for (let index = 0; index < points.length - 1; index++) {
+    const p0 = points[index - 1] ?? points[index]!;
+    const p1 = points[index]!;
+    const p2 = points[index + 1]!;
+    const p3 = points[index + 2] ?? p2;
+    // Clamped to the segment's own heights so the curve never dips below zero.
+    const low = Math.max(p1[1], p2[1]);
+    const high = Math.min(p1[1], p2[1]);
+    const c1y = Math.min(low, Math.max(high, p1[1] + (p2[1] - p0[1]) / 6));
+    const c2y = Math.min(low, Math.max(high, p2[1] - (p3[1] - p1[1]) / 6));
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${c1y} ${p2[0] - (p3[0] - p1[0]) / 6},${c2y} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+/**
+ * Received (dashed line) against resolved (line over a soft area): the two
+ * series separate by form, not only by colour, so they read in both themes.
+ */
+function trendChart(stats: Stats) {
+  const days = periodDays(stats);
+  const received = days.map((day) => stats.daily.received[day] ?? 0);
+  const resolved = days.map((day) => stats.daily.resolved[day] ?? 0);
+  const peak = Math.max(1, ...received, ...resolved);
+  const top = peak <= 4 ? 4 : Math.ceil(peak / 4) * 4;
+  const width = 1000;
+  const height = 240;
+  const x = (index: number) => (index / Math.max(1, days.length - 1)) * width;
+  const y = (value: number) => height - (value / top) * height;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'trend');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute(
+    'aria-label',
+    `${received.reduce((a, b) => a + b, 0)} retours reçus et ${resolved.reduce((a, b) => a + b, 0)} traités sur ${stats.days} jours`,
+  );
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  const gradient = document.createElementNS(SVG_NS, 'linearGradient');
+  gradient.id = 'trend-fill';
+  gradient.setAttribute('x1', '0');
+  gradient.setAttribute('y1', '0');
+  gradient.setAttribute('x2', '0');
+  gradient.setAttribute('y2', '1');
+  for (const [offset, cls] of [['0%', 'trend-stop-top'], ['100%', 'trend-stop-bottom']] as const) {
+    const stop = document.createElementNS(SVG_NS, 'stop');
+    stop.setAttribute('offset', offset);
+    stop.setAttribute('class', cls);
+    gradient.append(stop);
+  }
+  defs.append(gradient);
+  svg.append(defs);
+
+  for (const ratio of [0, 0.25, 0.5, 0.75, 1]) {
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('x2', String(width));
+    line.setAttribute('y1', String(height - ratio * height));
+    line.setAttribute('y2', String(height - ratio * height));
+    line.setAttribute('class', 'trend-grid');
+    svg.append(line);
+  }
+
+  const resolvedPoints = resolved.map((value, index) => [x(index), y(value)] as [number, number]);
+  const receivedPoints = received.map((value, index) => [x(index), y(value)] as [number, number]);
+  const area = document.createElementNS(SVG_NS, 'path');
+  area.setAttribute('d', `${smoothPath(resolvedPoints)} L${width},${height} L0,${height} Z`);
+  area.setAttribute('class', 'trend-area');
+  const resolvedLine = document.createElementNS(SVG_NS, 'path');
+  resolvedLine.setAttribute('d', smoothPath(resolvedPoints));
+  resolvedLine.setAttribute('class', 'trend-resolved');
+  const receivedLine = document.createElementNS(SVG_NS, 'path');
+  receivedLine.setAttribute('d', smoothPath(receivedPoints));
+  receivedLine.setAttribute('class', 'trend-received');
+  svg.append(area, resolvedLine, receivedLine);
+
+  // Hover read-out, one column per day.
+  const plot = el('div', 'trend-plot');
+  const hits = el('div', 'chart-hits');
+  hits.setAttribute('aria-hidden', 'true');
+  const tip = el('div', 'chart-tip');
+  tip.hidden = true;
+  const cursor = el('span', 'trend-cursor');
+  cursor.hidden = true;
+  days.forEach((day, index) => {
+    const hit = el('span', 'chart-hit');
+    hit.onmouseenter = () => {
+      tip.hidden = false;
+      cursor.hidden = false;
+      tip.replaceChildren(
+        el('strong', '', formatDay(`${day}T12:00:00Z`)),
+        el('span', 'tip-received', `${received[index]} reçu${received[index] === 1 ? '' : 's'}`),
+        el('span', 'tip-resolved', `${resolved[index]} traité${resolved[index] === 1 ? '' : 's'}`),
+      );
+      const ratio = index / Math.max(1, days.length - 1);
+      tip.classList.toggle('flip', ratio > 0.7);
+      tip.style.left = `${ratio * 100}%`;
+      cursor.style.left = `${ratio * 100}%`;
+    };
+    hits.append(hit);
+  });
+  hits.onmouseleave = () => {
+    tip.hidden = true;
+    cursor.hidden = true;
+  };
+  plot.append(svg, cursor, hits, tip);
+
+  const scale = el('div', 'chart-scale');
+  for (const ratio of [1, 0.75, 0.5, 0.25, 0]) scale.append(el('span', '', String(Math.round(top * ratio))));
+  const frame = el('div', 'trend-frame');
+  frame.append(scale, plot);
+
+  const axis = el('div', 'chart-axis');
+  for (const ratio of [0, 0.25, 0.5, 0.75, 1]) {
+    const index = Math.round(ratio * (days.length - 1));
+    axis.append(el('span', '', index === days.length - 1 ? 'aujourd’hui' : formatDay(`${days[index]}T12:00:00Z`)));
+  }
+  const legend = el('div', 'chart-legend centered');
+  for (const [cls, label] of [['key-received dashed', 'Reçus'], ['key-resolved', 'Traités']] as const) {
+    const item = el('span', 'chart-key');
+    item.append(el('span', `key-swatch ${cls}`), document.createTextNode(label));
+    legend.append(item);
+  }
+  const block = el('div', 'chart-block');
+  block.append(frame, axis, legend);
+  return block;
+}
+
+function renderHomeProjects(stats: Stats) {
+  const host = $('#home-projects');
+  const head = el('header', 'dash-card-head');
+  head.append(el('h2', '', 'Projets actifs'), el('p', '', 'Où en est chaque site, du retour reçu au retour traité'));
+  const list = el('div', 'project-rows');
+  for (const project of projects) {
+    const figures = stats.projects.find((candidate) => candidate.id === project.id);
+    const total = figures?.total ?? 0;
+    const done = figures?.done ?? 0;
+    const percent = total ? Math.round((done / total) * 100) : 0;
+    const row = el('a', 'project-row');
+    row.href = projectHash(project.id);
+    row.onclick = (event) => {
+      event.preventDefault();
+      void chooseProject(project.id);
+    };
+    const top = el('div', 'project-row-top');
+    const names = el('span', 'project-row-name');
+    names.append(projectAvatar(project.id, project.name), el('strong', '', project.name));
+    const [label, tone] = !project.widgetSeenAt
+      ? ['Widget à installer', 'outline']
+      : project.todoCount
+        ? [`${project.todoCount} à traiter`, 'TODO']
+        : project.inProgressCount + project.reviewCount
+          ? ['En cours', 'IN_PROGRESS']
+          : ['À jour', 'DONE'];
+    top.append(names, el('span', `badge-pill ${tone}`, label));
+    const meta = el('p', 'project-row-meta', [project.clientLabel, hostOf(project)].filter(Boolean).join(' · '));
+    const progress = el('div', 'progress-line');
+    const track = el('span', 'progress-track');
+    const fill = el('span', 'progress-fill');
+    fill.style.width = `${percent}%`;
+    track.append(fill);
+    progress.append(track, el('span', 'progress-value', total ? `${percent} %` : '—'));
+    const foot = el('div', 'project-row-foot');
+    foot.append(
+      el('span', '', total ? `${done} traité${done > 1 ? 's' : ''} sur ${total}` : 'Aucun retour reçu'),
+      el('span', '', project.lastTicketAt ? `dernier retour ${formatAge(project.lastTicketAt)}` : ''),
+    );
+    row.append(top, meta, progress, foot);
+    list.append(row);
+  }
+  const add = el('button', 'btn btn-secondary dash-add');
+  add.type = 'button';
+  add.append(icon('i-plus'), document.createTextNode('Nouveau projet'));
+  add.onclick = () => openGuide();
+  host.replaceChildren(head, list, add);
+}
+
+function renderHomeActivity(stats: Stats) {
+  const host = $('#home-activity');
+  const head = el('header', 'dash-card-head');
+  head.append(el('h2', '', 'Activité récente'), el('p', '', 'Les derniers mouvements de l’équipe et des agents'));
+  const list = el('ol', 'activity-list');
+  for (const entry of stats.activity.slice(0, 8)) {
+    const name = entry.authorLabel || (entry.author === 'agent' ? 'Agent' : 'Équipe');
+    const item = el('li', `activity-item ${entry.author}`);
+    const avatar = el('span', 'comment-avatar', (name.trim()[0] ?? '?').toUpperCase());
+    avatar.setAttribute('aria-hidden', 'true');
+    const body = el('div', 'activity-body');
+    const line = el('p');
+    const verb =
+      entry.statusTo && entry.statusTo !== entry.statusFrom
+        ? ` a passé à « ${STATUS_LABELS[entry.statusTo] ?? entry.statusTo} »`
+        : ' a commenté';
+    const subject = el('button', 'activity-subject', entry.ticketText);
+    subject.type = 'button';
+    subject.onclick = () => {
+      const ticket = projects.length ? entry.ticketId : '';
+      if (ticket) void go(projectHash('', `/t/${ticket}`));
+    };
+    line.append(el('strong', '', name), el('span', '', verb), document.createTextNode(' '), subject);
+    const when = el('time', '', formatAge(entry.createdAt));
+    when.title = formatDate(entry.createdAt);
+    body.append(line, when);
+    item.append(avatar, body);
+    list.append(item);
+  }
+  if (!stats.activity.length) {
+    const empty = el('div', 'dash-empty');
+    empty.append(icon('i-check'), el('strong', '', 'Rien de nouveau'), el('span', '', 'Les réponses, changements de statut et rapports d’agents apparaîtront ici.'));
+    host.replaceChildren(head, empty);
+    return;
+  }
+  host.replaceChildren(head, list);
 }
 
 function hostOf(project: Project) {
@@ -728,148 +962,32 @@ function hostOf(project: Project) {
   }
 }
 
-function projectCard(project: Project) {
-  const card = el('article', 'project-card');
-  // The whole card opens the project; the inner button sits above that link.
-  const open = el('a', 'project-card-link');
-  open.href = projectHash(project.id);
-  open.setAttribute('aria-label', project.name);
-  open.onclick = (event) => {
-    event.preventDefault();
-    void chooseProject(project.id);
-  };
-
-  // A picture of the site: its latest capture, framed as a browser window.
-  const preview = el('div', 'card-preview');
-  const bar = el('div', 'card-preview-bar');
-  bar.append(el('i'), el('i'), el('i'), el('span', '', hostOf(project) || 'adresse à définir'));
-  const view = el('div', 'card-preview-view');
-  if (project.previewShotId) {
-    const img = el('img');
-    img.src = `/api/uploads/${project.previewShotId}`;
-    img.alt = '';
-    img.loading = 'lazy';
-    view.append(img);
-  } else {
-    view.classList.add('empty');
-    view.dataset.hue = projectHue(project.id);
-    view.append(el('span', '', (project.name.trim()[0] ?? '?').toUpperCase()));
-  }
-  preview.append(bar, view);
-  if (project.todoCount) {
-    const pill = el('span', 'card-preview-badge', `${project.todoCount} à traiter`);
-    preview.append(pill);
-  }
-
-  const info = el('div', 'card-info');
-  const names = el('div');
-  names.append(el('strong', '', project.name), el('span', '', project.clientLabel));
-  info.append(projectAvatar(project.id, project.name), names);
-
-  // Where the project stands: the three open statuses as one bar.
-  const open3 = project.todoCount + project.inProgressCount + project.reviewCount;
-  const progress = el('div', 'card-progress');
-  const stack = el('div', 'breakdown-stack slim');
-  stack.setAttribute('aria-hidden', 'true');
-  for (const [status, count] of [
-    ['TODO', project.todoCount],
-    ['IN_PROGRESS', project.inProgressCount],
-    ['REVIEW', project.reviewCount],
-  ] as const) {
-    if (!count) continue;
-    const part = el('span', `breakdown-fill ${status}`);
-    part.style.flexGrow = String(count);
-    stack.append(part);
-  }
-  const legend = el(
-    'span',
-    'card-progress-text',
-    open3
-      ? [
-          project.todoCount ? `${project.todoCount} à traiter` : '',
-          project.inProgressCount ? `${project.inProgressCount} en cours` : '',
-          project.reviewCount ? `${project.reviewCount} à valider` : '',
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      : 'Aucun retour en attente',
-  );
-  progress.append(stack, legend);
-
-  const foot = el('div', 'card-foot-line');
-  const widget = el('span', project.widgetSeenAt ? 'mini-health ok' : 'mini-health');
-  widget.title = project.widgetSeenAt ? `Widget actif ${formatAge(project.widgetSeenAt)}` : 'Widget pas encore installé';
-  widget.append(el('span', 'health-dot'), document.createTextNode(project.widgetSeenAt ? 'Widget actif' : 'Widget à installer'));
-  const last = el('span', 'card-last', project.lastTicketAt ? formatAge(project.lastTicketAt) : 'aucun retour');
-  last.title = project.lastTicketAt ? `Dernier retour ${formatDate(project.lastTicketAt)}` : '';
-  foot.append(widget, last);
-
-  card.append(open, preview, info, progress, foot);
-  // What is missing gets a direct way to fix it, right on the card.
-  if (!project.widgetSeenAt) {
-    const install = el('button', 'btn btn-secondary project-card-cta');
-    install.type = 'button';
-    install.append(icon('i-code'), document.createTextNode('Installer le widget'));
-    install.onclick = () => {
-      selectedProject = project.id;
-      $<HTMLButtonElement>('#review-link').click();
+/** The project list of the rail, with what waits in each. */
+function renderSidebar() {
+  const nav = $('#sidebar-projects');
+  nav.replaceChildren();
+  for (const project of projects) {
+    const link = el('a', `side-project ${project.id === selectedProject && parseRoute().name === 'project' ? 'active' : ''}`);
+    link.href = projectHash(project.id);
+    // Named by the project alone; the count is shown, and said in the title.
+    link.setAttribute('aria-label', project.name);
+    link.title = `${project.name} — ${project.clientLabel}${project.todoCount ? ` · ${project.todoCount} à traiter` : ''}`;
+    link.onclick = (event) => {
+      event.preventDefault();
+      toggleNav(false);
+      void chooseProject(project.id);
     };
-    card.append(install);
+    const dot = el('span', 'side-dot');
+    dot.dataset.hue = projectHue(project.id);
+    link.append(dot, el('span', 'side-project-name', project.name));
+    if (project.todoCount) link.append(el('span', 'side-count', String(project.todoCount)));
+    nav.append(link);
   }
-  return card;
-}
-
-function renderHomeQueue(page: { tickets: Ticket[]; total: number } | null) {
-  const host = $('#home-queue');
-  host.replaceChildren();
-  if (!page) {
-    host.append(el('p', 'home-empty', 'Liste indisponible pour le moment.'));
-    return;
-  }
-  if (!page.tickets.length) {
-    const done = el('div', 'home-empty');
-    done.append(icon('i-check'), el('span', '', 'Rien à traiter. Tout est à jour.'));
-    host.append(done);
-    return;
-  }
-  for (const ticket of page.tickets) {
-    const row = el('button', 'queue-row');
-    row.type = 'button';
-    const text = el('span', 'queue-text');
-    text.append(el('strong', '', ticket.text), el('small', '', `${ticket.projectName} · ${formatAge(ticket.createdAt)}`));
-    row.append(projectAvatar(ticket.projectId, ticket.projectName), text);
-    row.onclick = () => {
-      sheetOpenedFromBoard = false;
-      void go(projectHash(ticket.projectId, `/t/${ticket.id}`));
-    };
-    host.append(row);
-  }
-}
-
-function renderHomeAgents(agents: string[]) {
-  const host = $('#home-agents');
-  const head = el('div', 'home-panel-head');
-  head.append(el('h3', 'home-section-title', 'Agents IA'));
-  const logos = el('div', 'home-agent-logos');
-  logos.setAttribute('aria-hidden', 'true');
-  for (const mark of ['i-claude', 'i-openai', 'i-cursor', 'i-vscode']) {
-    const tile = el('span');
-    tile.append(icon(mark, 'logo'));
-    logos.append(tile);
-  }
-  const text = el(
-    'p',
-    '',
-    agents.length
-      ? `Connecté : ${agents.join(', ')}. Sur chaque retour, « Lancer la correction » le lui confie.`
-      : 'Branchez Claude Code, Codex, Cursor… en MCP ou par l’API pour leur confier les corrections.',
-  );
-  const action = el('button', agents.length ? 'btn btn-secondary' : 'btn btn-ai');
-  action.type = 'button';
-  action.append(icon('i-sparkle'), document.createTextNode(agents.length ? 'Gérer les agents' : 'Connecter un agent'));
-  action.onclick = () => $<HTMLButtonElement>('#agent-access').click();
-  host.classList.toggle('connected', agents.length > 0);
-  host.replaceChildren(head, logos, text, action);
+  const open = projects.reduce((sum, project) => sum + project.todoCount, 0);
+  $('#nav-all-count').textContent = open ? String(open) : '';
+  const route = parseRoute();
+  $('#nav-home').classList.toggle('active', route.name === 'projects');
+  $('#nav-all').classList.toggle('active', route.name === 'project' && !route.id);
 }
 
 // -------------------------------------------------------------------- board
@@ -3604,13 +3722,23 @@ async function refreshOnboarding() {
 
 for (const id of ['client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
 $('#page-filter').addEventListener('input', scheduleReload);
+$('#nav-open').addEventListener('click', () => toggleNav(true));
+$('#scrim').addEventListener('click', () => toggleNav(false));
+addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && $('#app').classList.contains('nav-open')) toggleNav(false);
+});
 for (const button of document.querySelectorAll<HTMLElement>('.view-mode [data-mode]')) {
   button.setAttribute('aria-pressed', String(button.dataset.mode === boardMode));
   button.addEventListener('click', () => setBoardMode(button.dataset.mode as BoardMode));
 }
 $('#new-project').addEventListener('click', () => openGuide());
-$('#all-tickets').addEventListener('click', () => void chooseProject(''));
-$('#home-queue-all').addEventListener('click', () => void chooseProject(''));
+for (const link of ['#nav-home', '#nav-all']) {
+  $(link).addEventListener('click', (event) => {
+    event.preventDefault();
+    toggleNav(false);
+    void go(link === '#nav-home' ? '#/projets' : projectHash(''));
+  });
+}
 $('#crumb-home').addEventListener('click', (event) => {
   event.preventDefault();
   void go('#/projets');
