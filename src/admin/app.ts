@@ -1,3 +1,4 @@
+import { initPalette, type PaletteItem } from './palette.js';
 import { ApiError, loginErrorMessage } from './errors.js';
 import { applyBranding, fetchPublicBranding, refreshBrandingForTheme, type PublicBranding } from './branding.js';
 import { openSetup, type BrandingDraft } from './setup.js';
@@ -125,6 +126,27 @@ function icon(id: string, className = 'icon') {
   use.setAttribute('href', `#${id}`);
   svg.append(use);
   return svg;
+}
+
+/** A stable hue per project, so it wears the same colour in every list. */
+function projectHue(id: string) {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return String(hash % 6);
+}
+
+/** The project's initial on its hue; "all projects" gets a neutral grid. */
+function projectAvatar(id: string, name: string) {
+  const avatar = document.createElement('span');
+  avatar.className = id ? 'proj' : 'proj all';
+  avatar.setAttribute('aria-hidden', 'true');
+  if (id) {
+    avatar.dataset.hue = projectHue(id);
+    avatar.textContent = (name.trim()[0] ?? '?').toUpperCase();
+  } else {
+    avatar.append(icon('i-grid'));
+  }
+  return avatar;
 }
 
 /**
@@ -297,7 +319,7 @@ function projectButton(id: string, name: string, secondary: string, openCount = 
     stack.append(client);
   }
 
-  button.append(stack);
+  button.append(projectAvatar(id, name), stack);
   if (openCount > 0) {
     const badge = document.createElement('span');
     badge.className = 'badge';
@@ -527,17 +549,24 @@ function renderTickets() {
     // textContent, never innerHTML: reviewer text is stored verbatim.
     title.textContent = ticket.text;
     const context = document.createElement('small');
-    const format = ticket.viewportWidth < 768 ? 'Mobile' : 'Desktop';
-    // Words, not an emoji: a colour glyph breaks the monochrome list, and
-    // systems without an emoji font draw an empty box instead.
-    const shotBadge = ticket.screenshotId ? ' · Capture' : '';
-    context.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname} · ${format}${shotBadge}`;
+    const mobile = ticket.viewportWidth < 768;
+    // Drawn icons, not emoji: systems without an emoji font draw empty boxes.
+    const where = document.createElement('span');
+    where.textContent = `${ticket.projectName} · ${new URL(ticket.pageUrl).pathname}`;
+    const device = document.createElement('span');
+    device.append(icon(mobile ? 'i-phone' : 'i-monitor'), document.createTextNode(mobile ? 'Mobile' : 'Desktop'));
+    context.append(where, device);
+    if (ticket.screenshotId) {
+      const shot = document.createElement('span');
+      shot.append(icon('i-camera'), document.createTextNode('Capture'));
+      context.append(shot);
+    }
     summary.append(title, context);
     const date = document.createElement('span');
     date.className = 'date';
     date.textContent = formatAge(ticket.createdAt);
     date.title = formatDate(ticket.createdAt);
-    row.append(status, summary, date);
+    row.append(projectAvatar(ticket.projectId, ticket.projectName), status, summary, date);
     row.onclick = () => openTicket(ticket.id);
     list.append(row);
   }
@@ -566,13 +595,6 @@ function clearDetail() {
   detail.replaceChildren(
     emptyState('i-image', 'Aucun retour sélectionné', 'Choisissez un retour dans la liste pour voir son ancrage, ses diagnostics et y répondre.'),
   );
-}
-
-function labelled(text: string, control: HTMLElement): HTMLLabelElement {
-  const label = document.createElement('label');
-  label.textContent = text;
-  label.append(control);
-  return label;
 }
 
 function showScreenshotModal(ticket: Ticket) {
@@ -630,19 +652,17 @@ function openTicket(id: string) {
   close.onclick = closeDetail;
   const eyebrow = document.createElement('div');
   eyebrow.className = 'eyebrow';
-  eyebrow.textContent = `${ticket.clientLabel} · ${ticket.projectName}`;
+  eyebrow.append(
+    projectAvatar(ticket.projectId, ticket.projectName),
+    document.createTextNode(`${ticket.clientLabel} · ${ticket.projectName}`),
+  );
   const heading = document.createElement('h2');
   heading.textContent = ticket.text;
-  const meta = document.createElement('div');
-  meta.className = 'meta';
-  const { selector, relative, viewport } = ticket.anchor;
-  meta.textContent =
-    `${ticket.pageUrl}\n${selector} @ ${Math.round(relative.x * 100)}%, ${Math.round(relative.y * 100)}%` +
-    ` · ${viewport.width}×${viewport.height}`;
 
   const select = document.createElement('select');
   // Identified because the pane now holds a second select (the comment's scope).
   select.id = 'ticket-status';
+  select.setAttribute('aria-label', 'Statut');
   for (const [value, label] of Object.entries(STATUS_LABELS)) {
     const option = document.createElement('option');
     option.value = value;
@@ -650,14 +670,61 @@ function openTicket(id: string) {
     option.selected = value === ticket.status;
     select.append(option);
   }
-  const textarea = document.createElement('textarea');
-  textarea.value = ticket.response;
-  textarea.maxLength = 4000;
+  // The control wears the colour of the status it will save, as it is chosen.
+  const statusField = document.createElement('span');
+  statusField.className = `status-field ${ticket.status}`;
+  const statusDot = document.createElement('span');
+  statusDot.className = 'dot';
+  statusDot.setAttribute('aria-hidden', 'true');
+  statusField.append(statusDot, select);
+  select.onchange = () => {
+    statusField.className = `status-field ${select.value}`;
+  };
+
+  // The whole point of a visual feedback tool: go and look at the spot rather
+  // than decode a CSS selector by hand.
+  const openAnchor = document.createElement('a');
+  openAnchor.className = 'btn btn-secondary anchor-link';
+  openAnchor.href = anchorUrl(ticket);
+  openAnchor.target = '_blank';
+  openAnchor.rel = 'noreferrer';
+  openAnchor.append(icon('i-target'), document.createTextNode('Ouvrir au point d’ancrage'));
+
+  const { selector, relative, viewport } = ticket.anchor;
+  const mobile = ticket.viewportWidth < 768;
+  const prop = (iconId: string, text: string, title = text) => {
+    const chip = el('span', 'prop');
+    chip.title = title;
+    chip.append(icon(iconId), document.createTextNode(text));
+    return chip;
+  };
+  const props = el('div', 'props');
+  props.append(
+    statusField,
+    prop('i-file', new URL(ticket.pageUrl).pathname, ticket.pageUrl),
+    prop(mobile ? 'i-phone' : 'i-monitor', `${viewport.width}×${viewport.height}`, mobile ? 'Mobile' : 'Desktop'),
+    prop('i-clock', formatAge(ticket.createdAt), formatDate(ticket.createdAt)),
+  );
 
   const reply = document.createElement('textarea');
   reply.value = ticket.replyText;
   reply.maxLength = 4000;
   reply.placeholder = 'Ce texte apparaît dans le widget, côté reviewer.';
+
+  const textarea = document.createElement('textarea');
+  textarea.value = ticket.response;
+  textarea.maxLength = 4000;
+  textarea.placeholder = 'Visible par l’équipe et les agents connectés uniquement.';
+
+  /** A reply field drawn as a card: who will read it is said before the text. */
+  const replyCard = (text: string, iconId: string, control: HTMLTextAreaElement, variant: string) => {
+    const label = document.createElement('label');
+    label.className = `reply-card ${variant}`;
+    const title = el('span', 'reply-card-title');
+    title.append(icon(iconId), document.createTextNode(text));
+    label.append(title, control);
+    return label;
+  };
 
   const save = document.createElement('button');
   save.type = 'button';
@@ -686,39 +753,44 @@ function openTicket(id: string) {
     }
   };
 
-  const diagnostics = document.createElement('pre');
-  diagnostics.className = 'diag';
+  const diagnosticsTitle = document.createElement('div');
+  diagnosticsTitle.className = 'eyebrow';
+  diagnosticsTitle.textContent = 'Diagnostics consentis';
+
   // A reviewer who declined still yields `{os:'Unknown', browser:'Unknown'}`,
   // which reads like data when it is the absence of it. Say so in words.
   const informative = Object.values(ticket.diagnostics).some(
     (value) => value !== 'Unknown' && value !== null && value !== undefined && !(Array.isArray(value) && !value.length),
   );
+  let diagnostics: HTMLElement;
   if (informative) {
-    diagnostics.textContent = JSON.stringify(ticket.diagnostics, null, 2);
+    // Key and value on one line each, like a property sheet, not a JSON dump.
+    diagnostics = document.createElement('dl');
+    diagnostics.className = 'diag';
+    for (const [key, value] of Object.entries(ticket.diagnostics)) {
+      if (value === null || value === undefined || value === '') continue;
+      const term = el('dt', '', key);
+      const description = el('dd', '', typeof value === 'object' ? JSON.stringify(value) : String(value));
+      diagnostics.append(term, description);
+    }
   } else {
-    diagnostics.classList.add('diag-empty');
-    diagnostics.textContent = 'Aucun diagnostic transmis. Le reviewer ne les a pas joints.';
+    diagnostics = el('p', 'diag diag-empty', 'Aucun diagnostic transmis. Le reviewer ne les a pas joints.');
   }
 
-  const diagnosticsTitle = document.createElement('div');
-  diagnosticsTitle.className = 'eyebrow';
-  diagnosticsTitle.textContent = 'Diagnostics consentis';
-
-  // The whole point of a visual feedback tool: go and look at the spot rather
-  // than decode a CSS selector by hand.
-  const openAnchor = document.createElement('a');
-  openAnchor.className = 'btn btn-ghost anchor-link';
-  openAnchor.href = anchorUrl(ticket);
-  openAnchor.target = '_blank';
-  openAnchor.rel = 'noreferrer';
-  openAnchor.append(icon('i-target'), document.createTextNode('Ouvrir au point d’ancrage'));
+  const anchorCard = el('div', 'anchor-card');
+  const anchorMeta = el(
+    'code',
+    'anchor-selector',
+    `${selector} @ ${Math.round(relative.x * 100)}%, ${Math.round(relative.y * 100)}%`,
+  );
+  anchorCard.append(el('div', 'eyebrow', 'Point d’ancrage'), anchorMeta, openAnchor);
 
   // Three regions rather than one flat column: on a wide screen "act" (status
   // and replies) and "context" (where, diagnostics, capture) sit side by side
   // instead of stretching one column across a 21:9 display.
   const head = document.createElement('div');
   head.className = 'detail-head';
-  head.append(close, eyebrow, heading);
+  head.append(close, eyebrow, heading, props);
 
   // The work log: what the team and the connected agents have done on this
   // ticket. Loaded after the pane paints, so opening a ticket stays instant.
@@ -726,19 +798,20 @@ function openTicket(id: string) {
   thread.className = 'thread';
   void renderThread(ticket.id, thread);
 
+  const actions = el('div', 'detail-actions');
+  actions.append(el('span', 'detail-actions-hint', 'Le statut et les deux réponses sont enregistrés ensemble.'), save);
+
   const main = document.createElement('div');
   main.className = 'detail-main';
   main.append(
-    labelled('Statut', select),
-    labelled('Réponse visible par le reviewer', reply),
-    labelled('Réponse interne', textarea),
-    save,
-    thread,
+    replyCard('Réponse visible par le reviewer', 'i-eye', reply, 'public'),
+    replyCard('Réponse interne', 'i-lock', textarea, 'internal'),
+    actions,
   );
 
   const side = document.createElement('div');
   side.className = 'detail-side';
-  side.append(meta, openAnchor);
+  side.append(anchorCard);
 
   if (ticket.screenshotId) {
     const sCard = document.createElement('div');
@@ -749,7 +822,7 @@ function openTicket(id: string) {
 
     const sTitle = document.createElement('div');
     sTitle.className = 'ticket-screenshot-title';
-    sTitle.append(icon('i-image'), document.createTextNode('Capture d’écran'));
+    sTitle.append(icon('i-camera'), document.createTextNode('Capture d’écran'));
 
     const sActions = document.createElement('div');
     sActions.className = 'ticket-screenshot-actions';
@@ -757,7 +830,7 @@ function openTicket(id: string) {
     const zoomBtn = document.createElement('button');
     zoomBtn.type = 'button';
     zoomBtn.className = 'btn-zoom-screenshot';
-    zoomBtn.textContent = '🔍 Agrandir';
+    zoomBtn.append(icon('i-zoom'), document.createTextNode('Agrandir'));
     zoomBtn.title = 'Agrandir en plein écran';
 
     const link = document.createElement('a');
@@ -765,7 +838,7 @@ function openTicket(id: string) {
     link.href = `/api/uploads/${ticket.screenshotId}`;
     link.target = '_blank';
     link.rel = 'noreferrer';
-    link.append(icon('i-image'), document.createTextNode('Voir la capture privée'));
+    link.append(icon('i-external'), document.createTextNode('Voir la capture privée'));
 
     sActions.append(zoomBtn, link);
     sHead.append(sTitle, sActions);
@@ -782,12 +855,14 @@ function openTicket(id: string) {
 
     const sBadge = document.createElement('div');
     sBadge.className = 'ticket-screenshot-badge';
-    const format = ticket.viewportWidth < 768 ? '📱 Mobile' : '💻 Desktop';
-    sBadge.textContent = `${format} · ${ticket.anchor.viewport.width}×${ticket.anchor.viewport.height}`;
+    sBadge.append(
+      icon(mobile ? 'i-phone' : 'i-monitor'),
+      document.createTextNode(`${mobile ? 'Mobile' : 'Desktop'} · ${viewport.width}×${viewport.height}`),
+    );
 
     const sHint = document.createElement('div');
     sHint.className = 'ticket-screenshot-hint';
-    sHint.textContent = '🔍 Agrandir';
+    sHint.append(icon('i-zoom'), document.createTextNode('Agrandir'));
 
     sWrap.append(img, sBadge, sHint);
 
@@ -800,13 +875,13 @@ function openTicket(id: string) {
   } else {
     const emptyCard = document.createElement('div');
     emptyCard.className = 'ticket-screenshot-card empty';
-    emptyCard.textContent = '📷 Aucune capture d’écran jointe à ce retour';
+    emptyCard.append(icon('i-camera'), document.createTextNode('Aucune capture d’écran jointe à ce retour'));
     side.append(emptyCard);
   }
 
   side.append(diagnosticsTitle, diagnostics);
 
-  detail.append(head, main, side);
+  detail.append(head, main, side, thread);
 
   // Where focus goes depends on the layout: over the list, the pane is the
   // whole screen and a reader must land in it; beside the list, focus stays
@@ -1213,6 +1288,66 @@ async function showTickets() {
 }
 
 $('#tab-overview').addEventListener('click', () => void showOverview());
+
+// ------------------------------------------------------------ command palette
+
+function paletteIcon(id: string) {
+  return () => {
+    const tile = document.createElement('span');
+    tile.className = 'palette-icon';
+    tile.append(icon(id));
+    return tile;
+  };
+}
+
+function paletteItems(): PaletteItem[] {
+  const click = (selector: string) => () => $<HTMLButtonElement>(selector).click();
+  const items: PaletteItem[] = [
+    { group: 'Navigation', label: 'Vue d’ensemble', keywords: 'statistiques tableau de bord', leading: paletteIcon('i-chart'), run: () => void showOverview() },
+    { group: 'Navigation', label: 'Retours', keywords: 'tickets liste inbox', leading: paletteIcon('i-inbox'), run: () => void showTickets() },
+    { group: 'Projets', label: 'Tous les projets', hint: `${projects.length} projet${projects.length === 1 ? '' : 's'}`, leading: () => projectAvatar('', ''), run: () => void chooseProject('') },
+  ];
+  for (const project of projects) {
+    items.push({
+      group: 'Projets',
+      label: project.name,
+      hint: project.clientLabel,
+      leading: () => projectAvatar(project.id, project.name),
+      run: () => void chooseProject(project.id),
+    });
+  }
+  for (const ticket of tickets.slice(0, 30)) {
+    items.push({
+      group: 'Retours',
+      label: ticket.text,
+      hint: STATUS_LABELS[ticket.status] ?? ticket.status,
+      keywords: `${ticket.projectName} ${ticket.pageUrl}`,
+      leading: () => projectAvatar(ticket.projectId, ticket.projectName),
+      run: () => {
+        void showTickets().then(() => {
+          if (tickets.some((candidate) => candidate.id === ticket.id)) openTicket(ticket.id);
+        });
+      },
+    });
+  }
+  items.push(
+    { group: 'Actions', label: 'Nouveau projet', keywords: 'creer ajouter', leading: paletteIcon('i-plus'), run: click('#new-project') },
+    { group: 'Actions', label: 'Installer le widget et liens reviewer', keywords: 'integration script snippet partager', leading: paletteIcon('i-code'), run: click('#review-link') },
+    { group: 'Actions', label: 'Copier le lien client', keywords: 'partager url', leading: paletteIcon('i-copy'), run: click('#copy-quick-link') },
+    { group: 'Actions', label: 'Accès agents', keywords: 'claude cursor mcp ia', leading: paletteIcon('i-robot'), run: click('#agent-access') },
+    { group: 'Actions', label: 'Exporter pour Claude Code', keywords: 'prompt markdown', leading: paletteIcon('i-copy'), run: click('#export-prompt') },
+    { group: 'Actions', label: 'Personnalisation de l’instance', keywords: 'marque blanche logo couleur branding', leading: paletteIcon('i-image'), run: click('#branding') },
+    { group: 'Actions', label: 'Basculer le thème clair / sombre', keywords: 'dark mode nuit', leading: paletteIcon('i-moon'), run: click('#theme') },
+    { group: 'Actions', label: 'Se déconnecter', keywords: 'logout quitter', leading: paletteIcon('i-logout'), run: click('#logout') },
+  );
+  return items;
+}
+
+const palette = initPalette(paletteItems);
+$('#palette-open').addEventListener('click', () => {
+  toggleNav(false);
+  palette.open();
+});
 $('#tab-tickets').addEventListener('click', () => void showTickets());
 $('#period').addEventListener('change', () => void loadStats());
 
@@ -1463,10 +1598,29 @@ async function copyButton(label: string, value: () => string) {
   return button;
 }
 
+/**
+ * Just enough colour to read a snippet at a glance: comments, tags, attribute
+ * names and quoted values. Built from text nodes, so nothing is ever parsed.
+ */
+const CODE_TOKEN = /(<!--[\s\S]*?-->)|("[^"\n]*"|'[^'\n]*'|`[^`\n]*`)|(<\/?[\w.-]+|\/?>)|([\w-]+)(?==)/g;
+const CODE_CLASSES = ['tk-comment', 'tk-string', 'tk-tag', 'tk-attr'];
+
+function highlight(pre: HTMLElement, text: string) {
+  let last = 0;
+  for (const match of text.matchAll(CODE_TOKEN)) {
+    const start = match.index;
+    if (start > last) pre.append(text.slice(last, start));
+    const group = match.slice(1).findIndex((part) => part !== undefined);
+    pre.append(el('span', CODE_CLASSES[group] ?? '', match[0]));
+    last = start + match[0].length;
+  }
+  if (last < text.length) pre.append(text.slice(last));
+}
+
 function codeBlock(text: string, copyLabel = 'Copier') {
   const block = el('div', 'code-block');
   const pre = el('pre', 'code');
-  pre.textContent = text;
+  highlight(pre, text);
   block.append(pre);
   void copyButton(copyLabel, () => text).then((button) => block.append(button));
   return block;
@@ -1635,6 +1789,7 @@ function renderPlatformPicker() {
       currentPlatform = platform;
       renderPlatformPicker();
       if (activeProjectToken) renderWidgetSnippet();
+      updateWidgetPreview();
     };
     host.append(card);
   }
@@ -1661,10 +1816,13 @@ function renderWidgetSnippet() {
   });
 
   container.append(codeBlock(codeText, 'Copier le code'));
-  const mobileNotice = el('p', 'note wizard-mobile-notice', '📱 100% optimisé mobile (tiroir bottom sheet fluide, capture tactile et raccourcis clavier).');
-  mobileNotice.style.margin = '10px 0 0';
-  mobileNotice.style.fontSize = '12px';
+  const mobileNotice = el('p', 'note wizard-mobile-notice');
+  mobileNotice.append(
+    icon('i-phone'),
+    document.createTextNode('Sur mobile, le panneau s’ouvre en tiroir depuis le bas de l’écran, avec capture tactile.'),
+  );
   container.append(mobileNotice);
+  updateWidgetPreview();
 
   // Update preview links for step 3
   $('#test-preview-target').textContent = `Préproduction : ${previewOrigin}`;
@@ -2325,6 +2483,17 @@ for (const id of ['status', 'client', 'format']) $(`#${id}`).addEventListener('c
 $('#page-filter').addEventListener('input', scheduleReload);
 $('#new-project').addEventListener('click', () => openProjectDialog(null));
 
+/** Mirrors the chosen options on the drawn preview, token or not. */
+function updateWidgetPreview() {
+  const preview = $<HTMLElement>('#widget-preview');
+  preview.dataset.position = widgetOptPosition;
+  preview.dataset.theme = widgetOptTheme;
+  $('#wp-label').textContent = widgetOptLabel.trim() || 'Faire un retour';
+  const project = projects.find((p) => p.id === selectedProject);
+  const origin = project?.origins[0];
+  $('#wp-url').textContent = origin ? origin.replace(/^https?:\/\//, '') : 'preprod.votre-client.fr';
+}
+
 function wireWidgetOptions() {
   document.querySelectorAll<HTMLButtonElement>('#opt-position .seg-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -2332,6 +2501,7 @@ function wireWidgetOptions() {
       btn.classList.add('active');
       widgetOptPosition = btn.dataset.val ?? 'bottom-right';
       if (activeProjectToken) renderWidgetSnippet();
+      updateWidgetPreview();
     });
   });
 
@@ -2341,12 +2511,14 @@ function wireWidgetOptions() {
       btn.classList.add('active');
       widgetOptTheme = btn.dataset.val ?? 'auto';
       if (activeProjectToken) renderWidgetSnippet();
+      updateWidgetPreview();
     });
   });
 
   $<HTMLInputElement>('#opt-label-input')?.addEventListener('input', (event) => {
     widgetOptLabel = (event.target as HTMLInputElement).value;
     if (activeProjectToken) renderWidgetSnippet();
+    updateWidgetPreview();
   });
 
   document.querySelectorAll<HTMLButtonElement>('#project-origin-helpers .chip').forEach((chip) => {

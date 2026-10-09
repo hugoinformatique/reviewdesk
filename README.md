@@ -68,9 +68,11 @@ au même endroit.
 - diagnostics techniques **opt-in**, avec aperçu exact de ce qui part ;
 - onglet « Mes retours » : statut de chaque retour et réponse de l'équipe, sans
   avoir à écrire quoi que ce soit ;
-- interface « liquid glass » : surfaces translucides, arêtes spéculaires, ressorts
-  à l'ouverture — avec repli opaque si le navigateur ne floute pas ou si le
-  visiteur demande moins de transparence ;
+- un panneau qui naît du bouton lui-même, surfaces opaques et contrastées (AA),
+  catégories `Bug` / `Visuel` / `Contenu` / `Idée` en un clic, confirmation animée —
+  et rien que de l'opacité si le visiteur demande moins de mouvement ;
+- styles posés par feuille construite (`adoptedStyleSheets`) : le widget s'affiche
+  aussi sur un site dont la CSP interdit les styles inline ;
 - thème pris **sur la page hôte**, pas sur le système du reviewer : le widget
   s'habille comme le site sur lequel il est posé ;
 - widget en Shadow DOM : aucun CSS du site hôte ne le déforme, et il ne déforme rien ;
@@ -81,6 +83,8 @@ au même endroit.
 - projets multiples, avec libellé client et **liste exacte** des origines autorisées ;
 - liens reviewer révocables, sans compte ni mot de passe pour le client ;
 - filtres projet, client, page/site, format et statut ; pagination par curseur ;
+- **palette de commandes** (`⌘K` / `Ctrl+K`) : vues, projets, retours récents et
+  actions au clavier, sans quitter la liste ;
 - statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
 - **deux réponses distinctes** par retour : une note interne jamais exposée, et
   une réponse que le reviewer relit dans son widget ;
@@ -141,6 +145,10 @@ http://127.0.0.1:4311/demo.html#project=…&review=…&api=http%3A%2F%2F127.0.0.
 
 Le token reste dans le fragment, est retiré de l'URL après initialisation, et
 part ensuite par en-tête `Authorization` — jamais en query HTTP.
+
+`demo.html` est une boutique fictive (« Atelier Démo ») qui explique au client
+comment tester en trois étapes. Son CSS vit dans `public/demo.css` : servie par
+l'instance, la page reçoit la même CSP `style-src 'self'` que l'administration.
 
 ## Intégrer le widget sur un site
 
@@ -350,11 +358,15 @@ que les deux se disputent l'attention.
 **La typographie.** Geist et Geist Mono, auto-hébergées (SIL OFL 1.1). Chiffres
 tabulaires partout, interlettrage qui se resserre à mesure que le corps grandit.
 
-**La couleur.** Il n'y en a pas. Une rampe de gris, du blanc au noir, et le
+**La couleur.** Presque pas. Une rampe de gris, du blanc au noir, et le
 noir comme couleur d'action — un bouton principal est de l'encre, et s'inverse
-en thème sombre. Deux exceptions, chacune justifiée : le rouge des erreurs et
-des actions destructrices, et les logos des outils dans le parcours de
-connexion — un logo redessiné en gris cesse d'être le logo de cette marque.
+en thème sombre. La teinte n'apparaît que là où elle fait gagner du temps :
+les quatre statuts (bleu à traiter, ambre en cours, cyan à valider, vert
+traité), chacun à 4,5:1 au moins sur son fond, toujours accompagné de son
+libellé ; l'initiale de chaque projet sur une teinte stable ; le rouge des
+erreurs et des actions destructrices ; et les logos des outils dans le
+parcours de connexion — un logo redessiné en gris cesse d'être le logo de
+cette marque.
 
 **Le widget fait exception, exprès.** Côté client, il prend les couleurs de la
 page qui l'accueille : ce n'est pas notre outil qui se montre, c'est le site du
@@ -377,6 +389,8 @@ désigner l'outil que la configuration vise, rien d'autre.
 ```text
 public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
 public/admin.js    interface d'administration (build de src/admin/app.ts)
+src/admin/palette.ts palette de commandes ⌘K, indépendante de l'application
+public/demo.html   page de test fictive (styles dans public/demo.css)
 public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
 public/favicon.svg marque du produit
 src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF

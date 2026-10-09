@@ -102,7 +102,8 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('#screenshot-dialog[open]')).toBeVisible();
   await page.locator('#screenshot-dialog-close').click();
   await expect(page.locator('#screenshot-dialog[open]')).toHaveCount(0);
-  await page.screenshot({ path: 'artifacts/admin-desktop.png', fullPage: true });
+  // The viewport, not the full page: the sticky bar would land mid-image.
+  await page.screenshot({ path: 'artifacts/admin-desktop.png' });
   // --------------------------------------- export the backlog as one prompt
 
   // Still TODO at this point, so it must appear in the export with its anchor,
@@ -498,3 +499,40 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
   await expect(page.getByRole('link', { name: 'Voir la capture privée' })).toBeVisible();
 });
 
+
+test('a reviewer’s text stays text in the collaborative pins on the client page', async ({ page, request }) => {
+  await login(page);
+  const projectName = `XSS ${Date.now()}`;
+  await page.getByRole('button', { name: '＋ Nouveau projet' }).click();
+  await page.getByLabel('Nom').fill(projectName);
+  await page.locator('#project-form [name="clientLabel"]').fill('Agence témoin');
+  await page.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
+  await page.getByRole('button', { name: 'Créer', exact: true }).click();
+  await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Liens reviewer' }).click();
+  await page.getByRole('button', { name: 'Générer un nouveau lien' }).click();
+  await expect(page.locator('#link-output')).toHaveValue(/review=/);
+  const instructions = await page.locator('#link-output').inputValue();
+  const projectId = /project=([0-9a-f-]{36})/.exec(instructions)![1]!;
+  const token = /review=([A-Za-z0-9_-]+)/.exec(instructions)![1]!;
+
+  // Filed straight through the API, as a hostile reviewer holding a link could.
+  const payload = '<img src=x onerror="window.__rdInjected=1">';
+  const filed = await request.post(`${API_ORIGIN}/api/feedback`, {
+    headers: { authorization: `Bearer ${token}`, origin: PREVIEW_ORIGIN },
+    data: {
+      projectId,
+      text: payload,
+      pageUrl: `${PREVIEW_ORIGIN}/demo.html`,
+      anchor: { selector: '#hero-cta', relative: { x: 0.5, y: 0.5 }, viewport: { width: 1280, height: 720 } },
+    },
+  });
+  expect(filed.status()).toBe(201);
+
+  await page.goto(`${PREVIEW_ORIGIN}/demo.html#api=${encodeURIComponent(API_ORIGIN)}&project=${projectId}&review=${token}`);
+  const tip = widget(page).locator('.collab-pin .collab-tip-text');
+  await expect(tip).toHaveText(payload);
+  await expect(widget(page).locator('.collab-pin img')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __rdInjected?: number }).__rdInjected)).toBeUndefined();
+});

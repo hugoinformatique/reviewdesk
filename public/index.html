@@ -19,6 +19,42 @@
   <symbol id="i-brand" viewBox="0 0 24 24">
     <path fill="currentColor" fill-rule="evenodd" d="M7.6 4h8.8a4 4 0 0 1 4 4v4.9a4 4 0 0 1-4 4h-3.8l-3.9 3.5a.7.7 0 0 1-1.2-.5v-3H7.6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Zm4.4 3.9a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Z"/>
   </symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>
+  </symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>
+  </symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>
+  </symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>
+  </symbol>
+  <symbol id="i-zoom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6M11 8v6M8 11h6"/>
+  </symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><circle cx="12" cy="12.5" r="3.5"/>
+  </symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+  </symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"/><circle cx="12" cy="12" r="3"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+  </symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6"/>
+  </symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/>
+  </symbol>
+  <symbol id="i-command" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>
+  </symbol>
   <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/>
   </symbol>
@@ -117,6 +153,25 @@
     <button>Se connecter</button>
     <output></output>
   </form>
+  <!-- Illustration only: what a pinned review looks like, drawn in CSS. -->
+  <div class="login-art" aria-hidden="true">
+    <div class="art-window">
+      <div class="art-bar"><i></i><i></i><i></i><span>preprod.votre-client.fr</span></div>
+      <div class="art-page">
+        <div class="art-line w40"></div>
+        <div class="art-title"></div>
+        <div class="art-title short"></div>
+        <div class="art-line w70"></div>
+        <div class="art-line w55"></div>
+        <div class="art-cta"><span class="art-pin">1</span></div>
+      </div>
+    </div>
+    <div class="art-card">
+      <div class="art-card-head"><span class="art-avatar">C</span><b>Client</b><span class="art-status">À traiter</span></div>
+      <p>Le bouton « Réserver » est trop discret sur mobile.</p>
+      <div class="art-meta"><span>/accueil</span><span>390×844</span><span>Capture jointe</span></div>
+    </div>
+  </div>
 </main>
 
 <div id="app" hidden>
@@ -169,6 +224,11 @@
 
   <div class="shell">
     <aside aria-labelledby="projects-title">
+      <button id="palette-open" class="search-trigger" type="button" aria-keyshortcuts="Control+K Meta+K">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <span>Rechercher…</span>
+        <kbd aria-hidden="true">⌘K</kbd>
+      </button>
       <div class="aside-title" id="projects-title">Projets</div>
       <nav id="projects" aria-labelledby="projects-title"></nav>
       <div class="aside-foot">
@@ -229,6 +289,22 @@
   </div>
 </div>
 
+<dialog id="palette" class="palette" aria-label="Palette de commandes">
+  <div class="palette-field">
+    <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+    <input id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list"
+           aria-autocomplete="list" autocomplete="off" spellcheck="false"
+           placeholder="Aller à un projet, un retour, une action…" aria-label="Rechercher une commande">
+    <kbd aria-hidden="true">Échap</kbd>
+  </div>
+  <div id="palette-list" class="palette-list" role="listbox" aria-label="Résultats"></div>
+  <div class="palette-foot" aria-hidden="true">
+    <span><kbd>↑</kbd><kbd>↓</kbd> naviguer</span>
+    <span><kbd>↵</kbd> ouvrir</span>
+    <span><kbd>⌘K</kbd> fermer</span>
+  </div>
+</dialog>
+
 <dialog id="project-dialog">
   <form id="project-form">
     <div class="dialog-head">
@@ -276,9 +352,9 @@
       </div>
       <p class="note">Intégrez ReviewDesk en une ligne de script sur votre environnement de préproduction, ou partagez un lien direct sans toucher au code.</p>
       <ol class="steps" id="link-wizard-steps">
-        <li data-step="1" class="current">1. Plateforme</li>
-        <li data-step="2">2. Intégration</li>
-        <li data-step="3">3. Vérification</li>
+        <li data-step="1" class="current">Plateforme</li>
+        <li data-step="2">Intégration</li>
+        <li data-step="3">Vérification</li>
       </ol>
     </div>
 
@@ -322,7 +398,7 @@
         <div class="opt-group">
           <label>Thème visuel</label>
           <div class="segmented" id="opt-theme">
-            <button type="button" class="seg-btn active" data-val="auto">Auto (fond)</button>
+            <button type="button" class="seg-btn active" data-val="auto" title="S’adapte à la couleur de fond de la page">Auto</button>
             <button type="button" class="seg-btn" data-val="light">Clair</button>
             <button type="button" class="seg-btn" data-val="dark">Sombre</button>
           </div>
@@ -332,6 +408,19 @@
           <input type="text" id="opt-label-input" placeholder="Faire un retour" maxlength="30">
         </div>
       </div>
+
+      <!-- What the client will see, redrawn as the options change. -->
+      <figure class="widget-preview" id="widget-preview" data-position="bottom-right" data-theme="auto" aria-hidden="true">
+        <div class="wp-bar"><i></i><i></i><i></i><span id="wp-url">preprod.votre-client.fr</span></div>
+        <div class="wp-page">
+          <div class="wp-line w40"></div>
+          <div class="wp-title"></div>
+          <div class="wp-line w70"></div>
+          <div class="wp-line w55"></div>
+        </div>
+        <span class="wp-fab"><svg class="icon"><use href="#i-brand"/></svg><span id="wp-label">Faire un retour</span><kbd>C</kbd></span>
+        <figcaption>Aperçu du bouton chez votre client</figcaption>
+      </figure>
 
       <div id="widget-snippet-container"></div>
     </section>

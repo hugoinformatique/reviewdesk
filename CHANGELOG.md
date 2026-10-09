@@ -15,8 +15,33 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [9.0.0] — 2026-10-09
+
+Refonte de l'interface : administration, widget client et intégration.
+
 ### Ajouté
 
+- Refonte de l'interface, administration et widget (inspirations 21st.dev :
+  « Dashboard Sidebar » et « Popover Form », réécrites sans dépendance).
+- Palette de commandes `⌘K` / `Ctrl+K` (`src/admin/palette.ts`) : vues,
+  projets, retours récents et actions, au clavier, recherche sans accents.
+- Couleurs de statut sémantiques (bleu à traiter, ambre en cours, cyan à
+  valider, vert traité), toutes à 4,5:1 sur leur fond, en clair et en sombre ;
+  avatars de projet (initiale sur une teinte stable par projet).
+- Fiche retour : barre de propriétés (statut coloré, page, écran, date),
+  réponses en cartes « visible par le reviewer » / « interne », diagnostics en
+  tableau clé/valeur, point d'ancrage en carte, journal après le contexte.
+- Assistant d'intégration : aperçu en direct du bouton (position, thème,
+  libellé) et coloration des extraits de code.
+- Écran de connexion en deux colonnes avec une illustration dessinée en CSS.
+- Page de démonstration refaite (« Atelier Démo ») : bandeau explicatif,
+  mode d'emploi en trois étapes, CSS externe `public/demo.css`.
+- Widget : panneau qui naît du bouton, catégories à icônes SVG, compositeur à
+  séparateur pointillé, envoi avec indicateur de chargement, confirmation
+  animée, pastilles de statut dans « Mes retours », bouton œil pour les
+  pastilles de la page.
+- Test E2E de régression : le texte d'un reviewer reste du texte dans les
+  pastilles collaboratives.
 - Tableau de bord : lien « Aller au contenu » en tête de la tabulation, qui
   saute la barre de navigation et le rail des projets.
 - Liste des retours : squelette de chargement au premier affichage, et état
@@ -27,6 +52,14 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Modifié
 
+- Le disque de statut se remplit à mesure que le travail avance (vide « à
+  traiter », plein « traité ») : c'était l'inverse.
+- Widget : styles posés par feuille construite (`adoptedStyleSheets`), avec
+  repli sur `<style>` ; surfaces opaques au lieu du verre translucide.
+- Widget : la couleur `data-accent` passe par `src/brand-tokens.ts`, le texte
+  posé dessus est calculé pour rester lisible sur une teinte claire.
+- Capture « admin-desktop » du README prise sur la fenêtre, et non en pleine
+  page, où la barre collante tombait au milieu de l'image.
 - Le gris de texte le plus clair (`--text-3`) passe à `#6b6b74` en clair et
   `#8b8b94` en sombre, pour atteindre 4,5:1 sur toutes les surfaces (dates,
   compteurs, métadonnées, statut « Traité »).
@@ -38,6 +71,17 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Corrigé
 
+- **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
+  l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
+  lien pouvait exécuter du script sur la page du client chez les autres
+  reviewers. Le nœud est désormais construit en `textContent`.
+- Servie par l'instance (`style-src 'self'`), la page démo perdait ses styles
+  inline et le widget les siens ; elle s'affichait cassée.
+- La pastille de l'élément pointé passait au-dessus du panneau du widget
+  (`z-index` hors limite) et masquait « Localiser » sur mobile.
+- Emojis restants (🔍 📱 💻 📷, chips du widget) remplacés par des icônes.
+- Déclarations `font: … inherit` invalides dans le widget : la police de repli
+  n'était pas celle prévue.
 - Un échec de chargement de la liste au démarrage renvoyait à l'écran de
   connexion alors que la session était valide ; un échec lors d'un changement
   de filtre restait silencieux.
