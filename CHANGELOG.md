@@ -21,6 +21,14 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Ajouté
 
+- Nouveau parcours de l'administration : accueil « Mes projets » (cartes avec
+  aperçu du site, chiffres globaux, retours à traiter en priorité, état des
+  agents), retours d'un projet en tableau Kanban ou en liste (glisser-déposer
+  pour changer de statut), fiche d'un retour en grand par-dessus, guide de
+  création en trois étapes (projet, installation vérifiée en direct, agent
+  IA), adresses par écran (`#/projets`, `#/p/…`, `#/p/…/t/…`).
+- `GET /api/projects` renvoie aussi les retours par statut, le dernier retour,
+  la dernière activité du widget et la dernière capture du projet.
 - Refonte de l'interface, administration et widget (inspirations 21st.dev :
   « Dashboard Sidebar » et « Popover Form », réécrites sans dépendance).
 - Barre du haut sur deux niveaux, à la Vercel (inspiration 21st.dev « Vercel
@@ -81,6 +89,10 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Modifié
 
+- **Rupture d'usage** : la colonne latérale des projets disparaît (accueil
+  « Mes projets », fil d'Ariane et `⌘K` la remplacent) ; l'assistant de marque
+  blanche ne s'ouvre plus de lui-même ; « Liens reviewer » devient
+  « Installer » et « Accès agents » devient « Agents IA ».
 - **Rupture d'usage** : plus de bouton « Enregistrer » commun. Le statut est
   enregistré dès qu'il est choisi, la note interne (ex-« Réponse interne ») a
   son propre bouton, et la réponse au client passe par le compositeur, qui

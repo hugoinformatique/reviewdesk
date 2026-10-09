@@ -294,21 +294,39 @@
     <section class="workspace" id="main-content" tabindex="-1" aria-label="Espace de travail">
       <!-- Home: one card per client site. -->
       <div class="home" id="home" hidden>
-        <header class="home-head">
-          <div>
-            <h2 id="home-title">Mes projets</h2>
-            <p id="home-summary"></p>
+        <div class="home-inner">
+          <header class="home-head">
+            <div>
+              <h2 id="home-title">Mes projets</h2>
+              <p id="home-summary"></p>
+            </div>
+            <div class="home-actions">
+              <button id="all-tickets" class="btn btn-secondary" type="button">
+                <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Tous les retours
+              </button>
+              <button id="new-project" class="btn btn-primary" type="button" aria-label="＋ Nouveau projet">
+                <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span aria-hidden="true">Nouveau projet</span>
+              </button>
+            </div>
+          </header>
+          <div class="home-stats" id="home-stats"></div>
+          <div class="home-layout">
+            <section class="home-projects" aria-labelledby="home-projects-title">
+              <h3 class="home-section-title" id="home-projects-title">Projets</h3>
+              <div class="project-grid" id="project-grid"></div>
+            </section>
+            <aside class="home-side">
+              <section class="home-panel" aria-labelledby="home-queue-title">
+                <div class="home-panel-head">
+                  <h3 class="home-section-title" id="home-queue-title">À traiter en priorité</h3>
+                  <button id="home-queue-all" class="quiet" type="button">Tout voir</button>
+                </div>
+                <div class="home-queue" id="home-queue"></div>
+              </section>
+              <section class="home-panel" id="home-agents"></section>
+            </aside>
           </div>
-          <div class="home-actions">
-            <button id="all-tickets" class="btn btn-secondary" type="button">
-              <svg class="icon" aria-hidden="true"><use href="#i-inbox"/></svg>Tous les retours
-            </button>
-            <button id="new-project" class="btn btn-primary" type="button" aria-label="＋ Nouveau projet">
-              <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span aria-hidden="true">Nouveau projet</span>
-            </button>
-          </div>
-        </header>
-        <div class="project-grid" id="project-grid"></div>
+        </div>
       </div>
 
       <!-- One project (or all of them): the board, or its overview. -->
@@ -324,6 +342,14 @@
         </div>
 
         <div class="config" id="config-tickets">
+          <div class="segmented view-mode" role="group" aria-label="Affichage">
+            <button type="button" class="seg-btn" data-mode="board" aria-pressed="true" title="Colonnes par statut">
+              <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Tableau
+            </button>
+            <button type="button" class="seg-btn" data-mode="list" aria-pressed="false" title="Liste par statut">
+              <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>Liste
+            </button>
+          </div>
           <div class="field-search">
             <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="page-filter" placeholder="Filtrer une page…" aria-label="Filtrer par page">

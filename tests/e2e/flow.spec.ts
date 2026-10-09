@@ -102,6 +102,13 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.locator('#format').selectOption('mobile');
   await expect(ticket).toBeVisible();
   await expect(page.getByRole('link', { name: 'Aller au contenu' })).toHaveAttribute('href', '#main-content');
+  // The same tickets read as a list, and back; the choice is remembered.
+  await page.getByRole('button', { name: 'Liste', exact: true }).click();
+  await expect(page.locator('#board.as-list [data-column="TODO"] .ticket')).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator('#board.as-list')).toBeVisible();
+  await page.getByRole('button', { name: 'Tableau', exact: true }).click();
+  await expect(page.locator('#board.as-list')).toHaveCount(0);
   // The app is one screen tall: the document itself never scrolls.
   expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(800);
   await page.screenshot({ path: 'artifacts/admin-desktop.png' });
@@ -310,7 +317,7 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   await page.goto(`${API_ORIGIN}/`);
   await backInAdmin(page);
   await openProject(page, projectName);
-  await page.getByText('Le libellé du bouton est ambigu').click();
+  await page.locator('.ticket', { hasText: 'Le libellé du bouton est ambigu' }).click();
   await page.getByLabel('Réponse au client').fill('Renommé en « Voir la collection ».');
   await page.getByRole('button', { name: 'Envoyer au client' }).click();
   await expect(page.locator('#toast')).toHaveText('Réponse envoyée au client.');

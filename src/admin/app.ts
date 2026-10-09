@@ -17,6 +17,8 @@ type Project = {
   lastTicketAt: string | null;
   /** Last time a review link of this project was used: the widget is live. */
   widgetSeenAt: string | null;
+  /** Latest screenshot filed on this project, shown as the card's preview. */
+  previewShotId: string | null;
 };
 type Ticket = {
   id: string;
@@ -669,26 +671,66 @@ function guideAgentStep(): HTMLElement[] {
 
 // --------------------------------------------------------------------- home
 
-/** The home grid: one card per client site, with what it needs from you. */
+/**
+ * The home: the state of every client site at a glance, the tickets that wait
+ * the longest, and whether an agent is there to take them.
+ */
 async function renderHome() {
-  const open = projects.reduce((sum, project) => sum + project.todoCount, 0);
+  const sum = (key: 'todoCount' | 'inProgressCount' | 'reviewCount' | 'fixRequestedCount') =>
+    projects.reduce((total, project) => total + project[key], 0);
+  const todo = sum('todoCount');
   $('#home-summary').textContent = projects.length
-    ? `${projects.length} projet${projects.length > 1 ? 's' : ''} · ${open} retour${open > 1 ? 's' : ''} à traiter`
-    : 'Aucun projet pour l’instant.';
+    ? todo
+      ? `${todo} retour${todo > 1 ? 's' : ''} attend${todo > 1 ? 'ent' : ''} une réponse sur ${projects.length} projet${projects.length > 1 ? 's' : ''}.`
+      : `Rien n’attend : ${projects.length} projet${projects.length > 1 ? 's' : ''} à jour.`
+    : 'Créez un premier projet pour recevoir les retours de vos clients.';
+
+  const stats = $('#home-stats');
+  stats.replaceChildren();
+  for (const [label, value, status] of [
+    ['À traiter', todo, 'TODO'],
+    ['En cours', sum('inProgressCount'), 'IN_PROGRESS'],
+    ['À valider', sum('reviewCount'), 'REVIEW'],
+    ['Confiés à un agent', sum('fixRequestedCount'), 'AI'],
+  ] as const) {
+    const tile = el('div', `home-stat ${status}`);
+    const dot = el('span', 'home-stat-dot');
+    dot.setAttribute('aria-hidden', 'true');
+    if (status === 'AI') dot.append(icon('i-sparkle'));
+    tile.append(dot, el('strong', '', String(value)), el('span', '', label));
+    stats.append(tile);
+  }
+
   const grid = $('#project-grid');
-  const agents = await connectedAgentLabels();
-  grid.replaceChildren();
-  for (const project of projects) grid.append(projectCard(project, agents));
+  grid.replaceChildren(...projects.map(projectCard));
   const add = el('button', 'project-card add');
   add.type = 'button';
-  add.append(icon('i-plus'), el('strong', '', 'Nouveau projet'), el('span', '', 'Un site à faire relire par un client'));
+  const plus = el('span', 'add-icon');
+  plus.append(icon('i-plus'));
+  add.append(plus, el('strong', '', 'Nouveau projet'), el('span', '', 'Un site à faire relire par un client'));
   add.onclick = () => openGuide();
   grid.append(add);
+
+  // The side column loads after the grid: the projects never wait for it.
+  const [queue, agents] = await Promise.all([
+    (api('/api/tickets?status=TODO&limit=6') as Promise<{ tickets: Ticket[]; total: number }>).catch(() => null),
+    connectedAgentLabels(),
+  ]);
+  renderHomeQueue(queue);
+  renderHomeAgents(agents);
 }
 
-function projectCard(project: Project, agents: string[]) {
+function hostOf(project: Project) {
+  try {
+    return new URL(project.origins[0] ?? '').host;
+  } catch {
+    return '';
+  }
+}
+
+function projectCard(project: Project) {
   const card = el('article', 'project-card');
-  // The whole card opens the project; the inner buttons sit above that link.
+  // The whole card opens the project; the inner button sits above that link.
   const open = el('a', 'project-card-link');
   open.href = projectHash(project.id);
   open.setAttribute('aria-label', project.name);
@@ -697,35 +739,72 @@ function projectCard(project: Project, agents: string[]) {
     void chooseProject(project.id);
   };
 
-  const head = el('div', 'project-card-head');
+  // A picture of the site: its latest capture, framed as a browser window.
+  const preview = el('div', 'card-preview');
+  const bar = el('div', 'card-preview-bar');
+  bar.append(el('i'), el('i'), el('i'), el('span', '', hostOf(project) || 'adresse à définir'));
+  const view = el('div', 'card-preview-view');
+  if (project.previewShotId) {
+    const img = el('img');
+    img.src = `/api/uploads/${project.previewShotId}`;
+    img.alt = '';
+    img.loading = 'lazy';
+    view.append(img);
+  } else {
+    view.classList.add('empty');
+    view.dataset.hue = projectHue(project.id);
+    view.append(el('span', '', (project.name.trim()[0] ?? '?').toUpperCase()));
+  }
+  preview.append(bar, view);
+  if (project.todoCount) {
+    const pill = el('span', 'card-preview-badge', `${project.todoCount} à traiter`);
+    preview.append(pill);
+  }
+
+  const info = el('div', 'card-info');
   const names = el('div');
   names.append(el('strong', '', project.name), el('span', '', project.clientLabel));
-  head.append(projectAvatar(project.id, project.name), names);
+  info.append(projectAvatar(project.id, project.name), names);
 
-  const counts = el('div', 'project-card-counts');
+  // Where the project stands: the three open statuses as one bar.
+  const open3 = project.todoCount + project.inProgressCount + project.reviewCount;
+  const progress = el('div', 'card-progress');
+  const stack = el('div', 'breakdown-stack slim');
+  stack.setAttribute('aria-hidden', 'true');
   for (const [status, count] of [
     ['TODO', project.todoCount],
     ['IN_PROGRESS', project.inProgressCount],
     ['REVIEW', project.reviewCount],
   ] as const) {
-    const cell = el('span', `count-cell ${status}`);
-    cell.append(el('b', '', String(count)), el('small', '', STATUS_LABELS[status] ?? status));
-    counts.append(cell);
+    if (!count) continue;
+    const part = el('span', `breakdown-fill ${status}`);
+    part.style.flexGrow = String(count);
+    stack.append(part);
   }
-
-  const foot = el('div', 'project-card-foot');
-  const widget = el('span', project.widgetSeenAt ? 'health ok' : 'health');
-  widget.append(
-    icon(project.widgetSeenAt ? 'i-check' : 'i-code'),
-    document.createTextNode(project.widgetSeenAt ? `Widget actif ${formatAge(project.widgetSeenAt)}` : 'Widget pas encore installé'),
+  const legend = el(
+    'span',
+    'card-progress-text',
+    open3
+      ? [
+          project.todoCount ? `${project.todoCount} à traiter` : '',
+          project.inProgressCount ? `${project.inProgressCount} en cours` : '',
+          project.reviewCount ? `${project.reviewCount} à valider` : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : 'Aucun retour en attente',
   );
-  const agent = el('span', agents.length ? 'health ok' : 'health');
-  agent.append(icon('i-sparkle'), document.createTextNode(agents.length ? agents[0]! : 'Pas d’agent IA'));
-  foot.append(widget, agent);
+  progress.append(stack, legend);
 
-  const last = el('span', 'project-card-last', project.lastTicketAt ? `Dernier retour ${formatAge(project.lastTicketAt)}` : 'Aucun retour reçu');
+  const foot = el('div', 'card-foot-line');
+  const widget = el('span', project.widgetSeenAt ? 'mini-health ok' : 'mini-health');
+  widget.title = project.widgetSeenAt ? `Widget actif ${formatAge(project.widgetSeenAt)}` : 'Widget pas encore installé';
+  widget.append(el('span', 'health-dot'), document.createTextNode(project.widgetSeenAt ? 'Widget actif' : 'Widget à installer'));
+  const last = el('span', 'card-last', project.lastTicketAt ? formatAge(project.lastTicketAt) : 'aucun retour');
+  last.title = project.lastTicketAt ? `Dernier retour ${formatDate(project.lastTicketAt)}` : '';
+  foot.append(widget, last);
 
-  card.append(open, head, counts, last, foot);
+  card.append(open, preview, info, progress, foot);
   // What is missing gets a direct way to fix it, right on the card.
   if (!project.widgetSeenAt) {
     const install = el('button', 'btn btn-secondary project-card-cta');
@@ -738,6 +817,59 @@ function projectCard(project: Project, agents: string[]) {
     card.append(install);
   }
   return card;
+}
+
+function renderHomeQueue(page: { tickets: Ticket[]; total: number } | null) {
+  const host = $('#home-queue');
+  host.replaceChildren();
+  if (!page) {
+    host.append(el('p', 'home-empty', 'Liste indisponible pour le moment.'));
+    return;
+  }
+  if (!page.tickets.length) {
+    const done = el('div', 'home-empty');
+    done.append(icon('i-check'), el('span', '', 'Rien à traiter. Tout est à jour.'));
+    host.append(done);
+    return;
+  }
+  for (const ticket of page.tickets) {
+    const row = el('button', 'queue-row');
+    row.type = 'button';
+    const text = el('span', 'queue-text');
+    text.append(el('strong', '', ticket.text), el('small', '', `${ticket.projectName} · ${formatAge(ticket.createdAt)}`));
+    row.append(projectAvatar(ticket.projectId, ticket.projectName), text);
+    row.onclick = () => {
+      sheetOpenedFromBoard = false;
+      void go(projectHash(ticket.projectId, `/t/${ticket.id}`));
+    };
+    host.append(row);
+  }
+}
+
+function renderHomeAgents(agents: string[]) {
+  const host = $('#home-agents');
+  const head = el('div', 'home-panel-head');
+  head.append(el('h3', 'home-section-title', 'Agents IA'));
+  const logos = el('div', 'home-agent-logos');
+  logos.setAttribute('aria-hidden', 'true');
+  for (const mark of ['i-claude', 'i-openai', 'i-cursor', 'i-vscode']) {
+    const tile = el('span');
+    tile.append(icon(mark, 'logo'));
+    logos.append(tile);
+  }
+  const text = el(
+    'p',
+    '',
+    agents.length
+      ? `Connecté : ${agents.join(', ')}. Sur chaque retour, « Lancer la correction » le lui confie.`
+      : 'Branchez Claude Code, Codex, Cursor… en MCP ou par l’API pour leur confier les corrections.',
+  );
+  const action = el('button', agents.length ? 'btn btn-secondary' : 'btn btn-ai');
+  action.type = 'button';
+  action.append(icon('i-sparkle'), document.createTextNode(agents.length ? 'Gérer les agents' : 'Connecter un agent'));
+  action.onclick = () => $<HTMLButtonElement>('#agent-access').click();
+  host.classList.toggle('connected', agents.length > 0);
+  host.replaceChildren(head, logos, text, action);
 }
 
 // -------------------------------------------------------------------- board
@@ -856,12 +988,38 @@ function renderCount() {
   $('#count').textContent = `${open} ouvert${open > 1 ? 's' : ''} · ${totalTickets} au total`;
 }
 
+/** Kanban columns or a stacked list: the same tickets, read two ways. */
+type BoardMode = 'board' | 'list';
+let boardMode: BoardMode = (() => {
+  try {
+    return localStorage.getItem('reviewdesk-board-mode') === 'list' ? 'list' : 'board';
+  } catch {
+    return 'board';
+  }
+})();
+/** Sections folded in the list view; « Traité » starts folded, it only grows. */
+const foldedSections = new Set<string>(['DONE']);
+
+function setBoardMode(mode: BoardMode) {
+  boardMode = mode;
+  try {
+    localStorage.setItem('reviewdesk-board-mode', mode);
+  } catch {
+    // Private mode: the choice lasts for this page.
+  }
+  for (const button of document.querySelectorAll<HTMLElement>('.view-mode [data-mode]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+  }
+  renderBoard();
+}
+
 function renderBoard() {
   if (boardFailed) {
     renderTicketsError();
     return;
   }
   const host = $('#board');
+  host.classList.toggle('as-list', boardMode === 'list');
   const filtered = Boolean($<HTMLInputElement>('#page-filter').value.trim() || $<HTMLSelectElement>('#format').value);
   // A project that has never received anything gets the way to get started
   // instead of four empty columns.
@@ -909,6 +1067,21 @@ function renderColumn(status: (typeof COLUMNS)[number]) {
   dot.setAttribute('aria-hidden', 'true');
   label.append(dot, document.createTextNode(STATUS_LABELS[status] ?? status));
   head.append(label, el('span', 'column-count', String(data.total)));
+  if (boardMode === 'list') {
+    const folded = foldedSections.has(status);
+    column.classList.toggle('folded', folded);
+    const fold = el('button', 'icon-btn column-fold');
+    fold.type = 'button';
+    fold.setAttribute('aria-expanded', String(!folded));
+    fold.setAttribute('aria-label', `${folded ? 'Déplier' : 'Replier'} « ${STATUS_LABELS[status]} »`);
+    fold.append(icon('i-chevron-down'));
+    fold.onclick = () => {
+      if (foldedSections.has(status)) foldedSections.delete(status);
+      else foldedSections.add(status);
+      renderBoard();
+    };
+    head.append(fold);
+  }
 
   const list = el('div', 'column-list');
   for (const ticket of data.tickets) list.append(ticketCard(ticket));
@@ -3431,8 +3604,13 @@ async function refreshOnboarding() {
 
 for (const id of ['client', 'format']) $(`#${id}`).addEventListener('change', () => void loadTickets());
 $('#page-filter').addEventListener('input', scheduleReload);
+for (const button of document.querySelectorAll<HTMLElement>('.view-mode [data-mode]')) {
+  button.setAttribute('aria-pressed', String(button.dataset.mode === boardMode));
+  button.addEventListener('click', () => setBoardMode(button.dataset.mode as BoardMode));
+}
 $('#new-project').addEventListener('click', () => openGuide());
 $('#all-tickets').addEventListener('click', () => void chooseProject(''));
+$('#home-queue-all').addEventListener('click', () => void chooseProject(''));
 $('#crumb-home').addEventListener('click', (event) => {
   event.preventDefault();
   void go('#/projets');

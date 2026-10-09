@@ -221,9 +221,27 @@ il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
 
 ## L'administration
 
-Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. On y crée les projets
-et leurs origines, on génère et révoque les liens reviewer, on filtre et on
-traite les retours.
+Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. Le parcours :
+
+1. **Connexion**, puis, sur une instance vide, le **guide** en trois étapes :
+   créer le projet (nom, client, adresse du site), installer le widget (HTML,
+   Next.js, CMS ou lien direct, avec vérification en direct de la première
+   connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
+   nouveau projet. La marque blanche se règle quand on le souhaite, depuis le
+   menu du compte.
+2. **Mes projets** : une carte par site client (aperçu tiré de la dernière
+   capture, retours par statut, widget actif ou non), les chiffres globaux, les
+   retours à traiter en priorité et l'état des agents IA.
+3. **Un projet** : ses retours en **tableau** (une colonne par statut,
+   glisser-déposer pour changer de statut) ou en **liste** (sections
+   repliables), au choix, mémorisé par le navigateur ; ou sa **vue d'ensemble**.
+4. **Un retour** s'ouvre en grand par-dessus : capture, échanges, réponse au
+   client ou message interne, « Lancer la correction », précédent / suivant
+   (`J` / `K`).
+
+Chaque écran a son adresse (`#/projets`, `#/p/<id>`, `#/p/<id>/stats`,
+`#/p/<id>/t/<ticket>`) : le bouton Retour du navigateur et les liens partagés
+mènent au bon endroit.
 
 ### La vue d'ensemble
 

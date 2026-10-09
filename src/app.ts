@@ -430,7 +430,10 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
               COUNT(t.id) FILTER (WHERE t.status = 'REVIEW') AS "reviewCount",
               COUNT(t.id) FILTER (WHERE t.fix_requested_at IS NOT NULL) AS "fixRequestedCount",
               MAX(t.created_at) AS "lastTicketAt",
-              (SELECT MAX(l.last_used_at) FROM review_links l WHERE l.project_id = p.id) AS "widgetSeenAt"
+              (SELECT MAX(l.last_used_at) FROM review_links l WHERE l.project_id = p.id) AS "widgetSeenAt",
+              -- The latest capture stands in for a preview of the site on its card.
+              (SELECT s.screenshot_id FROM tickets s WHERE s.project_id = p.id AND s.screenshot_id IS NOT NULL
+               ORDER BY s.created_at DESC LIMIT 1) AS "previewShotId"
        FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
        GROUP BY p.id
        ORDER BY p.created_at`,
