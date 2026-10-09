@@ -379,8 +379,10 @@ async function loadTickets() {
     renderTickets();
     renderCount();
     if (!selectedTicket) clearDetail();
+    return true;
   } catch (error) {
     if (!(error instanceof ApiError && error.status === 401)) renderTicketsError();
+    return false;
   } finally {
     list.removeAttribute('aria-busy');
   }
@@ -671,7 +673,10 @@ function openTicket(id: string) {
       // The sidebar badges count open tickets, so a status change moves them.
       projects = await api('/api/projects');
       renderProjects();
-      await loadTickets();
+      if (!(await loadTickets())) {
+        toast('Retour enregistré, mais actualisation indisponible.', 'error');
+        return;
+      }
       openTicket(ticket.id);
       toast('Retour enregistré.');
     } catch {

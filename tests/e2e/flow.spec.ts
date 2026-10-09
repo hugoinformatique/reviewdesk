@@ -194,7 +194,15 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   // The ticket stayed selected behind the dialogs; triage it from there.
   await page.locator('#ticket-status').selectOption('REVIEW');
   await page.getByLabel('Réponse interne').fill('Ajustement prêt à valider');
+  // Preserve the saved reply when the subsequent refresh fails.
+  await page.route('**/api/tickets?*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }));
   await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText('Retours indisponibles', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeEnabled();
+  await expect(page.getByLabel('Réponse interne')).toHaveValue('Ajustement prêt à valider');
+  await page.unroute('**/api/tickets?*');
+  await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
 
   await page.reload();
   await dismissFirstRun(page);
