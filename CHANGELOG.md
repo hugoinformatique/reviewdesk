@@ -34,6 +34,11 @@ Refonte de l'interface : administration, widget client et intégration.
   démarrage compact, graphique d'activité plus haut avec lecture au survol,
   répartition en barre empilée, avancement par projet, pages en barres,
   derniers mouvements en fil.
+- Formulaire de projet simplifié : « Nom du site », « Client » avec
+  suggestion des clients existants, adresses saisies en étiquettes (une URL
+  collée, même avec un chemin, est réduite à son origine ; les adresses
+  invalides sont signalées sous le champ), suggestions discrètes et
+  notification sortante rangée dans « Options avancées ».
 - Palette de commandes `⌘K` / `Ctrl+K` (`src/admin/palette.ts`) : vues,
   projets, retours récents et actions, au clavier, recherche sans accents.
 - Couleurs de statut sémantiques (bleu à traiter, ambre en cours, cyan à
@@ -101,6 +106,9 @@ Refonte de l'interface : administration, widget client et intégration.
   navigateur (Personnalisation et `⌘K` le rouvrent).
 - Vue d'ensemble : dans la hauteur fixe de l'écran, la bande des KPI
   s'écrasait à 2 px (grille sans hauteur de ligne au contenu).
+- Dans le formulaire de projet, tous les boutons (suggestions d'origine,
+  suppression) prenaient le style du bouton principal.
+- Les champs de saisie affichaient deux anneaux de focus superposés.
 - **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
   l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
   lien pouvait exécuter du script sur la page du client chez les autres

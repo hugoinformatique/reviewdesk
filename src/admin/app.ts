@@ -2753,13 +2753,106 @@ function wireWidgetOptions() {
 
   document.querySelectorAll<HTMLButtonElement>('#project-origin-helpers .chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      const textarea = $<HTMLTextAreaElement>('#project-form [name="origins"]');
-      const val = chip.dataset.origin === 'current' ? location.origin : chip.dataset.origin!;
-      const current = textarea.value.trim();
-      if (!current.includes(val)) {
-        textarea.value = current ? `${current}\n${val}` : val;
-      }
+      addOrigin(chip.dataset.origin === 'current' ? location.origin : chip.dataset.origin!);
+      $<HTMLInputElement>('#project-origin-input').focus();
     });
+  });
+}
+
+// ---------------------------------------------------------- project origins
+
+/**
+ * Origins are entered as an address and kept as chips. Whatever is pasted —
+ * a full URL with a path, a bare domain — is reduced to the origin the server
+ * checks, so nobody has to know what an "origin" is.
+ */
+let projectOrigins: string[] = [];
+
+function toOrigin(raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return null;
+  const explicit = /^[a-z][a-z0-9+.-]*:\/\//i.test(value);
+  try {
+    // Without a scheme, a local address means http and anything else https.
+    const local = /^(localhost|127\.|\[?::1|\d+\.\d+\.\d+\.\d+)/i.test(value);
+    const url = new URL(explicit ? value : `${local ? 'http' : 'https'}://${value}`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    // A bare word is a typo, not a site: ask for a domain, localhost or an IP.
+    if (!explicit && !url.hostname.includes('.') && url.hostname !== 'localhost') return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function renderOrigins() {
+  const list = $('#project-origin-chips');
+  list.replaceChildren();
+  for (const origin of projectOrigins) {
+    const item = el('li', 'origin-chip');
+    item.append(el('span', '', origin));
+    const remove = el('button', 'origin-remove');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', `Retirer ${origin}`);
+    remove.append(icon('i-plus'));
+    remove.onclick = () => {
+      projectOrigins = projectOrigins.filter((candidate) => candidate !== origin);
+      renderOrigins();
+      $<HTMLInputElement>('#project-origin-input').focus();
+    };
+    item.append(remove);
+    list.append(item);
+  }
+  $<HTMLInputElement>('#project-origins').value = projectOrigins.join('\n');
+  // Suggestions already taken step aside.
+  for (const chip of document.querySelectorAll<HTMLButtonElement>('#project-origin-helpers .chip')) {
+    const value = chip.dataset.origin === 'current' ? location.origin : chip.dataset.origin!;
+    chip.hidden = projectOrigins.includes(value);
+  }
+}
+
+/** Adds one address; returns false, with the reason shown, when it is not one. */
+function addOrigin(raw: string) {
+  const error = $<HTMLElement>('#project-origin-error');
+  const origin = toOrigin(raw);
+  if (!origin) {
+    error.textContent = `« ${raw.trim()} » n’est pas une adresse web. Exemple : https://preprod.client.fr`;
+    error.hidden = false;
+    return false;
+  }
+  error.hidden = true;
+  if (!projectOrigins.includes(origin)) projectOrigins = [...projectOrigins, origin];
+  renderOrigins();
+  return true;
+}
+
+/** Adds what is typed in the field, one address per line or comma; true if all were valid. */
+function commitOriginInput() {
+  const input = $<HTMLInputElement>('#project-origin-input');
+  const parts = input.value.split(/[\n,;]+/).map((part) => part.trim()).filter(Boolean);
+  const rejected = parts.filter((part) => !addOrigin(part));
+  input.value = rejected.join(' ');
+  return rejected.length === 0;
+}
+
+{
+  const input = $<HTMLInputElement>('#project-origin-input');
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      commitOriginInput();
+    } else if (event.key === 'Backspace' && !input.value && projectOrigins.length) {
+      projectOrigins = projectOrigins.slice(0, -1);
+      renderOrigins();
+    }
+  });
+  input.addEventListener('paste', () => setTimeout(commitOriginInput));
+  input.addEventListener('blur', () => {
+    if (input.value.trim()) commitOriginInput();
+  });
+  // A click anywhere in the box lands in the field, like a real token input.
+  $('#project-origin-box').addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) input.focus();
   });
 }
 
@@ -2935,6 +3028,9 @@ function openProjectDialog(project: Project | null) {
   form.reset();
   form.querySelector('output')!.textContent = '';
   $('#project-dialog-title').textContent = project ? 'Modifier le projet' : 'Nouveau projet';
+  $('#project-dialog-note').textContent = project
+    ? 'Le nom, le client et les adresses où le widget est installé.'
+    : 'Un site à faire relire par votre client. Trois informations suffisent.';
   // Distinct from the detail pane's "Enregistrer" so neither button can be
   // mistaken for the other, by a person or by a test.
   $('#project-submit').textContent = project ? 'Mettre à jour' : 'Créer';
@@ -2945,11 +3041,19 @@ function openProjectDialog(project: Project | null) {
   deleteZone.hidden = !project;
   deletePrompt.hidden = false;
   deleteConfirmBox.hidden = true;
+  projectOrigins = project ? [...project.origins] : [];
+  $<HTMLInputElement>('#project-origin-input').value = '';
+  $<HTMLElement>('#project-origin-error').hidden = true;
+  renderOrigins();
+  // Clients already known are offered as you type: one spelling per client.
+  $('#project-client-suggestions').replaceChildren(
+    ...[...new Set(projects.map((candidate) => candidate.clientLabel))].sort().map((label) => new Option(label)),
+  );
+  $<HTMLDetailsElement>('#project-advanced').open = Boolean(project?.webhookUrl);
 
   if (project) {
     (form.elements.namedItem('name') as HTMLInputElement).value = project.name;
     (form.elements.namedItem('clientLabel') as HTMLInputElement).value = project.clientLabel;
-    (form.elements.namedItem('origins') as HTMLInputElement).value = project.origins.join('\n');
     (form.elements.namedItem('webhookUrl') as HTMLInputElement).value = project.webhookUrl;
   }
   $<HTMLDialogElement>('#project-dialog').showModal();
@@ -2999,10 +3103,19 @@ $('#project-form').addEventListener('submit', async (event) => {
   const fields = new FormData(form);
   const output = form.querySelector('output')!;
   const target = editingProject;
+  // An address typed but not yet turned into a chip still counts.
+  if (!commitOriginInput()) return;
+  if (!projectOrigins.length) {
+    const error = $<HTMLElement>('#project-origin-error');
+    error.textContent = 'Ajoutez au moins une adresse où le widget sera installé.';
+    error.hidden = false;
+    $<HTMLInputElement>('#project-origin-input').focus();
+    return;
+  }
   const body = JSON.stringify({
     name: fields.get('name'),
     clientLabel: fields.get('clientLabel'),
-    origins: String(fields.get('origins')).split(/\s+/).filter(Boolean),
+    origins: projectOrigins,
     webhookUrl: String(fields.get('webhookUrl') ?? '').trim(),
   });
   try {

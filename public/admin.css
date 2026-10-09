@@ -292,7 +292,7 @@ h1, h2, h3 { margin: 0; letter-spacing: -0.02em; font-weight: 600; }
 
 .btn,
 button.quiet,
-#project-form button,
+#project-submit,
 .login button {
   display: inline-flex;
   align-items: center;
@@ -314,13 +314,13 @@ button.quiet,
 .btn:active,
 button.quiet:active,
 .icon-btn:active,
-#project-form button:active,
+#project-submit:active,
 .login button:active { transform: scale(0.97); }
 
 /* A flat black rectangle reads as a placeholder. The gradient and the inner
    highlight are what make it read as a raised, finished control. */
 .btn-primary,
-#project-form button:not(.quiet),
+#project-submit,
 .login button {
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #ffffff), var(--accent));
   color: var(--accent-fg);
@@ -341,7 +341,7 @@ button.quiet,
 
 @media (hover: hover) and (pointer: fine) {
   .btn-primary:hover,
-  #project-form button:not(.quiet):hover,
+  #project-submit:hover,
   .login button:hover {
     background: var(--accent-hover);
     border-color: var(--accent-hover);
@@ -393,6 +393,9 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--ring);
 }
+
+/* A field already draws its own ring; the global outline would double it. */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
 select {
   appearance: none;
@@ -2391,7 +2394,118 @@ dialog > .dialog-body > p, dialog p.note {
   margin: 0 0 16px;
 }
 
-#project-form label { margin: 14px 0; }
+/* Project form ---------------------------------------------------------------
+   Three questions, each with a plain label above its field and one line of
+   help under it. The technical option waits behind « Options avancées ». */
+
+#project-dialog { width: min(520px, calc(100vw - 32px)); }
+#project-form { display: grid; gap: 18px; padding: 24px; }
+#project-form .dialog-actions { margin-top: 4px; }
+
+.project-head { display: flex; align-items: flex-start; gap: 14px; }
+.project-head h2 { font-size: 17px; letter-spacing: -0.02em; margin-bottom: 2px; }
+.project-head .note { margin: 0; }
+
+.dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+}
+
+.dialog-icon .icon { width: 18px; height: 18px; }
+
+.field { display: grid; gap: 7px; }
+.field > label { font-size: 13px; font-weight: 580; color: var(--text); }
+.field > small { font-size: 12px; line-height: 1.5; color: var(--text-3); }
+.field > small kbd { height: 16px; font-size: 10px; }
+.field-error { margin: 0; font-size: 12px; color: var(--danger); }
+.origin-box:has(+ input + .field-error:not([hidden])) { border-color: var(--danger); }
+#project-form .field input:not([type='hidden']) { height: 38px; padding: 0 12px; font-size: 13.5px; border-radius: var(--r); }
+
+/* Addresses as chips inside one field-like box. */
+.origin-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 5px 6px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  cursor: text;
+  transition: border-color 0.12s var(--ease), box-shadow 0.12s var(--ease);
+}
+
+.origin-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+
+.origin-chips { display: contents; margin: 0; padding: 0; list-style: none; }
+
+.origin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--st-todo-soft);
+  color: var(--st-todo);
+  font: 500 12px/1 var(--mono);
+}
+
+.origin-remove {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.origin-remove .icon { width: 13px; height: 13px; transform: rotate(45deg); }
+.origin-remove:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
+
+#project-form .origin-box input {
+  flex: 1;
+  min-width: 180px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+#project-form .origin-box input:focus { box-shadow: none; outline: none; }
+
+.advanced { border-top: 1px solid var(--border); padding-top: 14px; }
+.advanced summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 560;
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced summary::-webkit-details-marker { display: none; }
+.advanced summary::before { content: '›'; display: inline-block; transition: transform 0.15s var(--ease); }
+.advanced[open] summary::before { transform: rotate(90deg); }
+.advanced summary:hover { color: var(--text); }
+.advanced[open] .field { margin-top: 14px; }
 
 dialog output {
   display: block;
@@ -2410,7 +2524,7 @@ dialog output:empty { display: none; }
   border-top: 1px solid var(--border);
 }
 
-#project-form button:not(.quiet) { width: auto; }
+#project-submit { width: auto; }
 
 #link-output {
   font: 11.5px/1.65 var(--mono);
@@ -3118,20 +3232,21 @@ button.mobile-only, .scrim { display: none; }
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
-.origin-helpers .helper-label { font-size: 11px; color: var(--text-3); }
+.origin-helpers .helper-label { font-size: 12px; color: var(--text-3); margin-right: 2px; }
+.origin-helpers .chip::before { content: '+'; margin-right: 4px; color: var(--text-3); }
+.origin-helpers:not(:has(.chip:not([hidden]))) { display: none; }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
+  height: 26px;
+  padding: 0 10px;
+  border: 1px dashed var(--border-2);
   border-radius: var(--r-full);
-  background: var(--surface-2);
-  font-size: 11px;
+  background: transparent;
+  font-size: 12px;
   color: var(--text-2);
   cursor: pointer;
   transition: all 0.12s var(--ease);

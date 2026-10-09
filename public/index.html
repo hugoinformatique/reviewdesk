@@ -366,20 +366,56 @@
 
 <dialog id="project-dialog">
   <form id="project-form">
-    <div class="dialog-head">
-      <h2 id="project-dialog-title">Nouveau projet</h2>
-      <p class="note">Un projet correspond à un site web ou une application. Le widget n’acceptera de retours que depuis les origines listées ici.</p>
+    <div class="dialog-head project-head">
+      <span class="dialog-icon" aria-hidden="true"><svg class="icon"><use href="#i-layout"/></svg></span>
+      <div>
+        <h2 id="project-dialog-title">Nouveau projet</h2>
+        <p class="note" id="project-dialog-note">Un site à faire relire par votre client. Trois informations suffisent.</p>
+      </div>
     </div>
-    <label>Nom<input name="name" placeholder="DEMO Site vitrine" required><small>Le nom visible dans l'administration et les exports.</small></label>
-    <label>Client<input name="clientLabel" placeholder="DEMO Client" required><small>Permet de regrouper et filtrer les retours par client.</small></label>
-    <label>Origines autorisées<textarea name="origins" rows="2" placeholder="http://127.0.0.1:4310&#10;https://staging.monsite.fr" required></textarea><small>Une origine par ligne, avec protocole. Protection CORS et anti-spam.</small></label>
-    <div class="origin-helpers" id="project-origin-helpers">
-      <span class="helper-label">Ajout rapide :</span>
-      <button type="button" class="chip" data-origin="http://localhost:3000">+ localhost:3000</button>
-      <button type="button" class="chip" data-origin="http://localhost:5173">+ localhost:5173 (Vite)</button>
-      <button type="button" class="chip" data-origin="current">+ Origine actuelle</button>
+
+    <div class="field">
+      <label for="project-name">Nom du site</label>
+      <input id="project-name" name="name" placeholder="Site vitrine, boutique, application…" autocomplete="off" required>
     </div>
-    <label>Notification sortante<input name="webhookUrl" placeholder="https://hooks.slack.com/services/…"><small>Optionnel. Un POST JSON à chaque nouveau retour. HTTPS public uniquement.</small></label>
+
+    <div class="field">
+      <label for="project-client">Client</label>
+      <input id="project-client" name="clientLabel" placeholder="Nom de votre client" list="project-client-suggestions" autocomplete="off" required>
+      <datalist id="project-client-suggestions"></datalist>
+      <small>Les projets d’un même client sont regroupés dans la colonne de gauche.</small>
+    </div>
+
+    <div class="field">
+      <label for="project-origin-input" id="project-origins-label">Adresses où le widget sera installé</label>
+      <!-- Origins are collected as chips; the hidden field is what the form sends. -->
+      <div class="origin-box" id="project-origin-box">
+        <ul class="origin-chips" id="project-origin-chips" aria-label="Adresses autorisées"></ul>
+        <input id="project-origin-input" type="text" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="https://preprod.client.fr"
+               aria-label="Adresses où le widget sera installé (origines autorisées)"
+               aria-describedby="project-origin-hint">
+      </div>
+      <input type="hidden" name="origins" id="project-origins">
+      <p class="field-error" id="project-origin-error" role="alert" hidden></p>
+      <small id="project-origin-hint">Collez l’adresse du site, avec ou sans chemin, puis <kbd>Entrée</kbd>. Seules ces adresses pourront envoyer des retours.</small>
+      <div class="origin-helpers" id="project-origin-helpers">
+        <span class="helper-label">Suggestions</span>
+        <button type="button" class="chip" data-origin="current">Cette instance</button>
+        <button type="button" class="chip" data-origin="http://localhost:3000">localhost:3000</button>
+        <button type="button" class="chip" data-origin="http://localhost:5173">localhost:5173</button>
+      </div>
+    </div>
+
+    <details class="advanced" id="project-advanced">
+      <summary>Options avancées</summary>
+      <div class="field">
+        <label for="project-webhook">Notification sortante</label>
+        <input id="project-webhook" name="webhookUrl" placeholder="https://hooks.slack.com/services/…" inputmode="url">
+        <small>Optionnel. Un POST JSON à chaque nouveau retour (Slack, Make, n8n…). HTTPS public uniquement.</small>
+      </div>
+    </details>
+
     <output></output>
     <div class="project-delete-zone" id="project-delete-zone" hidden>
       <div class="project-delete-prompt" id="project-delete-prompt">

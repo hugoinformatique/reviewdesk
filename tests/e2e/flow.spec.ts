@@ -452,7 +452,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
   const projDialog = page.locator('#project-dialog');
   await projDialog.locator('input[name="name"]').fill(projectName);
   await projDialog.locator('input[name="clientLabel"]').fill('DEMO Client Screenshot');
-  await projDialog.locator('textarea[name="origins"]').fill(PREVIEW_ORIGIN);
+  await projDialog.getByLabel('Origines autorisées').fill(PREVIEW_ORIGIN);
   await projDialog.getByRole('button', { name: 'Créer', exact: true }).click();
   await expect(page.getByRole('heading', { name: projectName })).toBeVisible();
 
