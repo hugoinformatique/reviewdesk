@@ -604,6 +604,13 @@ label small { font-weight: 440; color: var(--text-3); font-size: 11.5px; }
 /* minmax(0, 1fr), not auto: a bar wider than the screen must clip or wrap
    inside its column instead of widening the whole page sideways. */
 #app { min-height: 100dvh; grid-template-rows: var(--nav-h) minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); }
+
+/* Beside the list, the app is exactly one screen tall and each pane scrolls on
+   its own: reading a long ticket must not drag the list along with it. */
+@media (min-width: 901px) {
+  #app { height: 100dvh; }
+  .shell, .workspace, .content { min-height: 0; overflow: hidden; }
+}
 #app:not([hidden]) { display: grid; }
 
 .shell {
@@ -1020,7 +1027,6 @@ aside {
 .ticket .summary small > span { flex: none; }
 .ticket .summary small > span:first-child { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; display: block; }
 .ticket .summary small .icon { width: 12px; height: 12px; }
-.ticket-screenshot-badge .icon, .ticket-screenshot-hint .icon { width: 12px; height: 12px; }
 
 .ticket .date {
   grid-area: date;
@@ -1266,22 +1272,24 @@ aside {
 }
 .feed-subject:hover { text-decoration: underline; }
 
-/* Detail pane -------------------------------------------------------------- */
+/* Detail pane ---------------------------------------------------------------
+   Read like a conversation: a sticky bar for what acts on the whole ticket,
+   then the request, what the client saw and the exchange, with a composer at
+   the bottom. Facts and the internal memo sit in a rail beside it, and the
+   rail drops below once the pane is too narrow to share. */
 
 .detail {
   overflow-y: auto;
-  padding: 24px 28px 48px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'head' 'main' 'side' 'log';
-  align-content: start;
-  gap: 22px 32px;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-sunken);
   scrollbar-width: thin;
+  container-type: inline-size;
+  /* Keeps the sticky bar's shadow from being clipped by the first scroll. */
+  scroll-padding-top: 64px;
 }
 
 .detail.empty {
-  display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
@@ -1290,18 +1298,60 @@ aside {
   gap: 10px;
 }
 
-.detail-head { grid-area: head; display: grid; gap: 12px; justify-items: start; }
-.detail-main { grid-area: main; display: grid; gap: 12px; align-content: start; }
-.detail-side { grid-area: side; display: grid; gap: 12px; align-content: start; justify-items: stretch; }
+.detail-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+}
 
-/* Both panes are on screen at once here, so "back to the list" means nothing. */
-.detail-head > .quiet { display: none; }
+@supports not (backdrop-filter: blur(1px)) {
+  .detail-bar { background: var(--bg); }
+}
 
+.detail-bar-spacer { flex: 1; }
+
+/* Beside the list, "back to the list" means nothing; over it, it is the exit. */
+.detail .detail-back { display: none; }
+
+.detail-stepper { display: flex; align-items: center; gap: 2px; }
+.detail-stepper .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.detail-position { margin-left: 6px; font-size: 12px; color: var(--text-3); white-space: nowrap; }
+
+.detail-bar .anchor-link { height: 32px; text-decoration: none; }
+
+.detail-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 24px 24px 0;
+  align-items: start;
+}
+
+@container (min-width: 820px) {
+  .detail-body { grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; padding-inline: 28px; }
+  .detail-rail { position: sticky; top: 76px; }
+}
+
+@container (min-width: 1200px) {
+  .detail-body { grid-template-columns: minmax(0, 860px) 320px; }
+}
+
+.detail-main { display: grid; gap: 20px; min-width: 0; }
+
+.detail-head { display: grid; gap: 10px; justify-items: start; }
 .detail-head .eyebrow { display: inline-flex; align-items: center; gap: 8px; }
 .detail-head .eyebrow .proj { width: 18px; height: 18px; border-radius: 5px; font-size: 10px; }
 
 .detail h2 {
-  font-size: 19px;
+  font-size: 20px;
   line-height: 1.38;
   font-weight: 580;
   letter-spacing: -0.022em;
@@ -1310,29 +1360,10 @@ aside {
   max-width: 62ch;
 }
 
-/* Properties: one row of facts under the title, the status first because it
-   is the one that changes. */
-.props { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.detail-byline { margin: 0; font-size: 12.5px; color: var(--text-3); }
+.detail-byline time { color: var(--text-2); }
 
-.prop {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  max-width: 260px;
-  padding: 0 10px;
-  border-radius: var(--r-full);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.prop .icon { width: 13px; height: 13px; color: var(--text-3); }
-
+/* Status: a pill-shaped select in the status's own ink. */
 .status-field {
   position: relative;
   display: inline-flex;
@@ -1352,13 +1383,13 @@ aside {
 
 .detail .status-field select {
   width: auto;
-  height: 28px;
+  height: 32px;
   padding: 0 28px 0 27px;
   border-radius: var(--r-full);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: inherit;
-  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
   background-color: var(--surface);
 }
 
@@ -1375,60 +1406,142 @@ aside {
 .status-field.DONE .dot { background: currentColor; }
 .status-field select option { color: var(--text); background: var(--surface); }
 
-/* Replies are cards that say who will read them before anything is typed:
-   the reviewer, in the widget, or only the team. */
-.reply-card {
-  display: grid;
-  gap: 0;
-  background: var(--surface);
+/* Conversation ------------------------------------------------------------- */
+
+.conversation { display: grid; gap: 10px; align-content: start; }
+
+.event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.event .icon { width: 14px; height: 14px; }
+.event time::before { content: '·'; margin-right: 8px; }
+
+.thread-empty { color: var(--text-3); font-size: 12.5px; margin: 0; }
+
+.comment {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
+  padding: 11px 14px 12px;
+  background: var(--surface);
   box-shadow: var(--edge), var(--shadow-1);
-  overflow: hidden;
-  transition: border-color 0.14s var(--ease), box-shadow 0.14s var(--ease);
 }
 
-.reply-card:focus-within { border-color: var(--border-2); box-shadow: var(--edge), 0 0 0 3px var(--ring), var(--shadow-1); }
+/* Sent to the client: the one entry with consequences outside the team. */
+.comment.reviewer { border-color: color-mix(in srgb, var(--st-todo) 30%, var(--border)); }
+.comment.internal { background: color-mix(in srgb, var(--surface) 60%, var(--bg-sunken)); border-style: dashed; box-shadow: none; }
 
-.reply-card-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 14px 0;
-  font-size: 12px;
-  font-weight: 580;
+.comment p { margin: 7px 0 0 30px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.comment-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-3); }
+.comment-meta strong { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.comment-meta time { margin-left: auto; }
+
+.comment-avatar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-active);
   color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
-.reply-card-title .icon { width: 13px; height: 13px; color: var(--text-3); }
+/* An agent's entry is marked, so a human never mistakes it for a colleague's. */
+.comment.agent .comment-avatar { background: var(--text); color: var(--bg); }
 
-.detail .reply-card textarea {
-  min-height: 96px;
+.comment-meta .tag {
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.comment-meta .tag.reviewer { background: var(--st-todo-soft); color: var(--st-todo); }
+.comment-meta .tag.move { background: var(--st-review-soft); color: var(--st-review); }
+
+/* Composer: pinned to the bottom of the pane, like a chat box. */
+.composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 0 -4px;
+  padding: 10px 4px 20px;
+  background: var(--bg-sunken);
+}
+
+.composer-tabs { display: flex; gap: 2px; padding: 0 0 8px; }
+
+.composer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--r-full);
   background: transparent;
-  padding: 8px 14px 12px;
-  font-size: 13.5px;
-  box-shadow: none;
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 560;
+  transition: background 0.12s var(--ease), color 0.12s var(--ease);
 }
 
-.reply-card.internal { background: color-mix(in srgb, var(--surface) 70%, var(--bg-sunken)); border-style: dashed; }
+.composer-tab .icon { width: 13px; height: 13px; }
+.composer-tab:hover { color: var(--text); }
+.composer-tab[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: var(--edge), 0 0 0 1px var(--border), var(--shadow-1); }
 
-.detail-actions {
+.composer .comment-draft {
+  display: block;
+  min-height: 92px;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border-bottom: 0;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  resize: none;
+  box-shadow: var(--edge);
+}
+
+.composer .comment-draft:focus { box-shadow: var(--edge); border-color: var(--border-2); }
+
+.composer-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--border-2);
+  border-top: 1px dashed var(--border);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
 }
 
-.detail-actions-hint { font-size: 11.5px; color: var(--text-3); }
+.composer:focus-within .comment-draft,
+.composer:focus-within .composer-foot { border-color: var(--accent); }
 
-/* Context rail: where it happened, what it looked like, what the browser said. */
-.anchor-card {
+.composer-hint { font-size: 12px; color: var(--text-3); }
+.composer-send { height: 32px; }
+
+/* Internal mode is drawn quieter and dashed, so nobody mistakes a note for
+   a message about to reach the client. */
+.composer.internal .comment-draft { background: color-mix(in srgb, var(--surface) 60%, var(--bg-sunken)); border-style: dashed; }
+.composer.internal .composer-foot { background: color-mix(in srgb, var(--surface) 60%, var(--bg-sunken)); border-style: dashed; }
+
+/* Rail ---------------------------------------------------------------------- */
+
+.detail-rail { display: grid; gap: 12px; align-content: start; padding-bottom: 24px; }
+
+.rail-card {
   display: grid;
   gap: 10px;
-  justify-items: start;
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1436,9 +1549,56 @@ aside {
   box-shadow: var(--edge), var(--shadow-1);
 }
 
+.rail-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.rail-title .icon { width: 13px; height: 13px; color: var(--text-3); }
+
+.reply-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--st-todo-soft);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reply-preview.empty { background: var(--surface-2); color: var(--text-3); font-size: 12.5px; }
+
+.rail-card textarea { min-height: 84px; font-size: 13px; }
+.rail-card .btn { justify-self: end; height: 30px; font-size: 12.5px; }
+.rail-card .btn:disabled { opacity: 0.5; cursor: default; }
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 7px 14px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.facts dt { color: var(--text-3); }
+.facts dd { margin: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.facts a { color: inherit; text-decoration: underline; text-decoration-color: var(--border-2); text-underline-offset: 3px; }
+.facts a:hover { text-decoration-color: currentColor; }
+
+.technical summary { cursor: pointer; list-style: none; }
+.technical summary::-webkit-details-marker { display: none; }
+.technical summary::after { content: '+'; margin-left: auto; color: var(--text-3); font-weight: 500; }
+.technical[open] summary::after { content: '−'; }
+.technical:not([open]) { gap: 0; }
+
 .anchor-selector {
   display: block;
-  width: 100%;
   font: 11.5px/1.6 var(--mono);
   color: var(--text-2);
   background: var(--surface-2);
@@ -1449,214 +1609,132 @@ aside {
 
 .detail .diag {
   display: grid;
-  grid-template-columns: minmax(84px, max-content) minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: minmax(70px, max-content) minmax(0, 1fr);
   margin: 0;
   font-size: 12px;
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r);
   overflow: hidden;
 }
 
 .detail .diag dt,
-.detail .diag dd {
-  margin: 0;
-  padding: 7px 12px;
-  border-top: 1px solid var(--border);
-}
-
+.detail .diag dd { margin: 0; padding: 6px 10px; border-top: 1px solid var(--border); }
 .detail .diag dt:first-of-type,
 .detail .diag dt:first-of-type + dd { border-top: 0; }
 .detail .diag dt { color: var(--text-3); }
-.detail .diag dd { font-family: var(--mono); font-size: 11.5px; color: var(--text-2); overflow-wrap: anywhere; }
-
-.detail .diag-empty {
-  display: block;
-  padding: 11px 13px;
-  font-size: 12.5px;
-  color: var(--text-3);
-}
-
-.detail a:not(.btn) {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text);
-  font-size: 12.5px;
-  font-weight: 530;
-  text-decoration: none;
-  border-bottom: 1px solid var(--border-2);
-  padding-bottom: 1px;
-}
-
-.detail a:not(.btn):hover { border-bottom-color: var(--text); }
+.detail .diag dd { font-family: var(--mono); font-size: 11px; color: var(--text-2); overflow-wrap: anywhere; }
+.detail .diag-empty { display: block; padding: 10px 12px; font-size: 12.5px; color: var(--text-3); }
 
 .load-more { margin: 10px auto 4px; }
 
-.anchor-link { text-decoration: none; }
-
-/* Ticket screenshot card & Lightbox --------------------------------------- */
+/* Screenshot ---------------------------------------------------------------
+   What the client saw, as wide as the column, caption and actions below. */
 
 .ticket-screenshot-card {
+  margin: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r);
-  overflow: hidden;
-  display: grid;
-  gap: 0;
+  border-radius: var(--r-lg);
   box-shadow: var(--edge), var(--shadow-1);
+  overflow: hidden;
 }
 
 .ticket-screenshot-card.empty {
-  padding: 14px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
   color: var(--text-3);
-  text-align: center;
-  background: var(--surface-2);
+  font-size: 12.5px;
+  box-shadow: none;
   border-style: dashed;
-}
-
-.ticket-screenshot-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 12px;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border-2);
-}
-
-.ticket-screenshot-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text);
-  font-weight: 560;
-}
-
-.ticket-screenshot-title svg {
-  width: 14px;
-  height: 14px;
-  color: var(--text-2);
-}
-
-.ticket-screenshot-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-zoom-screenshot {
-  all: unset;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 560;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 2.5px 7px;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.btn-zoom-screenshot:hover {
-  background: var(--surface-3);
-  border-color: var(--border-strong);
-}
-
-/* `all: unset` above also wipes the global focus ring: give it back. */
-.btn-zoom-screenshot:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.ticket-screenshot-card .screenshot-tab-link {
-  font-size: 11.5px;
-  color: var(--text-2);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.ticket-screenshot-card .screenshot-tab-link:hover {
-  color: var(--text);
-  border-bottom-color: var(--text);
+  background: transparent;
 }
 
 .ticket-screenshot-wrap {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 280px;
-  background: #09090b;
-  cursor: zoom-in;
+  display: block;
+  max-height: 460px;
   overflow: hidden;
-  display: grid;
-  place-items: center;
-  margin: 0;
+  cursor: zoom-in;
+  background: var(--surface-2);
 }
 
 .ticket-screenshot-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
   display: block;
-  transition: transform 0.2s var(--ease);
+  width: 100%;
+  height: auto;
+  transition: transform 0.4s var(--ease);
 }
 
-.ticket-screenshot-wrap:hover .ticket-screenshot-preview {
-  transform: scale(1.025);
-}
-
-.ticket-screenshot-badge {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(9, 9, 11, 0.82);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: #fafafa;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font: 600 10.5px/1 var(--sans);
-  padding: 5px 9px;
-  border-radius: var(--r-full);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-}
+.ticket-screenshot-wrap:hover .ticket-screenshot-preview { transform: scale(1.01); }
 
 .ticket-screenshot-hint {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(9, 9, 11, 0.72);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: #f4f4f5;
+  top: 10px;
+  right: 10px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: var(--r-full);
+  background: rgba(9, 9, 11, 0.74);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #f4f4f5;
+  font-size: 11px;
+  font-weight: 560;
   opacity: 0;
   transition: opacity 0.18s ease;
   pointer-events: none;
 }
 
-.ticket-screenshot-wrap:hover .ticket-screenshot-hint {
-  opacity: 1;
+.ticket-screenshot-hint .icon { width: 12px; height: 12px; }
+.ticket-screenshot-wrap:hover .ticket-screenshot-hint { opacity: 1; }
+
+.ticket-screenshot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
 }
+
+.ticket-screenshot-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.ticket-screenshot-title .icon { width: 13px; height: 13px; color: var(--text-3); }
+
+.ticket-screenshot-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+.btn-zoom-screenshot,
+.ticket-screenshot-card .screenshot-tab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 540;
+  text-decoration: none;
+}
+
+.btn-zoom-screenshot .icon,
+.ticket-screenshot-card .screenshot-tab-link .icon { width: 13px; height: 13px; }
+
+.btn-zoom-screenshot:hover,
+.ticket-screenshot-card .screenshot-tab-link:hover { background: var(--surface-hover); color: var(--text); }
 
 .screenshot-dialog {
   max-width: 94vw;
@@ -1738,38 +1816,6 @@ aside {
   border-radius: var(--r);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
 }
-
-/* Work log ----------------------------------------------------------------- */
-
-.thread { grid-area: log; padding-top: 20px; border-top: 1px solid var(--border); display: grid; gap: 10px; align-content: start; }
-.thread-empty { color: var(--text-3); font-size: 12.5px; margin: 0; }
-
-.comment {
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 10px 12px;
-  background: var(--surface);
-  box-shadow: var(--edge), var(--shadow-1);
-}
-
-/* An agent's entry is marked, so a human never mistakes it for a colleague's. */
-.comment.agent { border-left: 2px solid var(--text); }
-.comment p { margin: 6px 0 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-.comment-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-3); }
-.comment-meta strong { font-size: 12.5px; font-weight: 580; color: var(--text-2); }
-.comment-meta .tag {
-  border: 1px solid var(--border-2);
-  border-radius: var(--r-full);
-  padding: 1px 7px;
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.comment-meta .move { color: var(--text-2); }
-
-.comment-draft { min-height: 72px; font-size: 13px; border-radius: var(--r-lg); padding: 10px 14px; box-shadow: var(--edge), var(--shadow-1); }
-.comment-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.comment-actions select { width: auto; min-width: 170px; height: 32px; padding-block: 0; font-size: 12.5px; }
 
 /* Command palette ---------------------------------------------------------- */
 
@@ -2163,29 +2209,11 @@ dialog output:empty { display: none; }
 @media (min-width: 1500px) {
   .content { grid-template-columns: minmax(360px, 520px) minmax(0, 1fr); }
   .config { padding-inline: 26px; }
-  .detail { padding: 26px 30px 48px; }
-}
-
-@media (min-width: 1750px) {
-  /* The detail splits: act on the left, context on the right.
-     Both tracks are capped and packed to the start, so the slack ends up as one
-     margin on the right rather than as a gap between the two panes. */
-  .detail:not(.empty) {
-    grid-template-columns: minmax(0, 900px) minmax(320px, 440px);
-    grid-template-areas: 'head head' 'main side' 'log side';
-    grid-template-rows: auto auto 1fr;
-    justify-content: start;
-  }
-  .detail-side {
-    border-left: 1px solid var(--border);
-    padding-left: 28px;
-  }
 }
 
 @media (min-width: 2300px) {
   :root { --sidebar-w: 280px; }
   .content { grid-template-columns: minmax(440px, 760px) minmax(0, 1fr); }
-  .detail:not(.empty) { grid-template-columns: minmax(0, 1120px) minmax(380px, 560px); }
   /* Rows get room for the date and the status on one line instead of stacking. */
   .ticket {
     grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -2200,7 +2228,6 @@ dialog output:empty { display: none; }
    rail, never on the prose columns. */
 @media (min-width: 3000px) {
   .content { grid-template-columns: minmax(440px, 880px) minmax(0, 1fr); }
-  .detail:not(.empty) { grid-template-columns: minmax(0, 1280px) minmax(420px, 680px); }
   .ticket .summary strong { -webkit-line-clamp: 1; }
 }
 
@@ -2265,10 +2292,14 @@ button.mobile-only, .scrim { display: none; }
     position: fixed;
     inset: var(--nav-h) 0 0;
     z-index: 30;
-    padding: 16px 16px 40px;
   }
+  .detail-body { padding: 16px 16px 0; }
   .detail.empty { display: none; }
-  .detail-head > .quiet { display: inline-flex; }
+  .detail .detail-back { display: inline-flex; }
+  .detail-bar { padding-inline: 12px; }
+  .detail-position { display: none; }
+  .detail-bar .anchor-link { width: 36px; padding: 0; }
+  .detail-bar .anchor-link span, .composer-hint { display: none; }
 }
 
 /* Phone width: one bar no longer holds menu, brand, views, title and seven
@@ -3040,9 +3071,8 @@ button.mobile-only, .scrim { display: none; }
 @keyframes grow { from { transform: scaleY(0.02); } to { transform: scaleY(1); } }
 
 .detail:not(.empty) { animation: fade 0.18s var(--ease) both; }
-.detail-head, .detail-main, .detail-side { animation: rise 0.24s var(--ease) backwards; }
-.detail-main { animation-delay: 30ms; }
-.detail-side { animation-delay: 60ms; }
+.detail-main, .detail-rail { animation: rise 0.24s var(--ease) backwards; }
+.detail-rail { animation-delay: 50ms; }
 
 /* Modals scale from their own centre: they are not anchored to a trigger. */
 dialog[open] { animation: pop 0.2s var(--ease); }

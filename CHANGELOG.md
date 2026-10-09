@@ -28,9 +28,12 @@ Refonte de l'interface : administration, widget client et intégration.
 - Couleurs de statut sémantiques (bleu à traiter, ambre en cours, cyan à
   valider, vert traité), toutes à 4,5:1 sur leur fond, en clair et en sombre ;
   avatars de projet (initiale sur une teinte stable par projet).
-- Fiche retour : barre de propriétés (statut coloré, page, écran, date),
-  réponses en cartes « visible par le reviewer » / « interne », diagnostics en
-  tableau clé/valeur, point d'ancrage en carte, journal après le contexte.
+- Fiche retour repensée comme une conversation : barre fixe (retour
+  précédent/suivant, statut, « Ouvrir au point d'ancrage »), capture en grand,
+  fil des échanges, puis un compositeur unique « Répondre au client » /
+  « Message interne » (`⌘↵` / `Ctrl+↵` pour envoyer). Une colonne latérale
+  montre ce que voit le client, la note interne, le contexte (page, écran,
+  navigateur) et, repliés, le sélecteur et les diagnostics.
 - Assistant d'intégration : aperçu en direct du bouton (position, thème,
   libellé) et coloration des extraits de code.
 - Écran de connexion en deux colonnes avec une illustration dessinée en CSS.
@@ -52,6 +55,10 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Modifié
 
+- **Rupture d'usage** : plus de bouton « Enregistrer » commun. Le statut est
+  enregistré dès qu'il est choisi, la note interne (ex-« Réponse interne ») a
+  son propre bouton, et la réponse au client passe par le compositeur, qui
+  l'inscrit aussi dans le fil.
 - Le disque de statut se remplit à mesure que le travail avance (vide « à
   traiter », plein « traité ») : c'était l'inverse.
 - Widget : styles posés par feuille construite (`adoptedStyleSheets`), avec
@@ -71,6 +78,12 @@ Refonte de l'interface : administration, widget client et intégration.
 
 ### Corrigé
 
+- Sur ordinateur, faire défiler la fiche d'un retour faisait aussi défiler
+  la liste : c'était la page entière qui défilait. Chaque colonne défile
+  désormais seule.
+- L'assistant de personnalisation revenait à chaque chargement tant qu'il
+  n'était pas terminé ; « Configurer plus tard » est maintenant retenu par le
+  navigateur (Personnalisation et `⌘K` le rouvrent).
 - **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
   l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
   lien pouvait exécuter du script sur la page du client chez les autres

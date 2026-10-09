@@ -18,6 +18,16 @@ async function login(page: Page) {
  * the first-run wizard covers the dashboard on every load. « Plus tard »
  * leaves it incomplete on purpose; the wizard itself is covered elsewhere.
  */
+/**
+ * Back on the dashboard in a browser that already postponed the setup: the
+ * wizard must stay away instead of covering the dashboard on every load.
+ */
+async function backInAdmin(page: Page) {
+  await expect(page.locator('#project-title')).toHaveText('Tous les retours');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('dialog', { name: 'Personnalisation de l’instance' })).toBeHidden();
+}
+
 async function dismissFirstRun(page: Page) {
   const setup = page.getByRole('dialog', { name: 'Personnalisation de l’instance' });
   await setup.getByRole('button', { name: 'Configurer plus tard' }).click();
@@ -77,7 +87,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`${API_ORIGIN}/`);
-  await dismissFirstRun(page);
+  await backInAdmin(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
 
   const ticket = page.getByText('Rendre ce bouton plus visible sur mobile');
@@ -98,11 +108,18 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('.ticket[aria-current="true"]')).toHaveCount(1);
   await expect(page.locator('.ticket[aria-current="true"]')).toBeFocused();
   await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();
+  // Each pane scrolls on its own: the document itself never does, so reading
+  // a long ticket cannot drag the list along.
+  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, pane.scrollHeight));
+  expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+  expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(800);
+  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, 0));
   await page.locator('.ticket-screenshot-wrap').click();
   await expect(page.locator('#screenshot-dialog[open]')).toBeVisible();
   await page.locator('#screenshot-dialog-close').click();
   await expect(page.locator('#screenshot-dialog[open]')).toHaveCount(0);
   // The viewport, not the full page: the sticky bar would land mid-image.
+  await page.locator('#detail').evaluate((pane) => pane.scrollTo(0, 0));
   await page.screenshot({ path: 'artifacts/admin-desktop.png' });
   // --------------------------------------- export the backlog as one prompt
 
@@ -122,10 +139,12 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
 
   // ------------------------------------------ the work log, from the admin
 
-  await page.locator('.comment-draft').fill('Vu avec le client : on garde l’orange.');
-  await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
+  await page.getByRole('button', { name: 'Message interne' }).click();
+  await page.getByLabel('Message pour l’équipe').fill('Vu avec le client : on garde l’orange.');
+  await page.getByRole('button', { name: 'Ajouter au fil' }).click();
   await expect(page.locator('.comment')).toContainText('Vu avec le client');
   await expect(page.locator('.comment-meta')).toContainText('Équipe');
+  await expect(page.locator('.comment-meta')).toContainText('Interne');
 
   // ------------------------------------------------------- the overview
 
@@ -193,24 +212,27 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.getByRole('button', { name: 'Retours', exact: true }).click();
 
   // The ticket stayed selected behind the dialogs; triage it from there.
+  // A status is saved the moment it is picked.
   await page.locator('#ticket-status').selectOption('REVIEW');
-  await page.getByLabel('Réponse interne').fill('Ajustement prêt à valider');
-  // Preserve the saved reply when the subsequent refresh fails.
+  await expect(page.locator('#toast')).toHaveText('Statut : À valider.');
+  await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
+  await page.getByLabel('Note interne').fill('Ajustement prêt à valider');
+  // Preserve the saved note when the subsequent refresh fails.
   await page.route('**/api/tickets?*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }));
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await page.getByRole('button', { name: 'Enregistrer la note' }).click();
   await expect(page.getByText('Retours indisponibles', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Enregistrer' })).toBeEnabled();
-  await expect(page.getByLabel('Réponse interne')).toHaveValue('Ajustement prêt à valider');
+  await expect(page.locator('#toast')).toHaveText('Note enregistrée, mais actualisation indisponible.');
+  await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
   await page.unroute('**/api/tickets?*');
   await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
   await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
 
   await page.reload();
-  await dismissFirstRun(page);
+  await backInAdmin(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
   await expect(page.locator('.ticket .status.REVIEW')).toHaveText('À valider');
   await page.getByText('Rendre ce bouton plus visible sur mobile').click();
-  await expect(page.getByLabel('Réponse interne')).toHaveValue('Ajustement prêt à valider');
+  await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
 
   // ------------------------------------------------------ revoke the link
 
@@ -298,13 +320,15 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   // ------------------------------------------- the admin answers the reviewer
 
   await page.goto(`${API_ORIGIN}/`);
-  await dismissFirstRun(page);
+  await backInAdmin(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
   await page.getByText('Le libellé du bouton est ambigu').click();
-  await page.getByLabel('Réponse visible par le reviewer').fill('Renommé en « Voir la collection ».');
+  await page.getByLabel('Réponse au client').fill('Renommé en « Voir la collection ».');
+  await page.getByRole('button', { name: 'Envoyer au client' }).click();
+  await expect(page.locator('#toast')).toHaveText('Réponse envoyée au client.');
+  await expect(page.locator('.reply-preview')).toHaveText('Renommé en « Voir la collection ».');
   await page.locator('#ticket-status').selectOption('DONE');
-  await page.getByRole('button', { name: 'Enregistrer' }).click();
-  await expect(page.locator('#toast')).toHaveText('Retour enregistré.');
+  await expect(page.locator('#toast')).toHaveText('Statut : Traité.');
 
   // The deep link is what makes the tool visual rather than a list of selectors.
   const anchorHref = await page.getByRole('link', { name: 'Ouvrir au point d’ancrage' }).getAttribute('href');
@@ -483,7 +507,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
 
   // 3. Admin verifies both tickets have screenshot attached and visible
   await page.goto(`${API_ORIGIN}/`);
-  await dismissFirstRun(page);
+  await backInAdmin(page);
   await page.getByRole('button', { name: projectName, exact: true }).click();
 
   const ticket1 = page.getByText('Test capture avec styles OKLCH');

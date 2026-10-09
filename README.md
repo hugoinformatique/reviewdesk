@@ -86,8 +86,10 @@ au même endroit.
 - **palette de commandes** (`⌘K` / `Ctrl+K`) : vues, projets, retours récents et
   actions au clavier, sans quitter la liste ;
 - statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
-- **deux réponses distinctes** par retour : une note interne jamais exposée, et
-  une réponse que le reviewer relit dans son widget ;
+- **fiche en conversation** : la capture, le fil des échanges et un seul
+  compositeur, « Répondre au client » (relu dans le widget) ou « Message
+  interne » ; une note interne jamais exposée ; statut enregistré dès qu'il
+  est choisi ;
 - **retour au point d'ancrage** : un lien rouvre la préproduction, épingle reposée ;
 - **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
   avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un

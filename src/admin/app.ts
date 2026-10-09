@@ -268,16 +268,41 @@ async function openBrandingWizard(mode: 'first-run' | 'settings') {
       }) as Promise<PublicBranding>,
     onClose: (branding) => {
       if (branding) toast('Personnalisation appliquée.');
+      // « Configurer plus tard » means later, not on every reload: the takeover
+      // steps aside for good in this browser. Personnalisation (and ⌘K) still
+      // reopen it at any time.
+      else if (mode === 'first-run') rememberSetupPostponed();
     },
   });
 }
 
-/** The takeover only fires while the instance has never been configured. */
+const SETUP_POSTPONED_KEY = 'reviewdesk-setup-postponed';
+
+function setupPostponed() {
+  try {
+    return localStorage.getItem(SETUP_POSTPONED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function rememberSetupPostponed() {
+  try {
+    localStorage.setItem(SETUP_POSTPONED_KEY, '1');
+  } catch {
+    // Private mode or blocked storage: the wizard comes back next load.
+  }
+}
+
+/**
+ * The takeover only fires while the instance has never been configured, and
+ * only until it has been postponed once.
+ */
 async function maybeOpenSetup() {
   try {
     const branding = await fetchPublicBranding();
     applyBranding(branding);
-    if (!branding.setupComplete) await openBrandingWizard('first-run');
+    if (!branding.setupComplete && !setupPostponed()) await openBrandingWizard('first-run');
   } catch {
     // Branding is decoration: a failure here must never block the dashboard.
   }
@@ -645,243 +670,204 @@ function openTicket(id: string) {
   detail.className = 'detail';
   detail.replaceChildren();
 
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'quiet';
-  close.append(icon('i-back'), document.createTextNode('Liste'));
-  close.onclick = closeDetail;
-  const eyebrow = document.createElement('div');
-  eyebrow.className = 'eyebrow';
-  eyebrow.append(
-    projectAvatar(ticket.projectId, ticket.projectName),
-    document.createTextNode(`${ticket.clientLabel} · ${ticket.projectName}`),
-  );
-  const heading = document.createElement('h2');
-  heading.textContent = ticket.text;
+  const index = tickets.findIndex((candidate) => candidate.id === id);
+  const mobile = ticket.viewportWidth < 768;
+  const { selector, relative, viewport } = ticket.anchor;
+
+  // ------------------------------------------------------------ action bar
+  // Everything that acts on the ticket as a whole stays in one sticky bar:
+  // where it sits in the list, its status, and the way to go and look at it.
+
+  const back = el('button', 'quiet detail-back');
+  back.type = 'button';
+  back.append(icon('i-back'), document.createTextNode('Liste'));
+  back.onclick = closeDetail;
+
+  const stepper = el('div', 'detail-stepper');
+  const prev = el('button', 'icon-btn');
+  prev.type = 'button';
+  prev.setAttribute('aria-label', 'Retour précédent');
+  prev.title = 'Précédent (K)';
+  prev.append(icon('i-chevron-up'));
+  prev.disabled = index <= 0;
+  prev.onclick = () => moveSelection(-1);
+  const next = el('button', 'icon-btn');
+  next.type = 'button';
+  next.setAttribute('aria-label', 'Retour suivant');
+  next.title = 'Suivant (J)';
+  next.append(icon('i-chevron-down'));
+  next.disabled = index >= tickets.length - 1;
+  next.onclick = () => moveSelection(1);
+  stepper.append(prev, next, el('span', 'detail-position', `${index + 1} sur ${totalTickets || tickets.length}`));
 
   const select = document.createElement('select');
-  // Identified because the pane now holds a second select (the comment's scope).
+  // Identified because the pane holds other fields; named for screen readers.
   select.id = 'ticket-status';
   select.setAttribute('aria-label', 'Statut');
   for (const [value, label] of Object.entries(STATUS_LABELS)) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    option.selected = value === ticket.status;
+    const option = new Option(label, value, false, value === ticket.status);
     select.append(option);
   }
-  // The control wears the colour of the status it will save, as it is chosen.
-  const statusField = document.createElement('span');
-  statusField.className = `status-field ${ticket.status}`;
-  const statusDot = document.createElement('span');
-  statusDot.className = 'dot';
+  // The control wears the colour of its status, and saves as soon as it moves:
+  // a status is a decision, not a draft.
+  const statusField = el('span', `status-field ${ticket.status}`);
+  const statusDot = el('span', 'dot');
   statusDot.setAttribute('aria-hidden', 'true');
   statusField.append(statusDot, select);
-  select.onchange = () => {
-    statusField.className = `status-field ${select.value}`;
+  select.onchange = async () => {
+    const previous = ticket.status;
+    const chosen = select.value;
+    statusField.className = `status-field ${chosen}`;
+    select.disabled = true;
+    try {
+      await api(`/api/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify({ status: chosen }) });
+      ticket.status = chosen;
+      toast(`Statut : ${STATUS_LABELS[chosen] ?? chosen}.`);
+    } catch {
+      select.value = previous;
+      statusField.className = `status-field ${previous}`;
+      toast('Statut non enregistré.', 'error');
+      return;
+    } finally {
+      select.disabled = false;
+    }
+    // The sidebar badges count open tickets, so a status change moves them.
+    try {
+      projects = await api('/api/projects');
+      renderProjects();
+    } catch {
+      // Badges catch up on the next refresh.
+    }
+    await loadTickets();
   };
 
   // The whole point of a visual feedback tool: go and look at the spot rather
   // than decode a CSS selector by hand.
-  const openAnchor = document.createElement('a');
-  openAnchor.className = 'btn btn-secondary anchor-link';
+  const openAnchor = el('a', 'btn btn-primary anchor-link');
   openAnchor.href = anchorUrl(ticket);
   openAnchor.target = '_blank';
   openAnchor.rel = 'noreferrer';
-  openAnchor.append(icon('i-target'), document.createTextNode('Ouvrir au point d’ancrage'));
+  openAnchor.title = 'Rouvre la page avec l’épingle reposée sur l’élément';
+  // Named here too: on a phone the visible label folds away to the icon.
+  openAnchor.setAttribute('aria-label', 'Ouvrir au point d’ancrage');
+  openAnchor.append(icon('i-target'), el('span', '', 'Ouvrir au point d’ancrage'));
 
-  const { selector, relative, viewport } = ticket.anchor;
-  const mobile = ticket.viewportWidth < 768;
-  const prop = (iconId: string, text: string, title = text) => {
-    const chip = el('span', 'prop');
-    chip.title = title;
-    chip.append(icon(iconId), document.createTextNode(text));
-    return chip;
-  };
-  const props = el('div', 'props');
-  props.append(
-    statusField,
-    prop('i-file', new URL(ticket.pageUrl).pathname, ticket.pageUrl),
-    prop(mobile ? 'i-phone' : 'i-monitor', `${viewport.width}×${viewport.height}`, mobile ? 'Mobile' : 'Desktop'),
-    prop('i-clock', formatAge(ticket.createdAt), formatDate(ticket.createdAt)),
+  const bar = el('div', 'detail-bar');
+  bar.append(back, stepper, el('span', 'detail-bar-spacer'), statusField, openAnchor);
+
+  // ------------------------------------------------------------ main column
+
+  const eyebrow = el('div', 'eyebrow');
+  eyebrow.append(
+    projectAvatar(ticket.projectId, ticket.projectName),
+    document.createTextNode(`${ticket.clientLabel} · ${ticket.projectName}`),
   );
+  const heading = el('h2', '', ticket.text);
+  const byline = el('p', 'detail-byline');
+  const received = el('time', '', formatAge(ticket.createdAt));
+  received.dateTime = ticket.createdAt;
+  received.title = formatDate(ticket.createdAt);
+  byline.append(
+    document.createTextNode('Envoyé par le client '),
+    received,
+    document.createTextNode(` · ${new URL(ticket.pageUrl).pathname} · ${mobile ? 'mobile' : 'ordinateur'}`),
+  );
+  const head = el('header', 'detail-head');
+  head.append(eyebrow, heading, byline);
 
-  const reply = document.createElement('textarea');
-  reply.value = ticket.replyText;
-  reply.maxLength = 4000;
-  reply.placeholder = 'Ce texte apparaît dans le widget, côté reviewer.';
+  const main = el('div', 'detail-main');
+  main.append(head, screenshotFigure(ticket));
 
-  const textarea = document.createElement('textarea');
-  textarea.value = ticket.response;
-  textarea.maxLength = 4000;
-  textarea.placeholder = 'Visible par l’équipe et les agents connectés uniquement.';
+  const conversation = el('section', 'conversation');
+  conversation.setAttribute('aria-label', 'Échanges');
+  void renderConversation(ticket, conversation);
 
-  /** A reply field drawn as a card: who will read it is said before the text. */
-  const replyCard = (text: string, iconId: string, control: HTMLTextAreaElement, variant: string) => {
-    const label = document.createElement('label');
-    label.className = `reply-card ${variant}`;
-    const title = el('span', 'reply-card-title');
-    title.append(icon(iconId), document.createTextNode(text));
-    label.append(title, control);
-    return label;
+  // ------------------------------------------------------------ side rail
+
+  const replyPreview = el('p', 'reply-preview');
+  const showReply = (text: string) => {
+    replyPreview.classList.toggle('empty', !text);
+    replyPreview.textContent = text || 'Pas encore de réponse.';
   };
+  showReply(ticket.replyText);
+  const replyCard = el('section', 'rail-card');
+  replyCard.append(railTitle('i-eye', 'Ce que voit le client'), replyPreview);
 
-  const save = document.createElement('button');
-  save.type = 'button';
-  save.className = 'btn btn-primary';
-  save.textContent = 'Enregistrer';
-  save.onclick = async () => {
-    save.disabled = true;
+  main.append(conversation, composer(ticket, conversation, showReply));
+
+  const note = document.createElement('textarea');
+  note.id = 'ticket-note';
+  note.value = ticket.response;
+  note.maxLength = 4000;
+  note.placeholder = 'Un mémo pour l’équipe et les agents, jamais montré au client.';
+  const noteLabel = el('label', 'rail-title');
+  noteLabel.htmlFor = 'ticket-note';
+  noteLabel.append(icon('i-lock'), document.createTextNode('Note interne'));
+  const saveNote = el('button', 'btn btn-secondary', 'Enregistrer la note');
+  saveNote.type = 'button';
+  saveNote.disabled = true;
+  note.oninput = () => {
+    saveNote.disabled = note.value === ticket.response;
+  };
+  saveNote.onclick = async () => {
+    saveNote.disabled = true;
     try {
-      await api(`/api/tickets/${ticket.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: select.value, response: textarea.value, replyText: reply.value }),
-      });
-      // The sidebar badges count open tickets, so a status change moves them.
-      projects = await api('/api/projects');
-      renderProjects();
-      if (!(await loadTickets())) {
-        toast('Retour enregistré, mais actualisation indisponible.', 'error');
-        return;
-      }
-      openTicket(ticket.id);
-      toast('Retour enregistré.');
+      await api(`/api/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify({ response: note.value }) });
+      ticket.response = note.value;
     } catch {
-      toast('Enregistrement impossible.', 'error');
-    } finally {
-      save.disabled = false;
+      toast('Note non enregistrée.', 'error');
+      saveNote.disabled = false;
+      return;
     }
+    // The note is saved either way; a failed list refresh must not undo it.
+    if (await loadTickets()) toast('Note enregistrée.');
+    else toast('Note enregistrée, mais actualisation indisponible.', 'error');
   };
+  const noteCard = el('section', 'rail-card');
+  noteCard.append(noteLabel, note, saveNote);
 
-  const diagnosticsTitle = document.createElement('div');
-  diagnosticsTitle.className = 'eyebrow';
-  diagnosticsTitle.textContent = 'Diagnostics consentis';
+  const facts = el('dl', 'facts');
+  const fact = (term: string, value: Node | string) => {
+    const description = el('dd');
+    description.append(value);
+    facts.append(el('dt', '', term), description);
+  };
+  const page = el('a', '', new URL(ticket.pageUrl).pathname);
+  page.href = ticket.pageUrl;
+  page.target = '_blank';
+  page.rel = 'noreferrer';
+  page.title = ticket.pageUrl;
+  fact('Page', page);
+  fact('Écran', `${mobile ? 'Mobile' : 'Ordinateur'} · ${viewport.width}×${viewport.height}`);
+  const browser = ticket.diagnostics.browser;
+  const os = ticket.diagnostics.os;
+  if (typeof browser === 'string' && browser !== 'Unknown') fact('Navigateur', browser);
+  if (typeof os === 'string' && os !== 'Unknown') fact('Système', os);
+  fact('Reçu', formatDate(ticket.createdAt));
+  fact('Projet', ticket.projectName);
+  const contextCard = el('section', 'rail-card');
+  contextCard.append(railTitle('i-file', 'Contexte'), facts);
 
-  // A reviewer who declined still yields `{os:'Unknown', browser:'Unknown'}`,
-  // which reads like data when it is the absence of it. Say so in words.
-  const informative = Object.values(ticket.diagnostics).some(
-    (value) => value !== 'Unknown' && value !== null && value !== undefined && !(Array.isArray(value) && !value.length),
-  );
-  let diagnostics: HTMLElement;
-  if (informative) {
-    // Key and value on one line each, like a property sheet, not a JSON dump.
-    diagnostics = document.createElement('dl');
-    diagnostics.className = 'diag';
-    for (const [key, value] of Object.entries(ticket.diagnostics)) {
-      if (value === null || value === undefined || value === '') continue;
-      const term = el('dt', '', key);
-      const description = el('dd', '', typeof value === 'object' ? JSON.stringify(value) : String(value));
-      diagnostics.append(term, description);
-    }
-  } else {
-    diagnostics = el('p', 'diag diag-empty', 'Aucun diagnostic transmis. Le reviewer ne les a pas joints.');
-  }
-
-  const anchorCard = el('div', 'anchor-card');
-  const anchorMeta = el(
-    'code',
-    'anchor-selector',
-    `${selector} @ ${Math.round(relative.x * 100)}%, ${Math.round(relative.y * 100)}%`,
-  );
-  anchorCard.append(el('div', 'eyebrow', 'Point d’ancrage'), anchorMeta, openAnchor);
-
-  // Three regions rather than one flat column: on a wide screen "act" (status
-  // and replies) and "context" (where, diagnostics, capture) sit side by side
-  // instead of stretching one column across a 21:9 display.
-  const head = document.createElement('div');
-  head.className = 'detail-head';
-  head.append(close, eyebrow, heading, props);
-
-  // The work log: what the team and the connected agents have done on this
-  // ticket. Loaded after the pane paints, so opening a ticket stays instant.
-  const thread = document.createElement('div');
-  thread.className = 'thread';
-  void renderThread(ticket.id, thread);
-
-  const actions = el('div', 'detail-actions');
-  actions.append(el('span', 'detail-actions-hint', 'Le statut et les deux réponses sont enregistrés ensemble.'), save);
-
-  const main = document.createElement('div');
-  main.className = 'detail-main';
-  main.append(
-    replyCard('Réponse visible par le reviewer', 'i-eye', reply, 'public'),
-    replyCard('Réponse interne', 'i-lock', textarea, 'internal'),
-    actions,
+  // Selectors and raw diagnostics are for whoever fixes the bug, not for
+  // triage: folded away until asked for.
+  const technical = el('details', 'rail-card technical');
+  const summary = el('summary', 'rail-title');
+  summary.append(icon('i-code'), document.createTextNode('Détails techniques'));
+  technical.append(
+    summary,
+    el('div', 'eyebrow', 'Élément pointé'),
+    el('code', 'anchor-selector', `${selector} @ ${Math.round(relative.x * 100)}%, ${Math.round(relative.y * 100)}%`),
+    el('div', 'eyebrow', 'Diagnostics consentis'),
+    diagnosticsList(ticket),
   );
 
-  const side = document.createElement('div');
-  side.className = 'detail-side';
-  side.append(anchorCard);
+  const rail = el('aside', 'detail-rail');
+  rail.setAttribute('aria-label', 'Informations du retour');
+  rail.append(replyCard, noteCard, contextCard, technical);
 
-  if (ticket.screenshotId) {
-    const sCard = document.createElement('div');
-    sCard.className = 'ticket-screenshot-card';
-
-    const sHead = document.createElement('div');
-    sHead.className = 'ticket-screenshot-head';
-
-    const sTitle = document.createElement('div');
-    sTitle.className = 'ticket-screenshot-title';
-    sTitle.append(icon('i-camera'), document.createTextNode('Capture d’écran'));
-
-    const sActions = document.createElement('div');
-    sActions.className = 'ticket-screenshot-actions';
-
-    const zoomBtn = document.createElement('button');
-    zoomBtn.type = 'button';
-    zoomBtn.className = 'btn-zoom-screenshot';
-    zoomBtn.append(icon('i-zoom'), document.createTextNode('Agrandir'));
-    zoomBtn.title = 'Agrandir en plein écran';
-
-    const link = document.createElement('a');
-    link.className = 'screenshot-tab-link';
-    link.href = `/api/uploads/${ticket.screenshotId}`;
-    link.target = '_blank';
-    link.rel = 'noreferrer';
-    link.append(icon('i-external'), document.createTextNode('Voir la capture privée'));
-
-    sActions.append(zoomBtn, link);
-    sHead.append(sTitle, sActions);
-
-    const sWrap = document.createElement('div');
-    sWrap.className = 'ticket-screenshot-wrap';
-    sWrap.title = 'Cliquer pour agrandir la capture';
-
-    const img = document.createElement('img');
-    img.className = 'ticket-screenshot-preview';
-    img.src = `/api/uploads/${ticket.screenshotId}`;
-    img.alt = `Capture d’écran pour ${ticket.text}`;
-    img.loading = 'lazy';
-
-    const sBadge = document.createElement('div');
-    sBadge.className = 'ticket-screenshot-badge';
-    sBadge.append(
-      icon(mobile ? 'i-phone' : 'i-monitor'),
-      document.createTextNode(`${mobile ? 'Mobile' : 'Desktop'} · ${viewport.width}×${viewport.height}`),
-    );
-
-    const sHint = document.createElement('div');
-    sHint.className = 'ticket-screenshot-hint';
-    sHint.append(icon('i-zoom'), document.createTextNode('Agrandir'));
-
-    sWrap.append(img, sBadge, sHint);
-
-    const openModal = () => showScreenshotModal(ticket);
-    sWrap.onclick = openModal;
-    zoomBtn.onclick = openModal;
-
-    sCard.append(sHead, sWrap);
-    side.append(sCard);
-  } else {
-    const emptyCard = document.createElement('div');
-    emptyCard.className = 'ticket-screenshot-card empty';
-    emptyCard.append(icon('i-camera'), document.createTextNode('Aucune capture d’écran jointe à ce retour'));
-    side.append(emptyCard);
-  }
-
-  side.append(diagnosticsTitle, diagnostics);
-
-  detail.append(head, main, side, thread);
+  const body = el('div', 'detail-body');
+  body.append(main, rail);
+  detail.append(bar, body);
 
   // Where focus goes depends on the layout: over the list, the pane is the
   // whole screen and a reader must land in it; beside the list, focus stays
@@ -892,6 +878,168 @@ function openTicket(id: string) {
   } else if (listHadFocus) {
     focusTicketRow(id);
   }
+}
+
+function railTitle(iconId: string, text: string) {
+  const title = el('div', 'rail-title');
+  title.append(icon(iconId), document.createTextNode(text));
+  return title;
+}
+
+/** What the client was looking at, as large as the column allows. */
+function screenshotFigure(ticket: Ticket) {
+  const mobile = ticket.viewportWidth < 768;
+  const { viewport } = ticket.anchor;
+  if (!ticket.screenshotId) {
+    const empty = el('div', 'ticket-screenshot-card empty');
+    empty.append(icon('i-camera'), document.createTextNode('Aucune capture d’écran jointe à ce retour'));
+    return empty;
+  }
+  const card = el('figure', 'ticket-screenshot-card');
+
+  const wrap = el('div', 'ticket-screenshot-wrap');
+  wrap.title = 'Cliquer pour agrandir la capture';
+  const img = el('img', 'ticket-screenshot-preview');
+  img.src = `/api/uploads/${ticket.screenshotId}`;
+  img.alt = `Capture d’écran pour ${ticket.text}`;
+  img.loading = 'lazy';
+  const hint = el('div', 'ticket-screenshot-hint');
+  hint.append(icon('i-zoom'), document.createTextNode('Agrandir'));
+  wrap.append(img, hint);
+  wrap.onclick = () => showScreenshotModal(ticket);
+
+  const caption = el('figcaption', 'ticket-screenshot-head');
+  const title = el('span', 'ticket-screenshot-title');
+  title.append(
+    icon(mobile ? 'i-phone' : 'i-monitor'),
+    document.createTextNode(`Capture · ${mobile ? 'mobile' : 'ordinateur'} · ${viewport.width}×${viewport.height}`),
+  );
+  const actions = el('span', 'ticket-screenshot-actions');
+  const zoom = el('button', 'btn-zoom-screenshot');
+  zoom.type = 'button';
+  zoom.title = 'Agrandir en plein écran';
+  zoom.append(icon('i-zoom'), document.createTextNode('Agrandir'));
+  zoom.onclick = () => showScreenshotModal(ticket);
+  const link = el('a', 'screenshot-tab-link');
+  link.href = `/api/uploads/${ticket.screenshotId}`;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  link.append(icon('i-external'), document.createTextNode('Voir la capture privée'));
+  actions.append(zoom, link);
+  caption.append(title, actions);
+
+  card.append(wrap, caption);
+  return card;
+}
+
+/** Key and value on one line each, like a property sheet, not a JSON dump. */
+function diagnosticsList(ticket: Ticket) {
+  // A reviewer who declined still yields `{os:'Unknown', browser:'Unknown'}`,
+  // which reads like data when it is the absence of it. Say so in words.
+  const informative = Object.values(ticket.diagnostics).some(
+    (value) => value !== 'Unknown' && value !== null && value !== undefined && !(Array.isArray(value) && !value.length),
+  );
+  if (!informative) return el('p', 'diag diag-empty', 'Aucun diagnostic transmis. Le reviewer ne les a pas joints.');
+  const list = el('dl', 'diag');
+  for (const [key, value] of Object.entries(ticket.diagnostics)) {
+    if (value === null || value === undefined || value === '') continue;
+    list.append(el('dt', '', key), el('dd', '', typeof value === 'object' ? JSON.stringify(value) : String(value)));
+  }
+  return list;
+}
+
+/**
+ * One composer, two audiences. Replying to the client publishes a comment
+ * the server also copies into the reply shown in the widget; an internal
+ * message stays in the team's thread.
+ */
+function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: string) => void) {
+  let audience: 'reviewer' | 'internal' = 'reviewer';
+  const box = el('div', 'composer');
+
+  const tabs = el('div', 'composer-tabs');
+  tabs.setAttribute('role', 'group');
+  tabs.setAttribute('aria-label', 'Destinataire');
+  const toClient = el('button', 'composer-tab');
+  toClient.type = 'button';
+  toClient.append(icon('i-message'), document.createTextNode('Répondre au client'));
+  const toTeam = el('button', 'composer-tab');
+  toTeam.type = 'button';
+  toTeam.append(icon('i-lock'), document.createTextNode('Message interne'));
+  tabs.append(toClient, toTeam);
+
+  const draft = el('textarea', 'comment-draft');
+  draft.maxLength = 4000;
+  const hint = el('span', 'composer-hint');
+  const send = el('button', 'btn btn-primary composer-send');
+  send.type = 'button';
+  const sendLabel = el('span');
+  send.append(icon('i-send'), sendLabel);
+
+  const apply = () => {
+    const client = audience === 'reviewer';
+    box.classList.toggle('internal', !client);
+    toClient.setAttribute('aria-pressed', String(client));
+    toTeam.setAttribute('aria-pressed', String(!client));
+    draft.setAttribute('aria-label', client ? 'Réponse au client' : 'Message pour l’équipe');
+    draft.placeholder = client
+      ? 'Écrivez la réponse que le client lira dans son widget…'
+      : 'Écrivez un message pour l’équipe et les agents…';
+    hint.textContent = client ? 'Le client la verra dans « Mes retours ».' : 'Jamais montré au client.';
+    sendLabel.textContent = client ? 'Envoyer au client' : 'Ajouter au fil';
+  };
+  toClient.onclick = () => {
+    audience = 'reviewer';
+    apply();
+    draft.focus();
+  };
+  toTeam.onclick = () => {
+    audience = 'internal';
+    apply();
+    draft.focus();
+  };
+  apply();
+
+  const submit = async () => {
+    const body = draft.value.trim();
+    if (!body || send.disabled) return;
+    send.disabled = true;
+    try {
+      await api(`/api/tickets/${ticket.id}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ body, visibility: audience }),
+      });
+    } catch {
+      toast('Envoi impossible.', 'error');
+      send.disabled = false;
+      return;
+    }
+    draft.value = '';
+    send.disabled = false;
+    if (audience === 'reviewer') {
+      ticket.replyText = body;
+      showReply(body);
+      toast('Réponse envoyée au client.');
+    } else {
+      toast('Message ajouté.');
+    }
+    await renderConversation(ticket, conversation);
+    void loadTickets();
+  };
+  send.onclick = () => void submit();
+  draft.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      void submit();
+    }
+  });
+
+  const kbd = el('kbd', '', /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵');
+  kbd.setAttribute('aria-hidden', 'true');
+  const foot = el('div', 'composer-foot');
+  foot.append(hint, el('span', 'detail-bar-spacer'), kbd, send);
+  box.append(tabs, draft, foot);
+  return box;
 }
 
 // -------------------------------------------------------------- overview
@@ -1358,92 +1506,51 @@ $('#period').addEventListener('change', () => void loadStats());
  * with the status move that came with it. This is where an operator reads what
  * an AI agent did without opening the code.
  */
-async function renderThread(ticketId: string, host: HTMLElement) {
-  const title = document.createElement('div');
-  title.className = 'eyebrow';
-  title.textContent = 'Journal';
-  host.replaceChildren(title);
+/**
+ * The ticket's history as a conversation: the client's request first, then
+ * every reply, internal message, agent report and status move, oldest first.
+ */
+async function renderConversation(ticket: Ticket, host: HTMLElement) {
+  const opened = el('div', 'event');
+  const when = el('time', '', formatAge(ticket.createdAt));
+  when.dateTime = ticket.createdAt;
+  when.title = formatDate(ticket.createdAt);
+  opened.append(icon('i-inbox'), el('span', '', 'Retour reçu du client'), when);
 
   let comments: Comment[] = [];
   try {
-    comments = ((await api(`/api/tickets/${ticketId}/comments`)) as { comments: Comment[] }).comments;
+    comments = ((await api(`/api/tickets/${ticket.id}/comments`)) as { comments: Comment[] }).comments;
   } catch {
-    const failed = document.createElement('p');
-    failed.className = 'thread-empty';
-    failed.textContent = 'Journal indisponible.';
-    host.append(failed);
+    host.replaceChildren(opened, el('p', 'thread-empty', 'Échanges indisponibles.'));
     return;
   }
 
-  if (!comments.length) {
-    const empty = document.createElement('p');
-    empty.className = 'thread-empty';
-    empty.textContent = 'Rien encore. Les agents connectés écrivent ici ce qu’ils ont fait.';
-    host.append(empty);
-  }
+  const entries: HTMLElement[] = [opened];
   for (const comment of comments) {
-    const entry = document.createElement('article');
-    entry.className = `comment ${comment.author}`;
-    const meta = document.createElement('div');
-    meta.className = 'comment-meta';
-    const who = document.createElement('strong');
-    who.textContent = comment.authorLabel || (comment.author === 'agent' ? 'Agent' : 'Équipe');
-    const when = document.createElement('span');
-    when.textContent = formatAge(comment.createdAt);
-    when.title = formatDate(comment.createdAt);
-    meta.append(who, when);
-    if (comment.visibility === 'reviewer') {
-      const tag = document.createElement('span');
-      tag.className = 'tag';
-      tag.textContent = 'Visible par le client';
-      meta.append(tag);
-    }
+    const entry = el('article', `comment ${comment.author} ${comment.visibility}`);
+    const meta = el('div', 'comment-meta');
+    const name = comment.authorLabel || (comment.author === 'agent' ? 'Agent' : 'Équipe');
+    const avatar = el('span', 'comment-avatar', (name.trim()[0] ?? '?').toUpperCase());
+    avatar.setAttribute('aria-hidden', 'true');
+    const time = el('time', '', formatAge(comment.createdAt));
+    time.dateTime = comment.createdAt;
+    time.title = formatDate(comment.createdAt);
+    meta.append(avatar, el('strong', '', name));
+    meta.append(el('span', `tag ${comment.visibility}`, comment.visibility === 'reviewer' ? 'Envoyé au client' : 'Interne'));
     if (comment.statusTo && comment.statusTo !== comment.statusFrom) {
-      const move = document.createElement('span');
-      move.className = 'tag move';
-      move.textContent = `${STATUS_LABELS[comment.statusFrom ?? ''] ?? comment.statusFrom} → ${STATUS_LABELS[comment.statusTo] ?? comment.statusTo}`;
-      meta.append(move);
+      const from = STATUS_LABELS[comment.statusFrom ?? ''] ?? comment.statusFrom;
+      const to = STATUS_LABELS[comment.statusTo] ?? comment.statusTo;
+      meta.append(el('span', 'tag move', `${from} → ${to}`));
     }
-    const body = document.createElement('p');
+    meta.append(time);
     // textContent, never innerHTML: an agent writes this text.
-    body.textContent = comment.body;
-    entry.append(meta, body);
-    host.append(entry);
+    entry.append(meta, el('p', '', comment.body));
+    entries.push(entry);
   }
-
-  const draft = document.createElement('textarea');
-  draft.className = 'comment-draft';
-  draft.maxLength = 4000;
-  draft.placeholder = 'Ajouter au journal…';
-  const visibility = document.createElement('select');
-  visibility.append(new Option('Interne', 'internal'), new Option('Visible par le client', 'reviewer'));
-  const add = document.createElement('button');
-  add.type = 'button';
-  add.className = 'btn btn-ghost';
-  add.textContent = 'Ajouter';
-  add.onclick = async () => {
-    const body = draft.value.trim();
-    if (!body) return;
-    add.disabled = true;
-    try {
-      await api(`/api/tickets/${ticketId}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ body, visibility: visibility.value }),
-      });
-      // A published comment becomes the reviewer's reply, so the pane is rebuilt
-      // from the server rather than patched in place.
-      await loadTickets();
-      openTicket(ticketId);
-      toast('Commentaire ajouté.');
-    } catch {
-      toast('Commentaire impossible.', 'error');
-      add.disabled = false;
-    }
-  };
-  const actions = document.createElement('div');
-  actions.className = 'comment-actions';
-  actions.append(visibility, add);
-  host.append(draft, actions);
+  if (!comments.length) {
+    entries.push(el('p', 'thread-empty', 'Aucun échange pour l’instant. Répondez au client ou laissez un message à l’équipe.'));
+  }
+  host.replaceChildren(...entries);
 }
 
 // ------------------------------------------------------------ prompt export
