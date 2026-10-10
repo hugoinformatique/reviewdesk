@@ -17,6 +17,13 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- Kit ZIP local 8.0.0 : serveur/MCP compilés, assets publics complets,
+  manifeste runtime verrouillé incluant PGlite, scripts Node 22
+  `install.mjs` et `start.mjs`, mot de passe initial sans valeur par défaut,
+  écoute limitée à `127.0.0.1`, données persistantes et guide français.
+  Génération du ZIP et du SHA-256 par `scripts/packaging/package-kit.mjs` ;
+  tests du packaging et smoke test depuis une archive extraite avec
+  installation, authentification admin, captures, redémarrage et réinstallation.
 - Tableau de bord : lien « Aller au contenu » en tête de la tabulation, qui
   saute la barre de navigation et le rail des projets.
 - Liste des retours : squelette de chargement au premier affichage, et état

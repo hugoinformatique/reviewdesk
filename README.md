@@ -109,6 +109,13 @@ au même endroit.
 
 ## Démarrage en local
 
+Pour utiliser la version **8.0.0 sans les sources**, consultez le
+[guide du kit ZIP local](docs/KIT-LOCAL.md) : extraction, `node install.mjs`,
+puis `node start.mjs`. Le kit contient les fichiers compilés, tous les assets
+et un runtime verrouillé avec PGlite ; il écoute uniquement sur `127.0.0.1`.
+La [documentation de packaging](docs/PACKAGING.md) décrit sa génération et
+son test d'installation. Le statut **tous droits réservés** reste inchangé.
+
 Prérequis : Node 22.x.
 
 ```bash
@@ -568,7 +575,7 @@ Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **7.0.0**.
+Keep a Changelog. Version courante : **8.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
