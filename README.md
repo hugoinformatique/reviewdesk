@@ -112,9 +112,15 @@ au même endroit.
 Pour **auto-héberger la version 8.0.0 sans les sources**, utilisez la
 distribution Docker Compose : [guide d'auto-hébergement Docker](docs/GUIDE-DOCKER-FR.md).
 L'hôte n'a besoin que de Docker Compose, d'un shell et d'`openssl` (pas de
-Node) ; l'archive contient l'application compilée, PostgreSQL 17 interne et
-se branche sur un bucket S3 HTTPS privé ; l'accès distant passe par un reverse
-proxy HTTPS. Génération et tests : [documentation de packaging](docs/PACKAGING.md#distribution-docker-compose).
+Node, aucun compte cloud) ; l'archive contient l'application compilée,
+PostgreSQL 17 interne et un stockage S3 intégré (SeaweedFS, HTTPS interne avec
+autorité générée à l'installation, aucun port S3 publié) — un S3 externe reste
+possible en option. Installation : `sh install.sh --non-interactive --port 48300`
+puis `docker compose up -d --build`. L'accès distant passe par un reverse proxy
+HTTPS sur le même hôte (à fournir ; aucun proxy public n'a été testé).
+Serveur, sauvegardes, domaine et certificat public — et leurs frais
+d'hébergement — restent à la charge de l'exploitant.
+Génération et tests : [documentation de packaging](docs/PACKAGING.md#distribution-docker-compose).
 
 > **Obsolète :** le [kit ZIP local](docs/KIT-LOCAL.md) (Node 22 + PGlite,
 > `node install.mjs` puis `node start.mjs`) reste disponible mais n'est plus la

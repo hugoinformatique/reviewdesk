@@ -17,6 +17,37 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- Distribution Docker autonome, sans compte cloud : stockage S3 intégré par
+  défaut (SeaweedFS épinglé par digest, volume `s3data`, aucun port publié,
+  télémétrie et création automatique de bucket désactivées). SeaweedFS tourne
+  dans `s3-storage`, **sans interface réseau** : tous ses ports, dont le gRPC
+  S3 (appels d'administration des identités non authentifiés sans clé de
+  signature du filer), restent sur sa boucle locale, et son port S3 principal
+  est en HTTPS seul (aucun HTTP 8333). Le seul point d'accès réseau est la
+  passerelle `s3` (`app/s3-gateway.mjs`) en HTTPS `https://s3:8443`, qui
+  transmet au socket Unix de SeaweedFS via un volume en mémoire (`s3socket`). `install.sh --non-interactive --port X`
+  ne demande aucune valeur S3 : il génère deux identités S3 distinctes et
+  propres à l'installation (application ; initialisation limitée à la
+  création du bucket), une autorité TLS interne (`certs/ca.pem`, clé détruite
+  après signature), le certificat du service `s3` (`certs/s3.pem`) et sa clé
+  privée (`secrets/s3_tls_key`, 600). La configuration SeaweedFS est dérivée
+  des secrets dans le conteneur, en mémoire, sans variable d'environnement.
+  Service ponctuel `s3-init` : création idempotente du bucket privé en TLS
+  vérifié. L'app fait confiance à l'autorité via `NODE_EXTRA_CA_CERTS`, sans
+  contournement TLS ; garde-fous de démarrage inchangés. S3 externe conservé
+  en option (`--s3-endpoint`, profils Compose).
+
+### Modifié
+
+- `install.sh` refuse une nouvelle configuration si le volume `pgdata` **ou**
+  `s3data` existe, vérifie à la relance le certificat (nom `s3`, autorité,
+  correspondance de la clé) sans rien régénérer, et refuse les options propres
+  au S3 externe sans `--s3-endpoint`. `.env` gagne `REVIEWDESK_S3` et
+  `COMPOSE_PROFILES` ; un `.env` de l'ancien format (sans ces deux clés) reste
+  accepté tel quel comme S3 externe, sans réécriture.
+- Mise à jour documentée avec `docker compose up -d --build --force-recreate`
+  (sinon un conteneur inchangé garde les secrets montés depuis l'ancien dossier).
+
 - Distribution Docker Compose auto-hébergée 8.0.0 (`reviewdesk-v8.0.0-docker.zip`) :
   application compilée et dépendances de production verrouillées sans PGlite
   (`npm ci` dans l'image `node:22.23.3-bookworm-slim` épinglée par digest),

@@ -128,12 +128,15 @@ reproductible (octet pour octet). Mêmes prérequis de construction que le kit
 local (Node 22, esbuild installé dans le dépôt).
 
 Contenu, sous `reviewdesk-v8.0.0-docker/` : `compose.yaml`, `install.sh`
-(POSIX sh + openssl), `GUIDE-DOCKER-FR.md`, `NOTICE.txt`, `certs/LISEZMOI.txt`
-et `app/` (contexte de build : `Dockerfile`, `entrypoint.mjs`,
-`runtime-config.mjs`, `package.json`, `package-lock.json`,
+(POSIX sh + openssl), `GUIDE-DOCKER-FR.md`, `NOTICE.txt`, `certs/LISEZMOI.txt`,
+`s3/entrypoint.sh` (démarrage du S3 intégré) et `app/` (contexte de build :
+`Dockerfile`, `entrypoint.mjs`, `runtime-config.mjs`, `s3-bootstrap.mjs`,
+`s3-gateway.mjs` (passerelle TLS du S3 intégré),
+`package.json`, `package-lock.json`,
 `dist/server.js`, `dist/mcp.js`, `dist/s3-signer.js`, `public/`). Aucun source
-TypeScript, `.env`, secret, `node_modules` ni PGlite. Le gabarit vit dans
-`scripts/packaging/docker/template/`.
+TypeScript, `.env`, secret, certificat, clé, `node_modules` ni PGlite : les
+clés S3 et le TLS interne sont générés par `install.sh` chez le destinataire.
+Le gabarit vit dans `scripts/packaging/docker/template/`.
 
 ### Verrou de production
 
@@ -149,10 +152,13 @@ qui prouve la cohérence manifeste/verrou à chaque build.
 ### Images
 
 - `node:22.23.3-bookworm-slim@sha256:c3de60bf…8392` (build et exécution) ;
-- `postgres:17.11-alpine3.24@sha256:b0f9560a…2b24`.
+- `postgres:17.11-alpine3.24@sha256:b0f9560a…2b24` ;
+- `chrislusf/seaweedfs@sha256:4e61d15f…872d` (S3 intégré, `weed version` 4.48).
 
-Tags et digests relevés sur Docker Hub (images officielles `library/`) le
-2026-10-10 avec `docker buildx imagetools inspect`.
+Tags et digests node/postgres relevés sur Docker Hub (images officielles
+`library/`) le 2026-10-10 avec `docker buildx imagetools inspect`. Le digest
+SeaweedFS est celui de l'image locale déjà utilisée par le smoke précédent ;
+il est référencé par digest seul (aucun tag n'est revendiqué).
 
 ### Vérification
 
@@ -165,33 +171,59 @@ REVIEWDESK_DOCKER_SMOKE=1 node --test tests/packaging/docker-smoke.test.mjs
   PGlite / plages / entrées hors registre), validation d'environnement du
   conteneur (HTTPS exact, bucket, secrets absents/vides/multilignes, chemin du
   CA, forme canonique de l'endpoint), sondes S3, objet de test de
-  confidentialité contre un stockage simulé (PUT signé dans le préfixe, GET
-  anonyme 401/403 exigé, objet lisible publiquement refusé, DELETE signé
-  toujours tenté, aucun secret dans les erreurs), `docker compose config` (images épinglées, PostgreSQL non
-  publié sur réseau interne, app sur 127.0.0.1, variables de production, aucun
-  secret dans la config résolue, échec sans `.env`), liste blanche du ZIP.
+  confidentialité contre un stockage simulé, création idempotente du bucket
+  (existant intact, absent créé puis confirmé, refus et réponses inattendues,
+  aucun secret dans les erreurs), `docker compose config` avec le projet
+  `reviewdesk-kit-selfcontained-test` (images épinglées, PostgreSQL et S3
+  intégré non publiés sur réseau interne, secrets en fichiers et répartis par
+  service, healthcheck TLS avec `--cacert`, aucun contournement TLS, aucun
+  secret dans la config résolue, services intégrés désactivés en S3 externe,
+  échec sans `.env`, `.env` de l'ancien installateur lu comme S3 externe),
+  topologie du S3 intégré (`s3-storage` en `network_mode: none`, socket dans un
+  volume tmpfs partagé avec la seule passerelle `s3`, drapeaux SeaweedFS
+  `-s3.ip.bind=127.0.0.1 -s3.port=8444 -s3.port.https=0 -s3.port.grpc=18444`),
+  passerelle `s3-gateway.mjs` contre un faux SeaweedFS sur socket Unix (TLS
+  vérifié pour `s3`, autre nom refusé, HTTP clair jamais transmis, socket
+  absent sans arrêt de la passerelle), `s3/entrypoint.sh` POSIX, liste blanche du ZIP, NOTICE
+  et guide (droits réservés, frais d'hébergement).
 - `docker-install` : `install.sh` sous `sh` (dash) avec un `PATH` réduit à
   `/usr/bin:/bin` précédé d'un faux `docker` (le Docker de l'hôte n'est jamais
-  interrogé) : refus si Docker est absent, injoignable ou si le volume existe,
-  verrou d'installation (verrou étranger laissé en place, exécutions
-  simultanées : une seule écrit), accord installateur/démarrage sur chaque
-  forme d'endpoint, droits 600/700, mots de passe forts et distincts, aucun
-  secret dans la sortie, conservation à l'identique, refus d'écraser, refus
-  d'une configuration partielle ou invalide, refus des entrées invalides sans
-  rien écrire, identifiants via fichier ou stdin, certificat d'autorité.
-- `docker-smoke` (opt-in, Docker requis) : ZIP extrait dans un chemin avec
-  espaces et accents, `install.sh`, `docker compose config/build/up` dans le
-  projet isolé `reviewdesk-kit-docker-test` avec un S3 SeaweedFS de test en
-  HTTPS signé par une autorité privée (`NODE_EXTRA_CA_CERTS`), proxy TLS local
-  avec vérification du nom d'hôte, connexion admin (cookie `Secure`), refus
-  d'écriture inter-sites, CORS du widget, envoi et relecture d'une capture,
-  redémarrage, `pg_dump`, refus de démarrer en HTTP, sans CA ou avec un bucket
-  absent, aucun objet de test restant dans le bucket privé, refus de démarrer
-  contre un second SeaweedFS (tmpfs, sans volume) dont la liste anonyme est
-  refusée mais les objets lisibles anonymement, objet de test supprimé malgré
-  ce refus, absence de secrets dans `docker inspect` et les journaux, processus
-  sous l'UID 1000. Il ne fait jamais `down -v` ni `prune` : les volumes
-  `reviewdesk-kit-docker-test_*` sont conservés, et la configuration
-  correspondante est gardée dans `~/.cache/reviewdesk-kit-docker-test`
+  interrogé). Mode intégré : aucune question S3, clés uniques et distinctes,
+  clé TLS 600, certificats 644, chaîne vérifiée par `openssl verify` pour le
+  nom `s3` (autre nom ou autre autorité refusés), clé de l'autorité absente,
+  relance à l'identique, pièces manquantes ou `.env` altéré refusés sans rien
+  régénérer, `certs/ca.pem` étranger jamais remplacé, options S3 externes
+  refusées. Les deux modes : refus si Docker est absent, injoignable ou si le
+  volume `pgdata` ou `s3data` existe, verrou d'installation, accord
+  installateur/démarrage sur chaque forme d'endpoint, mots de passe forts et
+  distincts, aucun secret dans la sortie, refus des entrées invalides. Mise à
+  jour : un `.env` tel qu'écrit par l'installateur précédent (commit
+  `bfea010`, fixture `tests/packaging/fixtures/env-bfea010.env`) est accepté
+  et laissé octet pour octet ; avec `COMPOSE_PROFILES` mais sans
+  `REVIEWDESK_S3`, il est refusé sans modification.
+- `docker-smoke` (opt-in, Docker requis) : ZIP vérifié (`sha256sum -c`) et
+  extrait dans un chemin avec espaces et accents, `install.sh --non-interactive
+  --port X` puis `docker compose up -d --build` **sans overlay**, dans le seul
+  projet `reviewdesk-kit-selfcontained-test` : `s3-init` terminé (code 0),
+  app `healthy`, PostgreSQL et S3 sans port publié, app sur 127.0.0.1, app en
+  UID 1000, SeaweedFS hors root dans un conteneur dont la seule interface est
+  `lo`, tous ses ports (dont 8444 et le gRPC 18444) sur 127.0.0.1, aucun 8333
+  ni 18333 ; passerelle seule à écouter (8443, UID 1000) ; depuis l'app, tous
+  les ports SeaweedFS (8333, 8444, 18333, 18444, filer, master, volume)
+  injoignables et `s3-storage` non résolu ; HTTP clair sur 8443 sans réponse,
+  HTTP clair sur 8444 refusé (400) ;
+  TLS depuis l'app (nom `s3` accepté, autre nom refusé, sans autorité refusé),
+  proxy TLS local de test avec vérification du nom d'hôte, connexion admin
+  (cookie `Secure`), refus d'écriture inter-sites, CORS du widget, capture et
+  ticket, lecture et liste **anonymes** refusées sur l'objet stocké,
+  persistance après `restart` puis `up --force-recreate`, S3 de nouveau
+  joignable après redémarrage isolé de `s3-storage` puis de `s3`, `s3-init`
+  idempotent, `pg_dump`, refus de démarrer en HTTP, sans CA ou avec un autre
+  bucket, identité d'initialisation cantonnée au bucket, nouvelle installation
+  refusée à côté des volumes existants, aucun objet de test restant, aucun
+  secret dans `compose config`, les erreurs ni les journaux. Il ne fait jamais
+  `down -v` ni `prune` : les volumes `reviewdesk-kit-selfcontained-test_*`
+  sont conservés, et la configuration correspondante (`.env`, `secrets/`,
+  `certs/`) est gardée dans `~/.cache/reviewdesk-kit-selfcontained-test`
   (`REVIEWDESK_DOCKER_STATE` pour un autre dossier). `REVIEWDESK_DOCKER_KEEP=1`
   laisse la pile démarrée.

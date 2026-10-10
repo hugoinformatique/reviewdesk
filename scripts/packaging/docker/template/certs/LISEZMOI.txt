@@ -1,10 +1,16 @@
-Autorité de certification privée (facultatif)
+Certificats publics (aucune clé privée dans ce dossier)
 
-Si votre stockage S3 présente un certificat signé par une autorité privée,
-copiez ici le certificat PEM de cette autorité (jamais une clé privée), par
-exemple certs/ca.pem, puis indiquez-le à l'installation :
+Stockage S3 intégré (défaut) : sh install.sh crée ici
+  ca.pem   autorité TLS interne, générée pour cette installation
+  s3.pem   certificat du S3 intégré (nom s3), signé par ca.pem
+La clé privée TLS correspondante est dans secrets/s3_tls_key (droits 600) ;
+la clé de l'autorité est détruite après signature. Sauvegardez ce dossier
+avec .env et secrets/ ; ne remplacez jamais ces fichiers isolément.
 
-  sh install.sh --ca-file ca.pem
+S3 externe signé par une autorité privée (facultatif) : copiez ici le
+certificat PEM de cette autorité (jamais une clé privée), par exemple
+certs/fournisseur-ca.pem, puis indiquez-le à l'installation :
 
-Le conteneur le lit en lecture seule via NODE_EXTRA_CA_CERTS. Sans autorité
-privée, laissez ce dossier tel quel : les autorités publiques suffisent.
+  sh install.sh --s3-endpoint https://... --ca-file fournisseur-ca.pem ...
+
+Les conteneurs lisent ce dossier en lecture seule (NODE_EXTRA_CA_CERTS).

@@ -101,7 +101,7 @@ export async function packageDocker(outputDirectory) {
       if (!(await lstat(source)).isFile()) throw new Error(`Fichier régulier requis : ${name}`);
       entries.set(name, await readFile(source));
     };
-    for (const name of ['compose.yaml', 'install.sh', 'certs/LISEZMOI.txt', 'app/Dockerfile', 'app/entrypoint.mjs', 'app/runtime-config.mjs']) await include(path.join(template, name), name);
+    for (const name of ['compose.yaml', 'install.sh', 'certs/LISEZMOI.txt', 's3/entrypoint.sh', 'app/Dockerfile', 'app/entrypoint.mjs', 'app/runtime-config.mjs', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs']) await include(path.join(template, name), name);
     await include(path.join(repository, 'docs/GUIDE-DOCKER-FR.md'), 'GUIDE-DOCKER-FR.md');
     await include(path.join(repository, 'scripts/packaging/docker/NOTICE.txt'), 'NOTICE.txt');
     entries.set('app/package.json', Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));

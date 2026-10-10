@@ -31,7 +31,11 @@ export function assertBucket(value) {
   return value;
 }
 
-export function prepareRuntimeEnv(env, readSecret) {
+/**
+ * Validated S3 settings plus one S3 identity read from the named secret files.
+ * Used alone by the bucket bootstrap (init identity), and by the app start-up.
+ */
+export function prepareS3Env(env, readSecret, names = { accessKeyId: 's3_access_key_id', secretAccessKey: 's3_secret_access_key' }) {
   const endpoint = assertHttpsEndpoint(env.S3_ENDPOINT ?? '');
   const bucket = assertBucket(env.S3_BUCKET);
   if (!/^[a-z0-9-]{1,32}$/.test(env.S3_REGION ?? '')) fail('S3_REGION invalide.');
@@ -41,19 +45,48 @@ export function prepareRuntimeEnv(env, readSecret) {
   if (ca && (!ca.startsWith(CA_DIRECTORY) || ca.slice(CA_DIRECTORY.length).includes('/') || !/\.(pem|crt)$/.test(ca))) {
     fail(`NODE_EXTRA_CA_CERTS doit désigner un fichier .pem/.crt de ${CA_DIRECTORY}.`);
   }
-  const values = Object.fromEntries(SECRET_NAMES.map(name => [name, secret(readSecret, name)]));
   return {
     ...env,
-    NODE_ENV: 'production',
-    STORAGE_DRIVER: 's3',
     S3_ENDPOINT: endpoint,
     S3_BUCKET: bucket,
+    S3_ACCESS_KEY_ID: secret(readSecret, names.accessKeyId),
+    S3_SECRET_ACCESS_KEY: secret(readSecret, names.secretAccessKey),
+  };
+}
+
+export function prepareRuntimeEnv(env, readSecret) {
+  const s3 = prepareS3Env(env, readSecret);
+  const values = Object.fromEntries(SECRET_NAMES.map(name => [name, secret(readSecret, name)]));
+  return {
+    ...s3,
+    NODE_ENV: 'production',
+    STORAGE_DRIVER: 's3',
     ADMIN_PASSWORD: values.admin_password,
-    S3_ACCESS_KEY_ID: values.s3_access_key_id,
-    S3_SECRET_ACCESS_KEY: values.s3_secret_access_key,
     // Internal Compose network only: PostgreSQL has no published port.
     DATABASE_URL: `postgres://reviewdesk:${encodeURIComponent(values.postgres_password)}@postgres:5432/reviewdesk?sslmode=disable`,
   };
+}
+
+/**
+ * Bundled S3 only: makes sure the private bucket exists, with signed requests
+ * over verified TLS. Existing bucket: untouched. Missing: one CreateBucket, then
+ * the bucket must answer a signed HeadBucket. Never changes bucket policies.
+ */
+export async function ensureBucket({ env, signRequest, status }) {
+  const config = s3SignerConfig(env);
+  const head = async () => {
+    const signed = signRequest({ config, method: 'HEAD', key: '', payload: Buffer.alloc(0) });
+    return status(signed.url, { method: 'HEAD', headers: signed.headers });
+  };
+  const first = await head();
+  if (first >= 200 && first < 300) return 'exists';
+  if (first !== 404) classifyAuthenticatedProbe(first);
+  const create = signRequest({ config, method: 'PUT', key: '', payload: Buffer.alloc(0) });
+  const created = await status(create.url, { method: 'PUT', headers: create.headers });
+  if (created === 401 || created === 403) fail('Création du bucket S3 refusée pour l\'identité d\'initialisation : vérifiez secrets/s3_admin_access_key_id et secrets/s3_admin_secret_access_key.');
+  if ((created < 200 || created >= 300) && created !== 409) fail(`Réponse S3 inattendue (${created}) à la création du bucket.`);
+  classifyAuthenticatedProbe(await head());
+  return created === 409 ? 'exists' : 'created';
 }
 
 /** URL of an unauthenticated ListObjectsV2 on the bucket, honouring the addressing style. */
