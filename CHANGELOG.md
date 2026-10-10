@@ -53,6 +53,14 @@ Refonte de l'interface : administration, widget client et intégration.
 - Mise en avant des agents IA : carte « Agents IA » dans la vue d'ensemble
   (logos des outils reliés à la marque, état de connexion, corrections en
   attente) et logos dans le bouton « Accès agents ».
+- Fiche d'un retour sans doublon : un seul fil d'échanges, un seul
+  compositeur (« Répondre au client » ou « Note interne ») ; la réponse que
+  voit le client est marquée « Affiché au client » dans le fil, les messages
+  du client « Du client » ; la colonne de droite ne garde que les
+  informations. L'ancien champ « réponse interne » reste lisible en note
+  épinglée.
+- Tableau Kanban en cartes compactes (sans miniature, une icône signale la
+  capture) ; liste sur toute la largeur.
 - Formulaire de projet simplifié : « Nom du site », « Client » avec
   suggestion des clients existants, adresses saisies en étiquettes (une URL
   collée, même avec un chemin, est réduite à son origine ; les adresses
@@ -132,6 +140,9 @@ Refonte de l'interface : administration, widget client et intégration.
 - Dans le formulaire de projet, tous les boutons (suggestions d'origine,
   suppression) prenaient le style du bouton principal.
 - Les champs de saisie affichaient deux anneaux de focus superposés.
+- Quand le client validait ou rouvrait un retour depuis son widget, son
+  propre message remplaçait la réponse de l'équipe affichée dans le widget.
+  Seuls les messages de l'équipe ou d'un agent deviennent la réponse affichée.
 - **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
   l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
   lien pouvait exécuter du script sur la page du client chez les autres

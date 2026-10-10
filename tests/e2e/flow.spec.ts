@@ -146,9 +146,9 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   // ------------------------------------------ the work log, from the admin
 
   await ticket.click();
-  await page.getByRole('button', { name: 'Message interne' }).click();
-  await page.getByLabel('Message pour l’équipe').fill('Vu avec le client : on garde l’orange.');
-  await page.getByRole('button', { name: 'Ajouter au fil' }).click();
+  await page.getByRole('button', { name: 'Note interne' }).click();
+  await page.getByLabel('Note pour l’équipe').fill('Vu avec le client : on garde l’orange.');
+  await page.getByRole('button', { name: 'Ajouter la note' }).click();
   await expect(page.locator('.comment')).toContainText('Vu avec le client');
   await expect(page.locator('.comment-meta')).toContainText('Équipe');
   await expect(page.locator('.comment-meta')).toContainText('Interne');
@@ -225,13 +225,14 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.locator('#ticket-status').selectOption('REVIEW');
   await expect(page.locator('#toast')).toHaveText('Statut : À valider.');
   await expect(page.locator('[data-column="REVIEW"] .ticket')).toHaveCount(1);
-  await page.getByLabel('Note interne').fill('Ajustement prêt à valider');
-  // Preserve the saved note when the subsequent refresh fails.
+  // A note saved while the board refresh fails stays saved, and says so.
+  await page.getByRole('button', { name: 'Note interne' }).click();
+  await page.getByLabel('Note pour l’équipe').fill('Ajustement prêt à valider');
   await page.route('**/api/tickets?*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }));
-  await page.getByRole('button', { name: 'Enregistrer la note' }).click();
+  await page.getByRole('button', { name: 'Ajouter la note' }).click();
   await expect(page.getByText('Retours indisponibles', { exact: true })).toBeVisible();
-  await expect(page.locator('#toast')).toHaveText('Note enregistrée, mais actualisation indisponible.');
-  await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
+  await expect(page.locator('#toast')).toHaveText('Note ajoutée, mais actualisation indisponible.');
+  await expect(page.locator('.comment').last()).toContainText('Ajustement prêt à valider');
   await page.unroute('**/api/tickets?*');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Réessayer', exact: true }).click();
@@ -241,7 +242,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.reload();
   await expect(page.locator('[data-column="REVIEW"] .ticket')).toHaveCount(1);
   await ticket.click();
-  await expect(page.getByLabel('Note interne')).toHaveValue('Ajustement prêt à valider');
+  await expect(page.locator('.comment').last()).toContainText('Ajustement prêt à valider');
   await page.keyboard.press('Escape');
 
   // ------------------------------------------------------ revoke the link
@@ -329,7 +330,9 @@ test('the admin can replay a pin on the preview, and the reviewer reads the answ
   await page.getByLabel('Réponse au client').fill('Renommé en « Voir la collection ».');
   await page.getByRole('button', { name: 'Envoyer au client' }).click();
   await expect(page.locator('#toast')).toHaveText('Réponse envoyée au client.');
-  await expect(page.locator('.reply-preview')).toHaveText('Renommé en « Voir la collection ».');
+  // The thread marks the answer the widget now shows.
+  await expect(page.locator('.comment.reviewer').last()).toContainText('Renommé en « Voir la collection ».');
+  await expect(page.locator('.comment-meta .tag.shown')).toHaveText('Affiché au client');
   await page.locator('#ticket-status').selectOption('DONE');
   await expect(page.locator('#toast')).toHaveText('Statut : Traité.');
 
@@ -487,7 +490,7 @@ test('client screenshot capture works reliably with modern OKLCH styles and disp
   await openProject(page, projectName);
 
   // Both cards show the capture as their thumbnail, and so does each sheet.
-  await expect(page.locator('.ticket .card-shot img')).toHaveCount(2);
+  await expect(page.locator('.ticket [title="Capture jointe"]')).toHaveCount(2);
   const ticket1 = page.locator('.ticket', { hasText: 'Test capture avec styles OKLCH' });
   await ticket1.click();
   await expect(page.locator('.ticket-screenshot-preview')).toBeVisible();

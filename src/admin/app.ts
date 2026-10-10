@@ -1249,7 +1249,8 @@ function ticketCard(ticket: Ticket) {
   card.draggable = true;
   if (selectedTicket === ticket.id) card.setAttribute('aria-current', 'true');
 
-  if (ticket.screenshotId) {
+  // The thumbnail only exists in the list; board cards stay compact.
+  if (ticket.screenshotId && boardMode === 'list') {
     const shot = el('span', 'card-shot');
     const img = el('img');
     img.src = `/api/uploads/${ticket.screenshotId}`;
@@ -1274,6 +1275,12 @@ function ticketCard(ticket: Ticket) {
   const age = el('span', 'card-age', formatAge(ticket.createdAt));
   age.title = formatDate(ticket.createdAt);
   foot.append(age);
+  if (ticket.screenshotId && boardMode === 'board') {
+    const shot = el('span', 'card-comments');
+    shot.title = 'Capture jointe';
+    shot.append(icon('i-camera'));
+    foot.append(shot);
+  }
   if (ticket.commentCount) {
     const comments = el('span', 'card-comments');
     comments.append(icon('i-message'), document.createTextNode(String(ticket.commentCount)));
@@ -1557,48 +1564,10 @@ function openTicket(id: string) {
 
   // ------------------------------------------------------------ side rail
 
-  const replyPreview = el('p', 'reply-preview');
-  const showReply = (text: string) => {
-    replyPreview.classList.toggle('empty', !text);
-    replyPreview.textContent = text || 'Pas encore de réponse.';
-  };
-  showReply(ticket.replyText);
-  const replyCard = el('section', 'rail-card');
-  replyCard.append(railTitle('i-eye', 'Ce que voit le client'), replyPreview);
-
+  // One place to write, one place to read: the composer under the thread.
+  // What the client sees is the thread's latest « affiché au client » entry.
   scroller.append(conversation);
-  main.append(scroller, composer(ticket, conversation, showReply));
-
-  const note = document.createElement('textarea');
-  note.id = 'ticket-note';
-  note.value = ticket.response;
-  note.maxLength = 4000;
-  note.placeholder = 'Un mémo pour l’équipe et les agents, jamais montré au client.';
-  const noteLabel = el('label', 'rail-title');
-  noteLabel.htmlFor = 'ticket-note';
-  noteLabel.append(icon('i-lock'), document.createTextNode('Note interne'));
-  const saveNote = el('button', 'btn btn-secondary', 'Enregistrer la note');
-  saveNote.type = 'button';
-  saveNote.disabled = true;
-  note.oninput = () => {
-    saveNote.disabled = note.value === ticket.response;
-  };
-  saveNote.onclick = async () => {
-    saveNote.disabled = true;
-    try {
-      await api(`/api/tickets/${ticket.id}`, { method: 'PATCH', body: JSON.stringify({ response: note.value }) });
-      ticket.response = note.value;
-    } catch {
-      toast('Note non enregistrée.', 'error');
-      saveNote.disabled = false;
-      return;
-    }
-    // The note is saved either way; a failed list refresh must not undo it.
-    if (await loadTickets()) toast('Note enregistrée.');
-    else toast('Note enregistrée, mais actualisation indisponible.', 'error');
-  };
-  const noteCard = el('section', 'rail-card');
-  noteCard.append(noteLabel, note, saveNote);
+  main.append(scroller, composer(ticket, conversation));
 
   const facts = el('dl', 'facts');
   const fact = (term: string, value: Node | string) => {
@@ -1619,8 +1588,9 @@ function openTicket(id: string) {
   if (typeof os === 'string' && os !== 'Unknown') fact('Système', os);
   fact('Reçu', formatDate(ticket.createdAt));
   fact('Projet', ticket.projectName);
+  if (ticket.fixRequestedAt) fact('Agent IA', `${ticket.fixRequestedFor || 'Agent'} · ${formatAge(ticket.fixRequestedAt)}`);
   const contextCard = el('section', 'rail-card');
-  contextCard.append(railTitle('i-file', 'Contexte'), facts);
+  contextCard.append(railTitle('i-file', 'Informations'), facts);
 
   // Selectors and raw diagnostics are for whoever fixes the bug, not for
   // triage: folded away until asked for.
@@ -1637,7 +1607,7 @@ function openTicket(id: string) {
 
   const rail = el('aside', 'detail-rail');
   rail.setAttribute('aria-label', 'Informations du retour');
-  rail.append(replyCard, noteCard, contextCard, technical);
+  rail.append(contextCard, technical);
 
   const body = el('div', 'detail-body');
   body.append(main, rail);
@@ -1723,7 +1693,7 @@ function diagnosticsList(ticket: Ticket) {
  * the server also copies into the reply shown in the widget; an internal
  * message stays in the team's thread.
  */
-function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: string) => void) {
+function composer(ticket: Ticket, conversation: HTMLElement) {
   let audience: 'reviewer' | 'internal' = 'reviewer';
   const box = el('div', 'composer');
 
@@ -1735,7 +1705,7 @@ function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: s
   toClient.append(icon('i-message'), document.createTextNode('Répondre au client'));
   const toTeam = el('button', 'composer-tab');
   toTeam.type = 'button';
-  toTeam.append(icon('i-lock'), document.createTextNode('Message interne'));
+  toTeam.append(icon('i-lock'), document.createTextNode('Note interne'));
   tabs.append(toClient, toTeam);
 
   const draft = el('textarea', 'comment-draft');
@@ -1751,12 +1721,12 @@ function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: s
     box.classList.toggle('internal', !client);
     toClient.setAttribute('aria-pressed', String(client));
     toTeam.setAttribute('aria-pressed', String(!client));
-    draft.setAttribute('aria-label', client ? 'Réponse au client' : 'Message pour l’équipe');
+    draft.setAttribute('aria-label', client ? 'Réponse au client' : 'Note pour l’équipe');
     draft.placeholder = client
       ? 'Écrivez la réponse que le client lira dans son widget…'
-      : 'Écrivez un message pour l’équipe et les agents…';
+      : 'Une note pour l’équipe et les agents, jamais montrée au client…';
     hint.textContent = client ? 'Le client la verra dans « Mes retours ».' : 'Jamais montré au client.';
-    sendLabel.textContent = client ? 'Envoyer au client' : 'Ajouter au fil';
+    sendLabel.textContent = client ? 'Envoyer au client' : 'Ajouter la note';
   };
   toClient.onclick = () => {
     audience = 'reviewer';
@@ -1786,17 +1756,15 @@ function composer(ticket: Ticket, conversation: HTMLElement, showReply: (text: s
     }
     draft.value = '';
     send.disabled = false;
-    if (audience === 'reviewer') {
-      ticket.replyText = body;
-      showReply(body);
-      toast('Réponse envoyée au client.');
-    } else {
-      toast('Message ajouté.');
-    }
+    if (audience === 'reviewer') ticket.replyText = body;
     await renderConversation(ticket, conversation);
     // The newest entry is at the bottom, right above the composer.
     conversation.closest('.detail-scroll')?.scrollTo({ top: conversation.scrollHeight * 10, behavior: 'smooth' });
-    void loadTickets();
+    // Saved either way: a failed board refresh must not read as a lost message.
+    const refreshed = await loadTickets();
+    const what = audience === 'reviewer' ? 'Réponse envoyée au client' : 'Note ajoutée';
+    if (refreshed) toast(`${what}.`);
+    else toast(`${what}, mais actualisation indisponible.`, 'error');
   };
   send.onclick = () => void submit();
   draft.addEventListener('keydown', (event) => {
@@ -2658,6 +2626,21 @@ async function renderConversation(ticket: Ticket, host: HTMLElement) {
   }
 
   const entries: HTMLElement[] = [opened];
+  // The older single « réponse interne » field, kept readable as a pinned note.
+  if (ticket.response.trim()) {
+    const pinned = el('article', 'comment admin internal pinned');
+    const meta = el('div', 'comment-meta');
+    const avatar = el('span', 'comment-avatar');
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.append(icon('i-lock'));
+    meta.append(avatar, el('strong', '', 'Note épinglée'), el('span', 'tag internal', 'Interne'));
+    pinned.append(meta, el('p', '', ticket.response));
+    entries.push(pinned);
+  }
+  // The latest answer published to the client is the one its widget shows.
+  // The client's own words (validate, reopen) are filed under a fixed label.
+  const fromClient = (comment: Comment) => comment.authorLabel === 'Client (Reviewer)';
+  const shown = [...comments].reverse().find((comment) => comment.visibility === 'reviewer' && !fromClient(comment));
   for (const comment of comments) {
     const entry = el('article', `comment ${comment.author} ${comment.visibility}`);
     const meta = el('div', 'comment-meta');
@@ -2668,7 +2651,14 @@ async function renderConversation(ticket: Ticket, host: HTMLElement) {
     time.dateTime = comment.createdAt;
     time.title = formatDate(comment.createdAt);
     meta.append(avatar, el('strong', '', name));
-    meta.append(el('span', `tag ${comment.visibility}`, comment.visibility === 'reviewer' ? 'Envoyé au client' : 'Interne'));
+    const tag = fromClient(comment)
+      ? 'Du client'
+      : comment.visibility === 'reviewer'
+        ? comment === shown
+          ? 'Affiché au client'
+          : 'Envoyé au client'
+        : 'Interne';
+    meta.append(el('span', `tag ${fromClient(comment) ? 'client' : comment.visibility} ${comment === shown ? 'shown' : ''}`, tag));
     if (comment.statusTo && comment.statusTo !== comment.statusFrom) {
       const from = STATUS_LABELS[comment.statusFrom ?? ''] ?? comment.statusFrom;
       const to = STATUS_LABELS[comment.statusTo] ?? comment.statusTo;

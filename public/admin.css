@@ -1976,6 +1976,11 @@ body.guide-open { overflow: hidden; }
 }
 
 .comment-meta .tag.reviewer { background: var(--st-todo-soft); color: var(--st-todo); }
+/* The answer the widget currently shows: the one entry that says so plainly. */
+.comment-meta .tag.shown { background: var(--st-todo); color: #ffffff; }
+.comment-meta .tag.client { background: var(--st-review-soft); color: var(--st-review); }
+.comment.pinned { border-left: 3px solid var(--st-progress); }
+.comment.pinned .comment-avatar .icon { width: 12px; height: 12px; }
 .comment-meta .tag.move { background: var(--st-review-soft); color: var(--st-review); }
 
 /* Composer: under the conversation, outside its scroll, like a chat box. */
@@ -2070,20 +2075,6 @@ body.guide-open { overflow: hidden; }
 }
 
 .rail-title .icon { width: 13px; height: 13px; color: var(--text-3); }
-
-.reply-preview {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: var(--r);
-  background: var(--st-todo-soft);
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.reply-preview.empty { background: var(--surface-2); color: var(--text-3); font-size: 12.5px; }
 
 .rail-card textarea { min-height: 84px; font-size: 13px; }
 .rail-card .btn { justify-self: end; height: 30px; font-size: 12.5px; }
@@ -4581,7 +4572,7 @@ dialog.fix-dialog { width: min(600px, calc(100vw - 24px)); }
   display: block;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 16px max(20px, calc((100% - 1100px) / 2)) 32px;
+  padding: 16px 20px 32px;
   scroll-snap-type: none;
 }
 

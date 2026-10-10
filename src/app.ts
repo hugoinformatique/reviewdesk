@@ -596,6 +596,11 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     visibility: 'internal' | 'reviewer';
     statusFrom?: string | null;
     statusTo?: string | null;
+    /**
+     * A comment visible to the client normally becomes the answer its widget
+     * shows. The client's own words (validate, reopen) must not replace it.
+     */
+    publishReply?: boolean;
   }) {
     const id = randomUUID();
     const rows = await db.query(
@@ -613,7 +618,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
         input.statusTo ?? null,
       ],
     );
-    if (input.visibility === 'reviewer') {
+    if (input.visibility === 'reviewer' && input.publishReply !== false) {
       await db.query('UPDATE tickets SET reply_text = $2, updated_at = now() WHERE id = $1', [
         input.ticketId,
         input.body,
@@ -750,6 +755,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       ticketId: id,
       author: 'admin',
       authorLabel: 'Client (Reviewer)',
+      publishReply: false,
       body: commentBody,
       visibility: 'reviewer',
       statusFrom: ticket.status,
@@ -796,6 +802,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       ticketId: id,
       author: 'admin',
       authorLabel: 'Client (Reviewer)',
+      publishReply: false,
       body: commentBody,
       visibility: 'reviewer',
       statusFrom: ticket.status,
