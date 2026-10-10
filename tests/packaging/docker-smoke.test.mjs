@@ -1,8 +1,8 @@
 // End-to-end smoke of the self-contained Docker ZIP (bundled SeaweedFS S3).
 // Opt-in (REVIEWDESK_DOCKER_SMOKE=1) because it builds images and starts containers.
 //
-// Isolation rules: every docker command goes through `docker compose -p
-// reviewdesk-kit-selfcontained-test`; loopback high ports only; never `down -v`
+// Isolation rules: state-changing Docker commands use a dedicated Compose project;
+// loopback high ports only; never `down -v`
 // nor prune. Named volumes are preserved and the matching kit configuration
 // (.env, secrets/, certs/) is kept in a state directory so a rerun reuses them.
 // No compose overlay: the stack under test is exactly the archive's compose.yaml.
@@ -22,7 +22,7 @@ import { packageDocker } from '../../scripts/packaging/docker/package-docker.mjs
 import { readZip } from './docker-zip.mjs';
 
 const exec = promisify(execFile);
-const PROJECT = 'reviewdesk-kit-selfcontained-test';
+const PROJECT = process.env.REVIEWDESK_DOCKER_PROJECT || 'reviewdesk-kit-selfcontained-test';
 const PUBLIC_HOST = 'reviewdesk.test';
 const BUCKET = 'reviewdesk-captures';
 const state = process.env.REVIEWDESK_DOCKER_STATE || path.join(homedir(), '.cache', PROJECT);
@@ -70,16 +70,17 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   const scratch = await mkdtemp(path.join(tmpdir(), 'kit docker autonome été '));
   let proxy;
   let root;
+  let stackStarted = false;
   const compose = (args, options = {}) => run('docker', ['compose', '-p', PROJECT, ...args], { cwd: options.cwd ?? root, env: { COMPOSE_PROJECT_NAME: PROJECT }, ...options });
   t.after(async () => {
     proxy?.close();
     // Containers of this test project only (including one-off `run` containers); never -v: volumes stay.
-    if (process.env.REVIEWDESK_DOCKER_KEEP !== '1' && root) await compose(['down', '--remove-orphans'], { allowFail: true }).catch(() => {});
+    if (process.env.REVIEWDESK_DOCKER_KEEP !== '1' && stackStarted) await compose(['down', '--remove-orphans'], { allowFail: true }).catch(() => {});
     await rm(scratch, { recursive: true, force: true });
   });
 
   // 1. Package, verify the checksum, extract into a path with spaces and accents.
-  const zipPath = await packageDocker(path.join(scratch, 'dist'));
+  const zipPath = process.env.REVIEWDESK_DOCKER_ZIP || await packageDocker(path.join(scratch, 'dist'));
   await run('sha256sum', ['-c', `${path.basename(zipPath)}.sha256`], { cwd: path.dirname(zipPath) });
   root = path.join(scratch, 'srv', 'reviewdesk-v8.0.0-docker');
   await readZip(await readFile(zipPath), path.join(scratch, 'srv'));
@@ -90,6 +91,14 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   const saved = path.join(state, 'kit-config');
   const installEnv = { PATH: '/usr/bin:/bin', COMPOSE_PROJECT_NAME: PROJECT };
   let firstRun = false;
+  if (process.env.REVIEWDESK_DOCKER_REQUIRE_FRESH === "1") {
+    assert.match(PROJECT, /^reviewdesk-kit-fresh-test-[a-z0-9]+$/, "dedicated fresh project required");
+    assert.ok(!(await exists(path.join(saved, ".env"))), "fresh run must not restore a configuration");
+    const volumes = await run("docker", ["volume", "ls", "-q", "--filter", `name=^${PROJECT}_(pgdata|s3data|s3socket)$`]);
+    assert.equal(volumes.stdout.trim(), "", "fresh run must have no existing volumes");
+    const containers = await run("docker", ["ps", "-a", "-q", "--filter", `label=com.docker.compose.project=${PROJECT}`]);
+    assert.equal(containers.stdout.trim(), "", "fresh run must have no existing containers");
+  }
   if (await exists(path.join(saved, '.env'))) {
     for (const name of CONFIG) await cp(path.join(saved, name), path.join(root, name), { recursive: true, preserveTimestamps: true });
     await chmod(path.join(root, '.env'), 0o600);
@@ -127,6 +136,7 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   assert.deepEqual(Object.keys(JSON.parse(config.stdout).services).sort(), ['app', 'postgres', 's3', 's3-init', 's3-storage']);
   // Upgrade path (config restored into a new folder): --force-recreate, as documented,
   // so no container keeps secret bind mounts pointing at a previous folder.
+  stackStarted = true;
   await compose(['up', '-d', '--build', ...(firstRun ? [] : ['--force-recreate'])]);
   const waitHealthy = async () => {
     for (let i = 0; i < 120; i++) {
@@ -142,7 +152,7 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   const init = (await compose(['ps', '-a', '--format', 'json', 's3-init'])).stdout.trim().split('\n').map(line => JSON.parse(line))[0];
   assert.equal(init.ExitCode, 0, 'bucket bootstrap completed');
   const initLogs = (await compose(['logs', '--no-color', 's3-init'])).stdout;
-  assert.match(initLogs, firstRun ? /créé|existe/ : /existe/);
+  assert.match(initLogs, firstRun ? /créé/ : /existe/);
 
   // 5. Network exposure: app on loopback only; PostgreSQL and S3 unpublished; app not root.
   const published = Object.fromEntries(ps.map(item => [item.Service, (item.Publishers ?? []).filter(p => p.PublishedPort)]));

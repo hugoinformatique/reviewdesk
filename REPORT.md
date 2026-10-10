@@ -215,3 +215,45 @@ rerun. Images construites du projet de test laissées en place.
   automatiquement (le repli sans terminal l'est).
 - Documentation en français seulement (comme le reste des docs du dépôt).
 - Pas de bump de version : distribution 8.0.0 non publiée, entrée sous « Non publié ».
+
+## Contre-épreuve : volumes entièrement neufs (2026-10-10)
+
+Les paragraphes « Historique honnête du smoke » et « Isolation Docker » ci-dessus
+relatent **le lot initial**, avant cette contre-épreuve. Le manque de couverture
+signalé (« nouvelle topologie non rejouée avec volumes neufs ») est désormais levé.
+
+- Archive **inchangée** : `test-results/docker-kit/reviewdesk-v8.0.0-docker.zip`,
+  SHA-256 `e436b8027bf5d4e77082a376b7151c7fb207429c3cbed9267aa181d61e08169d`.
+  `sha256sum -c` réussi depuis le répertoire de l’archive ; le test utilise
+  explicitement ce fichier, et non un ZIP reconstruit.
+- Projet Compose unique `reviewdesk-kit-fresh-test-b3470290` ; avant lancement,
+  ni volume correspondant ni configuration conservée. Le mode
+  `REVIEWDESK_DOCKER_REQUIRE_FRESH=1` refuse de restaurer une configuration ou
+  de démarrer sur des volumes existants. Extraction réelle du ZIP, première
+  exécution de `install.sh`, build/up et création du bucket vérifiée par le log
+  d’initialisation (`créé`, non `existe`).
+- `node --test tests/packaging/docker-smoke.test.mjs` : **1 réussi, 0 échec,
+  185 183 ms** (log `/home/agent/logs/reviewdesk-kit-fresh-test-b3470290.log`).
+  Parcours complet depuis zéro : CA et nom TLS, réseau/ports et HTTP clair,
+  proxy HTTPS local, login admin, projet, widget/CORS, ticket et capture,
+  lecture/liste S3 anonymes refusées, persistance après `restart` et
+  `--force-recreate`, canaris et journaux sans secret.
+- Deuxième exécution indépendante avec le harnais final sur projet et volumes
+  **encore neufs** `reviewdesk-kit-fresh-test-667007af` : 1/1 réussi,
+  197 474 ms (`/home/agent/logs/reviewdesk-kit-fresh-test-667007af.log`).
+  Contre-test : un projet déjà configuré avec `REQUIRE_FRESH=1` est refusé
+  (exit 1), sans supprimer ses volumes ; log
+  `/home/agent/logs/reviewdesk-kit-fresh-guard-negative.log`.
+- Après test : les trois volumes (`_pgdata`, `_s3data`, `_s3socket`) de
+  **chacun des deux projets conservés** ; aucun conteneur de ces projets.
+  Aucun autre projet touché, aucun `down -v` ni prune. Configurations
+  synthétiques conservées dans `/home/agent/.cache/` sous les deux noms de projet.
+- Seul le harnais `tests/packaging/docker-smoke.test.mjs` a changé pour
+  paramétrer nom de projet et chemin du ZIP, rendre le chemin neuf obligatoire
+  sur demande, vérifier les conteneurs existants et exiger la création effective
+  du bucket au premier lancement. Aucun `down` si le précontrôle refuse.
+  Le kit livré et son archive sont inchangés.
+
+Limites restantes : proxy public/Caddy/nginx et navigateur réel non testés ;
+redémarrage hôte/démon Docker et restaurations de sauvegarde non testés ;
+mode S3 externe non rejoué ici. Les autres limites ci-dessus restent valables.
