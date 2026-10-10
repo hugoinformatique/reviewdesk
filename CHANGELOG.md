@@ -17,6 +17,27 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Ajouté
 
+- Distribution Docker Compose auto-hébergée 8.0.0 (`reviewdesk-v8.0.0-docker.zip`) :
+  application compilée et dépendances de production verrouillées sans PGlite
+  (`npm ci` dans l'image `node:22.23.3-bookworm-slim` épinglée par digest),
+  PostgreSQL `17.11-alpine3.24` sur réseau interne sans port publié,
+  application publiée sur `127.0.0.1` uniquement, S3 externe HTTPS exact,
+  autorité privée via `NODE_EXTRA_CA_CERTS`. Au démarrage : `HeadBucket`
+  signé, liste anonyme refusée, et objet de test temporaire écrit puis relu
+  sans identifiants (401/403 exigé) puis toujours supprimé — prouve qu'un
+  nouvel objet n'est pas public à cet instant, pas l'absence d'ACL publique
+  sur d'autres objets ni une dérive ultérieure de la politique. Permissions
+  minimales documentées (`s3:ListBucket`, `s3:PutObject`, `s3:GetObject`,
+  `s3:DeleteObject`). `install.sh` (POSIX sh + openssl + Docker) génère des
+  mots de passe forts et distincts, enregistre la configuration en droits 600
+  sans afficher de secret, ne l'écrase jamais (verrou exclusif, publication
+  sans écrasement), refuse une configuration partielle, refuse une nouvelle
+  configuration tant que Docker ne confirme pas l'absence du volume
+  PostgreSQL, et n'accepte que les endpoints que le démarrage accepte.
+  Génération par `scripts/packaging/docker/package-docker.mjs`, guide
+  `docs/GUIDE-DOCKER-FR.md` (reverse proxy HTTPS, tunnel, exploitation), tests
+  unitaires, tests de l'installeur et smoke test Compose de bout en bout.
+
 - Kit ZIP local 8.0.0 : serveur/MCP compilés, assets publics complets,
   manifeste runtime verrouillé incluant PGlite, scripts Node 22
   `install.mjs` et `start.mjs`, mot de passe initial sans valeur par défaut,
@@ -34,6 +55,7 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Modifié
 
+- Le kit ZIP local est marqué obsolète au profit de la distribution Docker.
 - Le gris de texte le plus clair (`--text-3`) passe à `#6b6b74` en clair et
   `#8b8b94` en sombre, pour atteindre 4,5:1 sur toutes les surfaces (dates,
   compteurs, métadonnées, statut « Traité »).

@@ -109,12 +109,18 @@ au même endroit.
 
 ## Démarrage en local
 
-Pour utiliser la version **8.0.0 sans les sources**, consultez le
-[guide du kit ZIP local](docs/KIT-LOCAL.md) : extraction, `node install.mjs`,
-puis `node start.mjs`. Le kit contient les fichiers compilés, tous les assets
-et un runtime verrouillé avec PGlite ; il écoute uniquement sur `127.0.0.1`.
-La [documentation de packaging](docs/PACKAGING.md) décrit sa génération et
-son test d'installation. Le statut **tous droits réservés** reste inchangé.
+Pour **auto-héberger la version 8.0.0 sans les sources**, utilisez la
+distribution Docker Compose : [guide d'auto-hébergement Docker](docs/GUIDE-DOCKER-FR.md).
+L'hôte n'a besoin que de Docker Compose, d'un shell et d'`openssl` (pas de
+Node) ; l'archive contient l'application compilée, PostgreSQL 17 interne et
+se branche sur un bucket S3 HTTPS privé ; l'accès distant passe par un reverse
+proxy HTTPS. Génération et tests : [documentation de packaging](docs/PACKAGING.md#distribution-docker-compose).
+
+> **Obsolète :** le [kit ZIP local](docs/KIT-LOCAL.md) (Node 22 + PGlite,
+> `node install.mjs` puis `node start.mjs`) reste disponible mais n'est plus la
+> voie recommandée ; préférez la distribution Docker.
+
+Le statut **tous droits réservés** reste inchangé pour les deux distributions.
 
 Prérequis : Node 22.x.
 

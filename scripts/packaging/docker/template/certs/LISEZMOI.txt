@@ -1,0 +1,10 @@
+Autorité de certification privée (facultatif)
+
+Si votre stockage S3 présente un certificat signé par une autorité privée,
+copiez ici le certificat PEM de cette autorité (jamais une clé privée), par
+exemple certs/ca.pem, puis indiquez-le à l'installation :
+
+  sh install.sh --ca-file ca.pem
+
+Le conteneur le lit en lecture seule via NODE_EXTRA_CA_CERTS. Sans autorité
+privée, laissez ce dossier tel quel : les autorités publiques suffisent.

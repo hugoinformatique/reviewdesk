@@ -1,5 +1,8 @@
 # ReviewDesk 8.0.0 — guide du kit local
 
+> **Obsolète.** Pour un auto-hébergement, utilisez la distribution Docker
+> Compose ([GUIDE-DOCKER-FR.md](GUIDE-DOCKER-FR.md)).
+
 Ce ZIP contient l'application compilée, tous ses assets publics (y compris
 polices, démo et licence des polices), un manifeste npm autonome et son
 verrouillage. PGlite fournit PostgreSQL embarqué ; les captures sont stockées

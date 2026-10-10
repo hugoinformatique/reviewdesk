@@ -1,0 +1,89 @@
+# ReviewDesk — auto-hébergement Docker Compose.
+# Lancez d'abord `sh install.sh` : il crée .env et secrets/ (droits 600).
+# PostgreSQL n'est publié sur aucun port ; l'application écoute uniquement sur
+# 127.0.0.1 et doit être exposée par un reverse proxy HTTPS sur la même machine.
+name: reviewdesk
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.24@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reviewdesk
+      POSTGRES_DB: reviewdesk
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-U", "reviewdesk", "-d", "reviewdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ./app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      REVIEWDESK_CONFIGURED: "${REVIEWDESK_CONFIGURED:?Configuration absente : lancez sh install.sh}"
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4300"
+      SECURE_COOKIES: "true"
+      STORAGE_DRIVER: s3
+      DATABASE_POOL_MAX: "10"
+      S3_ENDPOINT: "${S3_ENDPOINT:?S3_ENDPOINT manquant dans .env (https://hôte requis)}"
+      S3_BUCKET: "${S3_BUCKET:?S3_BUCKET manquant dans .env}"
+      S3_REGION: "${S3_REGION:?S3_REGION manquant dans .env}"
+      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:?S3_FORCE_PATH_STYLE manquant dans .env}"
+      S3_KEY_PREFIX: "${S3_KEY_PREFIX:-uploads}"
+      NODE_EXTRA_CA_CERTS: "${NODE_EXTRA_CA_CERTS:-}"
+    secrets:
+      - admin_password
+      - postgres_password
+      - s3_access_key_id
+      - s3_secret_access_key
+    volumes:
+      - ./certs:/etc/reviewdesk/certs:ro
+    ports:
+      - "127.0.0.1:${REVIEWDESK_HTTP_PORT:?REVIEWDESK_HTTP_PORT manquant dans .env}:4300"
+    networks:
+      - backend
+      - egress
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    # Read the root-owned secret files, then drop to the `node` user.
+    cap_add:
+      - DAC_READ_SEARCH
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  admin_password:
+    file: ./secrets/admin_password
+  postgres_password:
+    file: ./secrets/postgres_password
+  s3_access_key_id:
+    file: ./secrets/s3_access_key_id
+  s3_secret_access_key:
+    file: ./secrets/s3_secret_access_key
+
+networks:
+  backend:
+    internal: true
+  egress: {}
+
+volumes:
+  pgdata: {}
