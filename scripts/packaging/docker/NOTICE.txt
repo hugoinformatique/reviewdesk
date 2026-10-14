@@ -1,0 +1,16 @@
+ReviewDesk 10.0.0 — distribution Docker Compose auto-hébergée
+
+Tous droits réservés. Ce logiciel n'est pas placé sous une licence open source
+et cette archive n'accorde aucune licence. Sa redistribution n'est autorisée
+que par le titulaire des droits ; les conditions d'utilisation (gratuite ou
+non) relèvent de sa seule décision. Demandez une autorisation écrite avant
+toute réutilisation ou redistribution.
+
+Les composants tiers restent soumis à leurs propres licences : images Docker
+officielles (node, postgres), image SeaweedFS (chrislusf/seaweedfs) du
+stockage S3 intégré, dépendances npm installées dans l'image
+(/app/node_modules) et public/fonts/LICENSE-geist.txt.
+
+Aucun compte cloud n'est requis. Le serveur, son stockage, sa sauvegarde, son
+nom de domaine et son certificat public restent à la charge de l'exploitant,
+y compris leurs frais d'hébergement.

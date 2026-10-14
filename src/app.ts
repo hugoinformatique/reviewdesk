@@ -98,6 +98,7 @@ const agentTicketPatch = z
     visibility: z.enum(['internal', 'reviewer']).optional(),
   })
   .refine((value) => value.status !== undefined || (value.comment ?? '') !== '', 'empty patch');
+const fixRequestInput = z.object({ agent: z.string().trim().max(80).optional() });
 const agentTokenInput = z.object({
   label: z.string().trim().max(80).optional(),
   projectId: uuid.optional(),
@@ -176,6 +177,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     for (const [name, value] of Object.entries(headers)) {
       if (!reply.hasHeader(name)) reply.header(name, value);
     }
+    // The widget is the one file other sites must load: with same-origin,
+    // browsers refuse the <script> on every client site.
+    if (req.url.split('?')[0] === '/widget.js') reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
     if (req.url.startsWith('/api/') && !reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'no-store');
     return payload;
   });
@@ -417,15 +421,32 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     // openCount is what the sidebar badges show. It counts every ticket that is
     // not DONE, independently of the filters in force, so the badge means the
     // same thing whatever the operator is currently looking at.
+    // The project cards of the home screen read the rest: what waits in each
+    // status, when the last ticket came in, and whether the widget has ever
+    // called home (a review link used at least once).
     const rows = await db.query(
       `SELECT p.id, p.name, p.client_label AS "clientLabel", p.origins, p.webhook_url AS "webhookUrl",
               p.created_at AS "createdAt",
-              COUNT(t.id) FILTER (WHERE t.status <> 'DONE') AS "openCount"
+              COUNT(t.id) FILTER (WHERE t.status <> 'DONE') AS "openCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'TODO') AS "todoCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'IN_PROGRESS') AS "inProgressCount",
+              COUNT(t.id) FILTER (WHERE t.status = 'REVIEW') AS "reviewCount",
+              COUNT(t.id) FILTER (WHERE t.fix_requested_at IS NOT NULL) AS "fixRequestedCount",
+              MAX(t.created_at) AS "lastTicketAt",
+              (SELECT MAX(l.last_used_at) FROM review_links l WHERE l.project_id = p.id) AS "widgetSeenAt",
+              -- The latest capture stands in for a preview of the site on its card.
+              (SELECT s.screenshot_id FROM tickets s WHERE s.project_id = p.id AND s.screenshot_id IS NOT NULL
+               ORDER BY s.created_at DESC LIMIT 1) AS "previewShotId"
        FROM projects p LEFT JOIN tickets t ON t.project_id = p.id
        GROUP BY p.id
        ORDER BY p.created_at`,
     );
-    return rows.rows.map((row) => ({ ...row, openCount: Number((row as { openCount: string }).openCount) }));
+    const counts = ['openCount', 'todoCount', 'inProgressCount', 'reviewCount', 'fixRequestedCount'];
+    return rows.rows.map((row) => {
+      const project = { ...(row as Record<string, unknown>) };
+      for (const key of counts) project[key] = Number(project[key] ?? 0);
+      return project;
+    });
   });
 
   /** Returns the canonical origins, or an error code the caller should send back. */
@@ -578,6 +599,11 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     visibility: 'internal' | 'reviewer';
     statusFrom?: string | null;
     statusTo?: string | null;
+    /**
+     * A comment visible to the client normally becomes the answer its widget
+     * shows. The client's own words (validate, reopen) must not replace it.
+     */
+    publishReply?: boolean;
   }) {
     const id = randomUUID();
     const rows = await db.query(
@@ -595,7 +621,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
         input.statusTo ?? null,
       ],
     );
-    if (input.visibility === 'reviewer') {
+    if (input.visibility === 'reviewer' && input.publishReply !== false) {
       await db.query('UPDATE tickets SET reply_text = $2, updated_at = now() WHERE id = $1', [
         input.ticketId,
         input.body,
@@ -732,6 +758,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       ticketId: id,
       author: 'admin',
       authorLabel: 'Client (Reviewer)',
+      publishReply: false,
       body: commentBody,
       visibility: 'reviewer',
       statusFrom: ticket.status,
@@ -778,6 +805,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       ticketId: id,
       author: 'admin',
       authorLabel: 'Client (Reviewer)',
+      publishReply: false,
       body: commentBody,
       visibility: 'reviewer',
       statusFrom: ticket.status,
@@ -909,6 +937,11 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     if (format === 'mobile') clauses.push('t.viewport_width < 768');
     if (format === 'desktop') clauses.push('t.viewport_width >= 768');
 
+    // Tickets the team asked an agent to fix.
+    const requested = text('requested', 5);
+    if (requested === null || (requested && requested !== '1' && requested !== 'true')) return { error: 'INVALID_FILTER' };
+    if (requested) clauses.push('t.fix_requested_at IS NOT NULL');
+
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     // `total` is counted before paging so the header can state how many tickets
     // match, rather than how many happen to be loaded. The previous LIMIT 500
@@ -939,6 +972,7 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
               t.text, t.response, t.reply_text AS "replyText", t.status, t.page_url AS "pageUrl", t.anchor,
               t.viewport_width AS "viewportWidth", t.diagnostics, t.screenshot_id AS "screenshotId",
               t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              t.fix_requested_at AS "fixRequestedAt", t.fix_requested_for AS "fixRequestedFor",
               (SELECT COUNT(*) FROM ticket_comments c WHERE c.ticket_id = t.id) AS "commentCount"
        FROM tickets t JOIN projects p ON p.id = t.project_id
        ${paged.length ? `WHERE ${paged.join(' AND ')}` : ''}
@@ -974,7 +1008,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     const rows = await db.query<{ status: string; response: string; replyText: string }>(
       `UPDATE tickets
        SET status = COALESCE($2, status), response = COALESCE($3, response),
-           reply_text = COALESCE($4, reply_text), updated_at = now()
+           reply_text = COALESCE($4, reply_text), updated_at = now(),
+           -- A fix request is answered once the ticket reaches review or done.
+           fix_requested_at = CASE WHEN COALESCE($2, status) IN ('REVIEW', 'DONE') THEN NULL ELSE fix_requested_at END
        WHERE id = $1
        RETURNING status, response, reply_text AS "replyText"`,
       [id, parsed.data.status ?? null, parsed.data.response ?? null, parsed.data.replyText ?? null],
@@ -985,6 +1021,48 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       await cleanupTicketScreenshot(id);
     }
     return { id, status: row.status, response: row.response, replyText: row.replyText };
+  });
+
+  /**
+   * « Lancer la correction »: queues the ticket for an agent. MCP cannot wake a
+   * local agent, so this is a request the agent collects (`requested=1` on the
+   * agent API, `next_fix_request` over MCP), traced in the work log.
+   */
+  app.post('/api/tickets/:id/fix-request', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = fixRequestInput.safeParse(req.body ?? {});
+    if (!parsed.success || !uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const before = await loadTicket(id, null);
+    if (!before) return reply.code(404).send({ error: 'NOT_FOUND' });
+    // Work starts now: a ticket still waiting moves to « en cours ».
+    const status = before.status === 'TODO' ? 'IN_PROGRESS' : before.status;
+    const agent = parsed.data.agent ?? '';
+    const rows = await db.query<{ fixRequestedAt: string }>(
+      `UPDATE tickets SET fix_requested_at = now(), fix_requested_for = $2, status = $3, updated_at = now()
+       WHERE id = $1 RETURNING fix_requested_at AS "fixRequestedAt"`,
+      [id, agent, status],
+    );
+    await addComment({
+      ticketId: id,
+      author: 'admin',
+      authorLabel: 'Équipe',
+      body: agent ? `Correction demandée à ${agent}.` : 'Correction demandée à un agent.',
+      visibility: 'internal',
+      statusFrom: before.status,
+      statusTo: status,
+    });
+    return reply.code(201).send({ id, status, fixRequestedAt: rows.rows[0]?.fixRequestedAt, fixRequestedFor: agent });
+  });
+
+  app.delete('/api/tickets/:id/fix-request', { preHandler: requireAdminWrite }, async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    if (!uuid.safeParse(id).success) return reply.code(400).send({ error: 'INVALID_INPUT' });
+    const rows = await db.query(
+      `UPDATE tickets SET fix_requested_at = NULL, fix_requested_for = '', updated_at = now() WHERE id = $1 RETURNING id`,
+      [id],
+    );
+    if (!rows.rows.length) return reply.code(404).send({ error: 'NOT_FOUND' });
+    return { id, fixRequestedAt: null };
   });
 
   // ------------------------------------------------------------ onboarding
@@ -1143,7 +1221,8 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
       `SELECT t.id, t.project_id AS "projectId", p.name AS "projectName", p.client_label AS "clientLabel",
               t.text, t.response, t.reply_text AS "replyText", t.status, t.page_url AS "pageUrl", t.anchor,
               t.viewport_width AS "viewportWidth", t.diagnostics, t.screenshot_id AS "screenshotId",
-              t.created_at AS "createdAt", t.updated_at AS "updatedAt"
+              t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+              t.fix_requested_at AS "fixRequestedAt", t.fix_requested_for AS "fixRequestedFor"
        FROM tickets t JOIN projects p ON p.id = t.project_id
        WHERE t.id = $1 ${restrictProjectId ? 'AND t.project_id = $2' : ''}`,
       restrictProjectId ? [id, restrictProjectId] : [id],
@@ -1324,7 +1403,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     if (!before) return reply.code(404).send({ error: 'NOT_FOUND' });
     const status = parsed.data.status ?? before.status;
     if (parsed.data.status && parsed.data.status !== before.status) {
-      await db.query('UPDATE tickets SET status = $2, updated_at = now() WHERE id = $1', [id, parsed.data.status]);
+      await db.query(`UPDATE tickets SET status = $2, updated_at = now(),
+                fix_requested_at = CASE WHEN $2 IN ('REVIEW', 'DONE') THEN NULL ELSE fix_requested_at END
+         WHERE id = $1`, [id, parsed.data.status]);
       if (parsed.data.status === 'DONE') {
         await cleanupTicketScreenshot(id);
       }

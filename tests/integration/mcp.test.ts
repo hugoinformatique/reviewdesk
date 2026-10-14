@@ -111,10 +111,18 @@ test('a coding agent drives ReviewDesk through MCP: read the backlog, comment, c
   const tools = (await client.send('tools/list')).tools as { name: string }[];
   assert.deepEqual(
     tools.map((tool) => tool.name).sort(),
-    ['comment_ticket', 'get_screenshot', 'get_ticket', 'list_projects', 'list_tickets', 'update_ticket'],
+    ['comment_ticket', 'get_screenshot', 'get_ticket', 'list_projects', 'list_tickets', 'next_fix_request', 'update_ticket'],
   );
 
-  const listed = await client.send('tools/call', { name: 'list_tickets', arguments: { status: 'TODO' } });
+  // An empty queue says so; a queued ticket comes back with its full brief.
+  const idle = toolText(await client.send('tools/call', { name: 'next_fix_request', arguments: {} }));
+  assert.ok(idle.includes('Aucune correction demandée'), idle);
+  await app.inject({ method: 'POST', url: `/api/tickets/${ticketId}/fix-request`, headers: auth.write, payload: { agent: 'Claude Code' } });
+  const queued = toolText(await client.send('tools/call', { name: 'next_fix_request', arguments: {} }));
+  assert.ok(queued.includes(ticketId), queued);
+  assert.ok(queued.includes('Correction demandée par l\'équipe : oui'), queued);
+
+  const listed = await client.send('tools/call', { name: 'list_tickets', arguments: { status: 'IN_PROGRESS' } });
   const listedText = toolText(listed);
   assert.ok(listedText.includes(ticketId), listedText);
   assert.ok(listedText.includes('illisible sur mobile'), listedText);
@@ -139,9 +147,9 @@ test('a coding agent drives ReviewDesk through MCP: read the backlog, comment, c
   assert.equal(ticket.json().tickets[0].id, ticketId);
   assert.equal(ticket.json().tickets[0].replyText, 'Contraste du CTA porté à 5.2:1.');
   const comments = await app.inject({ method: 'GET', url: `/api/tickets/${ticketId}/comments`, headers: auth.read });
-  assert.equal(comments.json().comments[0].author, 'agent');
-  assert.equal(comments.json().comments[0].authorLabel, 'Claude Code');
-  assert.equal(comments.json().comments[0].statusTo, 'DONE');
+  assert.equal(comments.json().comments.at(-1).author, 'agent');
+  assert.equal(comments.json().comments.at(-1).authorLabel, 'Claude Code');
+  assert.equal(comments.json().comments.at(-1).statusTo, 'DONE');
 
   // A revoked token stops the agent dead, with a message it can act on.
   const tokens = await app.inject({ method: 'GET', url: '/api/agent-tokens', headers: auth.read });

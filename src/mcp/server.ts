@@ -36,6 +36,8 @@ type Ticket = {
   screenshotId?: string | null;
   createdAt: string;
   commentCount?: number;
+  fixRequestedAt?: string | null;
+  fixRequestedFor?: string;
 };
 type Comment = {
   author: string;
@@ -130,6 +132,7 @@ function ticketDetail(ticket: Ticket & { comments?: Comment[] }): string {
     `- Environnement : ${diagnosticsLine(ticket.diagnostics)}`,
     `- Reçu le ${date(ticket.createdAt)}`,
     `- Capture : ${ticket.screenshotId ? `oui — get_screenshot("${ticket.id}")` : 'aucune'}`,
+    `- Correction demandée par l'équipe : ${ticket.fixRequestedAt ? `oui, le ${date(ticket.fixRequestedAt)}` : 'non'}`,
     `- Réponse actuellement visible par le client : ${ticket.replyText || '(aucune)'}`,
     `- Note interne : ${ticket.response || '(aucune)'}`,
   ];
@@ -160,7 +163,10 @@ const server = new McpServer(
       'get_screenshot si une capture existe, puis update_ticket pour déplacer le statut en ' +
       'décrivant ce qui a été fait. Une réponse destinée au client se publie avec ' +
       'visibility "reviewer" : elle apparaît dans le widget, côté client. Sinon le commentaire ' +
-      'reste interne.',
+      'reste interne. Quand l\'équipe clique « Lancer la correction » sur un retour, il entre ' +
+      'dans une file : next_fix_request donne le plus ancien retour en attente, avec son détail. ' +
+      'Une fois corrigé, passez-le à REVIEW avec update_ticket en expliquant le changement : ' +
+      'la demande est alors close.',
   },
 );
 
@@ -204,11 +210,13 @@ server.registerTool(
       page: z.string().max(120).optional().describe('Sous-chaîne de l\'URL de la page concernée.'),
       format: z.enum(['mobile', 'desktop']).optional().describe('Format d\'écran du reviewer.'),
       limit: z.number().int().min(1).max(200).optional().describe('Nombre de tickets, 60 par défaut.'),
+      requested: z.boolean().optional().describe('Seulement les retours dont l\'équipe a demandé la correction (tous statuts).'),
     },
     annotations: { readOnlyHint: true },
   },
-  async ({ status, projectId, page, format, limit }) => {
-    const params = new URLSearchParams({ status: status ?? 'TODO' });
+  async ({ status, projectId, page, format, limit, requested }) => {
+    const params = new URLSearchParams(requested ? { requested: '1' } : { status: status ?? 'TODO' });
+    if (requested && status) params.set('status', status);
     if (projectId) params.set('projectId', projectId);
     if (page) params.set('page', page);
     if (format) params.set('format', format);
@@ -219,6 +227,34 @@ server.registerTool(
     if (!payload.tickets.length) return text('Aucun retour ne correspond à ces filtres.');
     const more = payload.tickets.length < payload.total ? `\n\n(${payload.tickets.length} sur ${payload.total})` : '';
     return text(`${payload.total} retour(s) :\n\n${payload.tickets.map(ticketLine).join('\n')}${more}`);
+  },
+);
+
+server.registerTool(
+  'next_fix_request',
+  {
+    title: 'Prochaine correction demandée',
+    description:
+      'Le plus ancien retour pour lequel l\'équipe a cliqué « Lancer la correction », avec son ' +
+      'détail complet. À traiter puis passer à REVIEW avec update_ticket. Renvoie un message ' +
+      'si la file est vide.',
+    inputSchema: {
+      projectId: z.string().uuid().optional().describe('Restreindre à un projet.'),
+    },
+    annotations: { readOnlyHint: true },
+  },
+  async ({ projectId }) => {
+    const params = new URLSearchParams({ requested: '1', limit: '200' });
+    if (projectId) params.set('projectId', projectId);
+    const payload = await call<{ tickets: Ticket[]; total: number }>(`/api/agent/tickets?${params}`);
+    // Oldest request first: the queue is served in the order it was filled.
+    const next = payload.tickets
+      .filter((ticket) => ticket.fixRequestedAt)
+      .sort((a, b) => Date.parse(a.fixRequestedAt!) - Date.parse(b.fixRequestedAt!))[0];
+    if (!next) return text('Aucune correction demandée pour le moment.');
+    const detail = await call<Ticket & { comments: Comment[] }>(`/api/agent/tickets/${next.id}`);
+    const rest = payload.total - 1;
+    return text(`${ticketDetail(detail)}\n\n(${rest > 0 ? `${rest} autre(s) correction(s) en attente` : 'dernière correction en attente'})`);
   },
 );
 

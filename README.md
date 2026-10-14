@@ -68,9 +68,11 @@ au même endroit.
 - diagnostics techniques **opt-in**, avec aperçu exact de ce qui part ;
 - onglet « Mes retours » : statut de chaque retour et réponse de l'équipe, sans
   avoir à écrire quoi que ce soit ;
-- interface « liquid glass » : surfaces translucides, arêtes spéculaires, ressorts
-  à l'ouverture — avec repli opaque si le navigateur ne floute pas ou si le
-  visiteur demande moins de transparence ;
+- un panneau qui naît du bouton lui-même, surfaces opaques et contrastées (AA),
+  catégories `Bug` / `Visuel` / `Contenu` / `Idée` en un clic, confirmation animée —
+  et rien que de l'opacité si le visiteur demande moins de mouvement ;
+- styles posés par feuille construite (`adoptedStyleSheets`) : le widget s'affiche
+  aussi sur un site dont la CSP interdit les styles inline ;
 - thème pris **sur la page hôte**, pas sur le système du reviewer : le widget
   s'habille comme le site sur lequel il est posé ;
 - widget en Shadow DOM : aucun CSS du site hôte ne le déforme, et il ne déforme rien ;
@@ -81,9 +83,13 @@ au même endroit.
 - projets multiples, avec libellé client et **liste exacte** des origines autorisées ;
 - liens reviewer révocables, sans compte ni mot de passe pour le client ;
 - filtres projet, client, page/site, format et statut ; pagination par curseur ;
+- **palette de commandes** (`⌘K` / `Ctrl+K`) : vues, projets, retours récents et
+  actions au clavier, sans quitter la liste ;
 - statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
-- **deux réponses distinctes** par retour : une note interne jamais exposée, et
-  une réponse que le reviewer relit dans son widget ;
+- **fiche en conversation** : la capture, le fil des échanges et un seul
+  compositeur, « Répondre au client » (relu dans le widget) ou « Message
+  interne » ; une note interne jamais exposée ; statut enregistré dès qu'il
+  est choisi ;
 - **retour au point d'ancrage** : un lien rouvre la préproduction, épingle reposée ;
 - **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
   avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un
@@ -108,6 +114,25 @@ au même endroit.
 - téléchargements privés servis seulement après authentification admin.
 
 ## Démarrage en local
+
+Pour **auto-héberger la version 8.0.0 sans les sources**, utilisez la
+distribution Docker Compose : [guide d'auto-hébergement Docker](docs/GUIDE-DOCKER-FR.md).
+L'hôte n'a besoin que de Docker Compose, d'un shell et d'`openssl` (pas de
+Node, aucun compte cloud) ; l'archive contient l'application compilée,
+PostgreSQL 17 interne et un stockage S3 intégré (SeaweedFS, HTTPS interne avec
+autorité générée à l'installation, aucun port S3 publié) — un S3 externe reste
+possible en option. Installation : `sh install.sh --non-interactive --port 48300`
+puis `docker compose up -d --build`. L'accès distant passe par un reverse proxy
+HTTPS sur le même hôte (à fournir ; aucun proxy public n'a été testé).
+Serveur, sauvegardes, domaine et certificat public — et leurs frais
+d'hébergement — restent à la charge de l'exploitant.
+Génération et tests : [documentation de packaging](docs/PACKAGING.md#distribution-docker-compose).
+
+> **Obsolète :** le [kit ZIP local](docs/KIT-LOCAL.md) (Node 22 + PGlite,
+> `node install.mjs` puis `node start.mjs`) reste disponible mais n'est plus la
+> voie recommandée ; préférez la distribution Docker.
+
+Le statut **tous droits réservés** reste inchangé pour les deux distributions.
 
 Prérequis : Node 22.x.
 
@@ -142,22 +167,51 @@ http://127.0.0.1:4311/demo.html#project=…&review=…&api=http%3A%2F%2F127.0.0.
 Le token reste dans le fragment, est retiré de l'URL après initialisation, et
 part ensuite par en-tête `Authorization` — jamais en query HTTP.
 
+`demo.html` est une boutique fictive (« Atelier Démo ») qui explique au client
+comment tester en trois étapes. Son CSS vit dans `public/demo.css` : servie par
+l'instance, la page reçoit la même CSP `style-src 'self'` que l'administration.
+
 ## Intégrer le widget sur un site
 
 ### Une ligne, à coller avant `</body>`
 
 ```html
-<script src="https://reviewdesk.example/widget.js"
-        data-api="https://reviewdesk.example"
-        data-project="UUID_DU_PROJET"
-        data-token="SECRET_DU_LIEN_REVIEWER"></script>
+<script src="https://reviewdesk.example/widget.js#project=UUID_DU_PROJET&token=SECRET_DU_LIEN_REVIEWER" defer></script>
 ```
 
-C'est tout : le widget s'initialise seul, y compris s'il est injecté par un CMS
-ou un gestionnaire de balises. L'administration génère ce snippet, déjà rempli,
-au moment où vous créez un lien reviewer.
+C'est tout : le widget lit ses réglages dans le fragment (`#…`) de sa propre
+adresse et s'initialise seul, y compris s'il est injecté par un CMS ou un
+gestionnaire de balises. Le fragment n'est jamais envoyé au serveur : le secret
+ne finit pas dans les journaux d'accès. L'administration génère cette ligne,
+déjà remplie (Installer, ou étape 2 du guide).
+
+### Par outil
+
+L'assistant d'installation donne la marche à suivre clic par clic :
+
+| Outil | Où coller la ligne |
+| --- | --- |
+| **WordPress** | Extension ReviewDesk (`/integrations/reviewdesk-wordpress.zip`, servie par l'instance) : Extensions › Ajouter › Téléverser, puis Réglages › ReviewDesk. Option : bouton visible des seuls utilisateurs connectés. |
+| **Webflow** | Site settings › Custom code › Footer code, puis publier. |
+| **Framer** | Site Settings › General › Custom Code › End of `<body>` tag, puis publier. |
+| **Wix** | Paramètres › Code personnalisé, toutes les pages, « Body - fin » (domaine connecté requis). |
+| **Squarespace** | Paramètres › Avancé › Injection de code › Pied de page (selon l'offre). |
+| **Google Tag Manager** | Balise « HTML personnalisé », déclencheur All Pages, publier. |
+
+### Sans rien installer : le lien de relecture
+
+`https://reviewdesk.example/relecture.html#project=…&token=…&site=…` (bouton
+« Copier le lien client » ou plateforme « Sans installation ») ouvre une page
+où le client glisse le bouton **Faire un retour** dans sa barre de favoris. Sur
+le site, un clic sur ce favori charge le widget de l'instance. Limites :
+ordinateur uniquement, et sans effet sur un site dont la politique de sécurité
+(CSP) interdit les scripts externes. L'adresse du site doit figurer dans les
+adresses autorisées du projet, comme pour toute installation.
 
 ### Options
+
+Chaque réglage s'écrit dans le fragment (`#project=…&label=…`), en attribut
+`data-*` ou dans `init()` ; l'attribut l'emporte sur le fragment.
 
 | Attribut | `init()` | Défaut | Effet |
 | --- | --- | --- | --- |
@@ -211,9 +265,30 @@ il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
 
 ## L'administration
 
-Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. On y crée les projets
-et leurs origines, on génère et révoque les liens reviewer, on filtre et on
-traite les retours.
+Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. Le parcours :
+
+1. **Connexion**, puis, sur une instance vide, le **guide** en trois étapes :
+   créer le projet (nom, client, adresse du site), installer le widget
+   (WordPress, Webflow, Framer, Wix, Squarespace, Tag Manager, HTML, Next.js ou
+   lien de relecture sans installation, avec vérification en direct de la
+   première connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
+   nouveau projet. La marque blanche se règle quand on le souhaite, depuis le
+   menu du compte.
+2. **Tableau de bord** (d'après « App Dashboard » de shadcnstore sur
+   21st.dev) : une barre latérale (tableau de bord, tous les retours, agents
+   IA, personnalisation, projets avec leurs retours à traiter, compte), quatre
+   chiffres, les retours reçus et traités sur 30 jours, l'avancement de chaque
+   projet et l'activité récente.
+3. **Un projet** : ses retours en **tableau** (une colonne par statut,
+   glisser-déposer pour changer de statut) ou en **liste** (sections
+   repliables), au choix, mémorisé par le navigateur ; ou sa **vue d'ensemble**.
+4. **Un retour** s'ouvre en grand par-dessus : capture, échanges, réponse au
+   client ou message interne, « Lancer la correction », précédent / suivant
+   (`J` / `K`).
+
+Chaque écran a son adresse (`#/projets`, `#/p/<id>`, `#/p/<id>/stats`,
+`#/p/<id>/t/<ticket>`) : le bouton Retour du navigateur et les liens partagés
+mènent au bon endroit.
 
 ### La vue d'ensemble
 
@@ -225,14 +300,15 @@ le travail.
   **ouverts** (dont ceux qui traînent depuis plus de 7 jours), **reçus** et
   **traités** sur la période, chacun comparé à la période précédente de même
   longueur, et le **délai moyen** entre le dépôt et le passage à « traité » ;
-- un graphe d'activité jour par jour, reçus contre traités, en SVG écrit à la
-  main — l'administration ne charge aucun script tiers, et sa CSP le refuserait ;
-- la répartition par statut, le classement des projets (cliquer une ligne filtre
-  tout le reste dessus), les pages les plus signalées, et le journal des
-  derniers mouvements, agents compris.
+- un graphe d'activité jour par jour, reçus contre traités (Recharts, compilé
+  dans l'admin : aucun script n'est chargé depuis un CDN, la CSP le refuserait) ;
+- la répartition par statut, le classement des projets (cliquer une ligne ouvre
+  ce projet), les pages les plus signalées, et le journal des derniers
+  mouvements, agents compris (cliquer un mouvement ouvre le retour).
 
-La période se choisit entre 7, 30 et 90 jours ; le projet sélectionné dans le
-rail de gauche restreint l'ensemble des chiffres.
+La période se choisit entre 7, 30 et 90 jours ; ouverte depuis un projet, la vue
+d'ensemble ne compte que ce projet, depuis « Tous les retours » elle les compte
+tous.
 
 ### Exporter le reste à faire en un prompt
 
@@ -304,7 +380,8 @@ Ou, dans un `.mcp.json` / `claude_desktop_config.json` :
 | Outil | Effet |
 | --- | --- |
 | `list_projects` | Les projets visibles par le jeton, et le reste à faire par statut. |
-| `list_tickets` | Les retours, filtrés par statut, projet, page ou format. |
+| `list_tickets` | Les retours, filtrés par statut, projet, page ou format, ou seulement ceux dont la correction est demandée (`requested`). |
+| `next_fix_request` | Le plus ancien retour pour lequel l'équipe a cliqué « Lancer la correction », avec son détail complet. |
 | `get_ticket` | Le détail : élément visé, page, écran, diagnostics, journal. |
 | `get_screenshot` | La capture jointe par le client, comme image. |
 | `comment_ticket` | Un commentaire, interne ou **publié au client**. |
@@ -317,6 +394,23 @@ dans son widget ; sinon il reste dans le journal, côté équipe.
 
 Le journal de chaque retour est visible dans l'administration, sous la réponse :
 les entrées d'un agent y sont distinguées de celles de l'équipe.
+
+### « Lancer la correction »
+
+Sur la fiche d'un retour, le bouton **Lancer la correction** confie ce retour à
+un agent. MCP est appelé par l'agent, jamais l'inverse : l'administration ne
+peut pas réveiller un Claude Code ouvert sur un poste. Le bouton fait donc ce
+qui est réellement possible :
+
+1. il met le retour en file (« Correction demandée », statut `En cours`, trace
+   au journal) ;
+2. il donne la commande ou le prompt exact pour l'agent choisi — `claude "…"`,
+   `codex "…"`, ou la consigne à coller dans Cursor, VS Code ou Claude Desktop —
+   copié en un clic (la copie automatique exige HTTPS ou `localhost`).
+
+L'agent peut aussi vider la file seul : « traite les corrections demandées
+ReviewDesk une par une avec `next_fix_request` ». La demande se clôt d'elle-même
+quand le retour passe à `À valider` ou `Traité` ; l'équipe peut l'annuler.
 
 ### Sans MCP
 
@@ -340,7 +434,7 @@ l'appeler à la place de l'agent.
 **La marque.** Une bulle de dialogue dont le seul contenu visible est le point
 dont on parle : le retour, et l'endroit exact auquel il appartient. Un seul
 tracé, une seule silhouette, lisible de 16 px à une tuile d'application. Elle
-vit dans `public/favicon.svg`, dans le symbole `#i-brand` de l'administration et
+vit dans `public/favicon.svg`, dans `admin/src/features/shell/brand-mark.tsx` et
 dans le lanceur du widget — trois fichiers, un même chemin.
 
 **Le logotype.** `Review` en graisse normale, `Desk` en demi-gras : le contraste
@@ -350,11 +444,15 @@ que les deux se disputent l'attention.
 **La typographie.** Geist et Geist Mono, auto-hébergées (SIL OFL 1.1). Chiffres
 tabulaires partout, interlettrage qui se resserre à mesure que le corps grandit.
 
-**La couleur.** Il n'y en a pas. Une rampe de gris, du blanc au noir, et le
+**La couleur.** Presque pas. Une rampe de gris, du blanc au noir, et le
 noir comme couleur d'action — un bouton principal est de l'encre, et s'inverse
-en thème sombre. Deux exceptions, chacune justifiée : le rouge des erreurs et
-des actions destructrices, et les logos des outils dans le parcours de
-connexion — un logo redessiné en gris cesse d'être le logo de cette marque.
+en thème sombre. La teinte n'apparaît que là où elle fait gagner du temps :
+les quatre statuts (bleu à traiter, ambre en cours, cyan à valider, vert
+traité), chacun à 4,5:1 au moins sur son fond, toujours accompagné de son
+libellé ; l'initiale de chaque projet sur une teinte stable ; le rouge des
+erreurs et des actions destructrices ; et les logos des outils dans le
+parcours de connexion — un logo redessiné en gris cesse d'être le logo de
+cette marque.
 
 **Le widget fait exception, exprès.** Côté client, il prend les couleurs de la
 page qui l'accueille : ce n'est pas notre outil qui se montre, c'est le site du
@@ -362,7 +460,7 @@ client qui reçoit un commentaire. Seule la marque reste la nôtre.
 
 **Tout ce qui précède est un défaut, pas une contrainte.** Une instance est
 auto-hébergée et destinée à être revendue : l'assistant de personnalisation
-(première connexion, puis l'entrée « Personnalisation ») remplace le nom, le
+(entrée « Personnalisation » de la barre latérale) remplace le nom, le
 logo, le favicon et la couleur par ceux de l'agence qui la déploie. La rampe de
 gris reste ce que voit une instance non configurée ; dès qu'une teinte est
 choisie, elle devient la couleur d'action, et le texte qui s'y pose est calculé
@@ -375,8 +473,18 @@ désigner l'outil que la configuration vise, rien d'autre.
 ## Architecture
 
 ```text
-public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
-public/admin.js    interface d'administration (build de src/admin/app.ts)
+admin/             interface d'administration : Vite + React 19 + TypeScript,
+                   Tailwind CSS 4, shadcn/ui (Radix), TanStack Router et Query
+  src/lib/         client API (CSRF), types, requêtes, formatage, thème
+  src/components/  primitives UI (shadcn/ui) partagées
+  src/features/    un dossier par écran : shell, auth, dashboard, board,
+                   ticket, overview, guide, projects, install, agents,
+                   branding, fix, export, palette
+  src/styles.css   jetons de thème clair/sombre (contraste testé)
+public/index.html  admin compilée (+ public/assets/), générée par npm run build:admin
+public/widget.js   widget Shadow DOM sans framework (build de src/widget/index.ts)
+public/relecture.* page de relecture sans installation (favori « Faire un retour »)
+public/demo.html   page de test fictive (styles dans public/demo.css)
 public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
 public/favicon.svg marque du produit
 src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF
@@ -523,6 +631,7 @@ Administration — cookie de session + jeton CSRF sur les mutations :
 | `GET` | `/api/stats` | Vue d'ensemble : `days` (7, 30, 90) et `projectId` optionnel. |
 | `GET` | `/api/onboarding` | État d'installation, déduit des données. |
 | `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
+| `POST` `DELETE` | `/api/tickets/:id/fix-request` | Demander (ou annuler) la correction d'un retour par un agent. |
 | `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
 | `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
 | `GET` `POST` | `/api/agent-tokens` | Jetons agents (le secret n'est montré qu'une fois). |
@@ -534,7 +643,7 @@ Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
 | Méthode | Route | Effet |
 | --- | --- | --- |
 | `GET` | `/api/agent/context` | Portée du jeton et projets visibles, avec le compte par statut. |
-| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `limit`, `cursor`). |
+| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `requested`, `limit`, `cursor`). |
 | `GET` | `/api/agent/tickets/:id` | Détail d'un retour et son journal. |
 | `POST` | `/api/agent/tickets/:id/comments` | Commentaire interne ou publié au client. |
 | `PATCH` | `/api/agent/tickets/:id` | Statut et commentaire, en un appel. |
@@ -543,7 +652,10 @@ Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
 ## Développer et vérifier
 
 ```bash
-npm run dev          # serveur en rechargement à chaud
+npm run dev          # serveur en rechargement à chaud (sert public/)
+npm run dev:admin    # admin React en rechargement à chaud (Vite, :5173,
+                     # API proxifiée vers REVIEWDESK_API, défaut http://127.0.0.1:4390)
+npm run build:admin  # admin React → public/index.html + public/assets/
 npm run build        # widget + admin + serveur
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
@@ -562,13 +674,20 @@ Le serveur MCP est testé comme un agent l'utilise : un vrai processus fils, du
 vrai JSON-RPC sur stdio, contre une instance ReviewDesk qui écoute (voir
 `tests/integration/mcp.test.ts`).
 
-Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
-`public/widget.js`, puis `npm run build:widget`.
+Le widget et l'admin sont des artefacts de build : modifier
+`src/widget/index.ts` et `admin/src/`, jamais `public/widget.js`,
+`public/index.html` ni `public/assets/`, puis `npm run build:assets`.
+
+L'admin tourne sous la même CSP stricte que le reste
+(`script-src 'self'; style-src 'self'`) : aucune balise `<style>` ni script
+inline. Deux dépendances (Sonner, le verrouillage de défilement de Radix)
+injectent normalement une balise `<style>` ; `vite.config.ts` coupe cette
+injection au build et leurs règles vivent dans `admin/src/styles.css`.
 
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **7.0.0**.
+Keep a Changelog. Version courante : **10.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,

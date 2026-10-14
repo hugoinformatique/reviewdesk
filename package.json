@@ -1,6 +1,6 @@
 {
   "name": "reviewdesk",
-  "version": "8.0.0",
+  "version": "10.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,9 +15,9 @@
     "migrate": "tsx scripts/migrate.ts",
     "build": "npm run build:assets && npm run build:mcp && esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",
     "build:mcp": "esbuild src/mcp/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/mcp.js --banner:js=\"#!/usr/bin/env node\"",
-    "build:assets": "npm run build:widget && esbuild src/admin/app.ts --bundle --format=iife --outfile=public/admin.js",
+    "build:assets": "node scripts/build-integrations.mjs && npm run build:widget && npm run build:admin",
     "build:widget": "esbuild src/widget/index.ts --bundle --format=iife --global-name=ReviewDesk --outfile=public/widget.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p admin",
     "lint": "eslint .",
     "test": "node --import tsx --test --test-concurrency=1 tests/unit/*.test.ts tests/integration/*.test.ts",
     "test:docker": "bash scripts/with-docker-backends.sh npm test",
@@ -25,7 +25,9 @@
     "docker:down": "bash scripts/docker-backends.sh down",
     "pretest:e2e": "rm -rf .data/e2e .data/e2e-uploads && npm run build:assets && bash scripts/setup-e2e-deps.sh",
     "test:e2e": "PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 LD_LIBRARY_PATH=.deps/root/usr/lib/x86_64-linux-gnu playwright test",
-    "check": "npm run lint && npm run typecheck && npm run test:docker && npm run build && npm run test:e2e && npm audit --omit=dev"
+    "check": "npm run lint && npm run typecheck && npm run test:docker && npm run build && npm run test:e2e && npm audit --omit=dev",
+    "dev:admin": "vite",
+    "build:admin": "node scripts/build-admin.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",
@@ -39,17 +41,39 @@
     "zod": "4.1.5"
   },
   "devDependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
     "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "9.35.0",
     "@playwright/test": "1.55.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-query": "5.104.0",
+    "@tanstack/react-router": "1.170.40",
     "@types/html2canvas": "^0.5.35",
     "@types/node": "22.18.1",
     "@types/pg": "8.15.5",
-    "esbuild": "0.25.9",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "cmdk": "1.1.1",
+    "esbuild": "0.28.2",
     "eslint": "9.35.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "globals": "16.3.0",
-    "tsx": "4.20.5",
+    "lucide-react": "1.49.0",
+    "motion": "13.4.6",
+    "radix-ui": "1.6.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.7.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "5.9.2",
-    "typescript-eslint": "8.42.0"
+    "typescript-eslint": "8.42.0",
+    "vite": "8.3.1"
   }
 }

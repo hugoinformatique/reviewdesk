@@ -1,0 +1,297 @@
+/* ReviewDesk admin — « Paper & Ink », on Tailwind CSS 4 and the shadcn/ui
+   token contract, so components taken from 21st.dev drop in unchanged.
+   Monochrome by construction: ink is the primary colour; hue only marks a
+   status, a project, or an error. The palette is the legacy admin's, kept
+   value for value (its contrast is held by tests/unit/admin-contrast.test.ts). */
+
+@import 'tailwindcss';
+@import 'sonner/dist/styles.css';
+@import './components/ui/animations.css';
+
+/* Theme: an explicit choice sets data-theme on <html> (public/theme.js does it
+   before first paint); without one, the OS preference decides. */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+}
+
+/* Self-hosted: the admin's CSP allows font-src 'self' only. SIL OFL 1.1, the
+   licence travels with the files in public/fonts/. */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-mono-latin.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  /* The "primary" is ink: black on white, inverted in dark mode. White-label
+     branding overrides these four at runtime (features/branding). */
+  --primary: #18181b;
+  --primary-foreground: #ffffff;
+  --brand-text: #09090b;
+  --brand-soft: #f1f1f3;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  /* The faintest ink still clears WCAG AA (4.5:1) on every surface. */
+  --muted-foreground: #6b6b74;
+  --subtle-foreground: #52525b;
+  --accent: #f1f1f3;
+  --accent-foreground: #09090b;
+  --destructive: #b42318;
+  --destructive-soft: #fdf3f2;
+  --border: #eaeaec;
+  --border-strong: #dadade;
+  --input: #dadade;
+  --ring: #09090b40;
+  --sunken: #f6f6f7;
+
+  --sidebar: #f6f6f7;
+  --sidebar-foreground: #09090b;
+  --sidebar-accent: #ebebed;
+  --sidebar-border: #eaeaec;
+
+  /* Status: triaged by colour before the labels are read. Each ink clears
+     4.5:1 on its own soft ground. */
+  --st-todo: #2f55c8;
+  --st-todo-soft: #eef3ff;
+  --st-progress: #a6540a;
+  --st-progress-soft: #fdf5e6;
+  --st-review: #0b6c84;
+  --st-review-soft: #e9f8fb;
+  --st-done: #18793c;
+  --st-done-soft: #ecf8f0;
+
+  /* Project avatars: white initials clear 4.5:1 on each, in both themes. */
+  --hue-0: #4562d1;
+  --hue-1: #0b7a76;
+  --hue-2: #a85a0c;
+  --hue-3: #b83a63;
+  --hue-4: #27753f;
+  --hue-5: #5b6478;
+
+  --chart-1: #18181b;
+  --chart-2: #a1a1aa;
+
+  --edge: inset 0 1px 0 #ffffffb3;
+  --shadow-1: 0 1px 1px #09090b0a, 0 2px 4px -1px #09090b0a;
+  --shadow-2: 0 1px 2px #09090b0d, 0 6px 16px -4px #09090b14;
+  --shadow-3: 0 8px 24px -6px #09090b1f, 0 24px 64px -12px #09090b2e;
+}
+
+/* Dark tokens sit outside any layer, like the light ones: inside @layer base
+   they would lose to the unlayered :root block and never apply. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0b0b0c;
+  --foreground: #fafafa;
+  --card: #141416;
+  --card-foreground: #fafafa;
+  --popover: #141416;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --brand-text: #fafafa;
+  --brand-soft: #202024;
+  --secondary: #19191c;
+  --secondary-foreground: #fafafa;
+  --muted: #19191c;
+  --muted-foreground: #8b8b94;
+  --subtle-foreground: #a1a1aa;
+  --accent: #202024;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-soft: #2a1212;
+  --border: #232327;
+  --border-strong: #32323a;
+  --input: #32323a;
+  --ring: #fafafa3d;
+  --sunken: #080809;
+  --sidebar: #0e0e10;
+  --sidebar-foreground: #fafafa;
+  --sidebar-accent: #1c1c20;
+  --sidebar-border: #1d1d21;
+  --st-todo: #8aa8ff;
+  --st-todo-soft: #161e36;
+  --st-progress: #f5b544;
+  --st-progress-soft: #271d0d;
+  --st-review: #45d0e8;
+  --st-review-soft: #0d2328;
+  --st-done: #5ad286;
+  --st-done-soft: #0f2318;
+  --chart-1: #fafafa;
+  --chart-2: #52525b;
+  --edge: inset 0 1px 0 #ffffff0f;
+  --shadow-1: 0 1px 2px #00000059;
+  --shadow-2: 0 2px 4px #0000005c, 0 8px 20px -6px #00000080;
+  --shadow-3: 0 12px 32px -8px #000000a6, 0 32px 72px -16px #000000cc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --background: #0b0b0c;
+    --foreground: #fafafa;
+    --card: #141416;
+    --card-foreground: #fafafa;
+    --popover: #141416;
+    --popover-foreground: #fafafa;
+    --primary: #fafafa;
+    --primary-foreground: #09090b;
+    --brand-text: #fafafa;
+    --brand-soft: #202024;
+    --secondary: #19191c;
+    --secondary-foreground: #fafafa;
+    --muted: #19191c;
+    --muted-foreground: #8b8b94;
+    --subtle-foreground: #a1a1aa;
+    --accent: #202024;
+    --accent-foreground: #fafafa;
+    --destructive: #f87171;
+    --destructive-soft: #2a1212;
+    --border: #232327;
+    --border-strong: #32323a;
+    --input: #32323a;
+    --ring: #fafafa3d;
+    --sunken: #080809;
+    --sidebar: #0e0e10;
+    --sidebar-foreground: #fafafa;
+    --sidebar-accent: #1c1c20;
+    --sidebar-border: #1d1d21;
+    --st-todo: #8aa8ff;
+    --st-todo-soft: #161e36;
+    --st-progress: #f5b544;
+    --st-progress-soft: #271d0d;
+    --st-review: #45d0e8;
+    --st-review-soft: #0d2328;
+    --st-done: #5ad286;
+    --st-done-soft: #0f2318;
+    --chart-1: #fafafa;
+    --chart-2: #52525b;
+    --edge: inset 0 1px 0 #ffffff0f;
+    --shadow-1: 0 1px 2px #00000059;
+    --shadow-2: 0 2px 4px #0000005c, 0 8px 20px -6px #00000080;
+    --shadow-3: 0 12px 32px -8px #000000a6, 0 32px 72px -16px #000000cc;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Geist', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-brand-text: var(--brand-text);
+  --color-brand-soft: var(--brand-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sunken: var(--sunken);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-st-todo: var(--st-todo);
+  --color-st-todo-soft: var(--st-todo-soft);
+  --color-st-progress: var(--st-progress);
+  --color-st-progress-soft: var(--st-progress-soft);
+  --color-st-review: var(--st-review);
+  --color-st-review-soft: var(--st-review-soft);
+  --color-st-done: var(--st-done);
+  --color-st-done-soft: var(--st-done-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-edge: var(--edge);
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--foreground) 14%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Rules Radix's scroll lock normally injects as a <style> element, which the
+   CSP blocks (the injection itself is switched off in vite.config.ts). */
+body[data-scroll-locked] {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

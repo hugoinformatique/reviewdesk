@@ -8,11 +8,11 @@ import { contrastRatio, parseHex } from '../../src/brand-tokens.js';
  * the stylesheet itself, so a token edited by eye cannot quietly drop a line of
  * text below WCAG AA, or let the two copies of the dark theme drift apart.
  */
-const css = readFileSync(new URL('../../public/admin.css', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../../admin/src/styles.css', import.meta.url), 'utf8');
 
 function block(pattern: RegExp, name: string): Map<string, string> {
   const body = pattern.exec(css)?.[1];
-  assert.ok(body, `${name} token block not found in admin.css`);
+  assert.ok(body, `${name} token block not found in admin/src/styles.css`);
   const tokens = new Map<string, string>();
   for (const match of body.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g)) {
     if (match[1] && match[2]) tokens.set(match[1], match[2].toLowerCase());
@@ -24,8 +24,8 @@ const light = block(/^:root \{([\s\S]*?)\n\}/m, 'light');
 const dark = block(/^:root\[data-theme='dark'\] \{([\s\S]*?)\n\}/m, 'explicit dark');
 const systemDark = block(/^ {2}:root:not\(\[data-theme='light'\]\) \{([\s\S]*?)\n {2}\}/m, 'system dark');
 
-const TEXTS = ['text', 'text-2', 'text-3'];
-const BACKGROUNDS = ['bg', 'bg-sunken', 'surface', 'surface-2', 'surface-hover'];
+const TEXTS = ['foreground', 'subtle-foreground', 'muted-foreground'];
+const BACKGROUNDS = ['background', 'sunken', 'card', 'muted', 'accent', 'sidebar'];
 
 function ratio(tokens: Map<string, string>, fg: string, bg: string): number {
   const a = parseHex(tokens.get(fg) ?? '');
@@ -60,7 +60,8 @@ test('the system dark theme and the explicit dark theme declare the same colours
 test('every custom property the stylesheet reads is declared', () => {
   const declared = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((match) => match[1]));
   // Set at runtime with style.setProperty by the white-label setup.
-  const runtime = new Set(['--swatch']);
+  // Tailwind's own, and the preview's (set with style.setProperty).
+  const runtime = new Set(['--swatch', '--tw-ring-color']);
   const missing = [...new Set([...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((match) => match[1]))].filter(
     (name) => name && !declared.has(name) && !runtime.has(name),
   );

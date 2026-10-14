@@ -1,0 +1,101 @@
+/* Entrance / exit utilities for the UI primitives (stands in for tw-animate-css).
+   Short, eased with ease-out-strong; prefers-reduced-motion is neutralised
+   globally in styles.css. No inline <style>: this file is bundled as CSS. */
+
+@keyframes rd-in-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes rd-out-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes rd-in-zoom {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes rd-out-zoom {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+@keyframes rd-in-slide-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes rd-out-slide-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+@keyframes rd-in-slide-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes rd-out-slide-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes rd-in-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes rd-out-slide-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes rd-in-slide-down {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+@keyframes rd-out-slide-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+/* Small nudges for popovers/menus, direction = side the content opens on. */
+@keyframes rd-in-nudge-top {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-in-nudge-bottom {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-in-nudge-left {
+  from { opacity: 0; transform: translateX(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-in-nudge-right {
+  from { opacity: 0; transform: translateX(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-collapsible-content-height); }
+}
+@keyframes rd-accordion-up {
+  from { height: var(--radix-collapsible-content-height); }
+  to { height: 0; }
+}
+@keyframes rd-shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@utility animate-in-fade { animation: rd-in-fade 150ms var(--ease-out-strong) both; }
+@utility animate-out-fade { animation: rd-out-fade 150ms var(--ease-out-strong) both; }
+@utility animate-in-zoom { animation: rd-in-zoom 180ms var(--ease-out-strong) both; transform-origin: var(--radix-popper-transform-origin, center); }
+@utility animate-out-zoom { animation: rd-out-zoom 150ms var(--ease-out-strong) both; transform-origin: var(--radix-popper-transform-origin, center); }
+@utility animate-in-slide-right { animation: rd-in-slide-right 220ms var(--ease-out-strong) both; }
+@utility animate-out-slide-right { animation: rd-out-slide-right 180ms var(--ease-out-strong) both; }
+@utility animate-in-slide-left { animation: rd-in-slide-left 220ms var(--ease-out-strong) both; }
+@utility animate-out-slide-left { animation: rd-out-slide-left 180ms var(--ease-out-strong) both; }
+@utility animate-in-slide-up { animation: rd-in-slide-up 220ms var(--ease-out-strong) both; }
+@utility animate-out-slide-up { animation: rd-out-slide-up 180ms var(--ease-out-strong) both; }
+@utility animate-in-slide-down { animation: rd-in-slide-down 220ms var(--ease-out-strong) both; }
+@utility animate-out-slide-down { animation: rd-out-slide-down 180ms var(--ease-out-strong) both; }
+@utility animate-in-nudge-top { animation: rd-in-nudge-top 150ms var(--ease-out-strong) both; }
+@utility animate-in-nudge-bottom { animation: rd-in-nudge-bottom 150ms var(--ease-out-strong) both; }
+@utility animate-in-nudge-left { animation: rd-in-nudge-left 150ms var(--ease-out-strong) both; }
+@utility animate-in-nudge-right { animation: rd-in-nudge-right 150ms var(--ease-out-strong) both; }
+@utility animate-accordion-down { animation: rd-accordion-down 200ms var(--ease-out-strong) both; }
+@utility animate-accordion-up { animation: rd-accordion-up 200ms var(--ease-out-strong) both; }
+@utility animate-pulse-soft { animation: rd-shimmer 1.6s ease-in-out infinite; }

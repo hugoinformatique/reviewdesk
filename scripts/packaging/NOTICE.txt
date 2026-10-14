@@ -1,0 +1,8 @@
+ReviewDesk 10.0.0 — kit local
+
+Tous droits réservés. Ce projet n'est pas placé sous une licence open source.
+Demandez une autorisation avant toute réutilisation. La fourniture de ce kit
+ne modifie pas ce statut et n'accorde aucune licence permissive.
+
+Les dépendances tierces restent soumises à leurs propres licences : consultez
+les notices installées dans node_modules et public/fonts/LICENSE-geist.txt.

@@ -15,8 +15,190 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [10.0.0] — 2026-10-14
+
+Administration réécrite en React, installation du widget simplifiée pour les
+sites sans code, kits téléchargeables (local et Docker).
+
+### Rupture
+
+- L'administration est réécrite en **React 19 + Vite 8 + TypeScript**, avec
+  Tailwind CSS 4, shadcn/ui (Radix), TanStack Router et TanStack Query
+  (`admin/`). L'ancienne admin sans framework (`src/admin/`,
+  `public/admin.js`, `public/admin.css`) est supprimée. Les adresses
+  (`#/projets`, `#/p/…`, `#/p/…/t/…`) ne changent pas. Le widget reste sans
+  framework.
+
+### Ajouté (administration)
+
+- Nouvel écran de connexion, nouveau guide de démarrage et nouvelle fiche d'un
+  retour (un seul fil de discussion, un seul champ de réponse).
+- Bundle découpé : l'entrée pèse environ 60 Ko, les graphiques et les dialogs
+  se chargent à la demande.
+
+### Corrigé (administration)
+
+- Le filtre « client » de « Tous les retours » est enfin rempli.
+- Le lien d'installation et « Copier le lien » d'un projet ne réutilisent plus
+  le jeton créé pour un autre projet.
+- Une adresse de page mal formée envoyée par un reviewer ne casse plus
+  l'affichage d'une carte ou d'une fiche.
+
 ### Ajouté
 
+- Installation du widget en une seule adresse : `widget.js#project=…&token=…`
+  porte tous les réglages dans son fragment, jamais envoyé au serveur.
+- Extension WordPress à téléverser (servie en `/integrations/reviewdesk-wordpress.zip`) :
+  on colle la ligne dans Réglages › ReviewDesk, option « utilisateurs connectés
+  uniquement ».
+- Assistant d'installation par outil, clic par clic : WordPress, Webflow,
+  Framer, Wix, Squarespace, Google Tag Manager, HTML, Next.js.
+- Lien de relecture sans installation (`/relecture.html`) : le client glisse un
+  favori « Faire un retour » qui charge le widget sur le site.
+
+### Corrigé
+
+- Le widget ne se chargeait sur aucun site tiers : `widget.js` était servi avec
+  `Cross-Origin-Resource-Policy: same-origin`. Il est désormais en
+  `cross-origin` (le reste de l'instance ne change pas). Test E2E de chargement
+  depuis une autre origine ajouté.
+- L'ancien « lien direct » (`site/#project=…&review=…`) n'affichait rien sur un
+  site sans code ReviewDesk ; remplacé par le lien de relecture.
+- Kit local : version du runtime alignée sur l'application, désormais vérifiée
+  d'après `package.json` plutôt qu'en dur.
+
+## [9.0.0] — 2026-10-09
+
+Refonte de l'interface : administration, widget client et intégration.
+
+### Ajouté
+
+- Nouveau parcours de l'administration : tableau de bord d'après « App
+  Dashboard » de shadcnstore (21st.dev) — barre latérale avec les projets,
+  quatre chiffres, courbes reçus / traités, projets actifs avec avancement,
+  activité récente —, retours d'un projet en tableau Kanban ou en liste (glisser-déposer
+  pour changer de statut), fiche d'un retour en grand par-dessus, guide de
+  création en trois étapes (projet, installation vérifiée en direct, agent
+  IA), adresses par écran (`#/projets`, `#/p/…`, `#/p/…/t/…`).
+- `GET /api/projects` renvoie aussi les retours par statut, le dernier retour,
+  la dernière activité du widget et la dernière capture du projet.
+- Refonte de l'interface, administration et widget (inspirations 21st.dev :
+  « Dashboard Sidebar » et « Popover Form », réécrites sans dépendance).
+- Barre du haut sur deux niveaux, à la Vercel (inspiration 21st.dev « Vercel
+  Tabs ») : marque et fil d'Ariane client / projet avec sélecteur, recherche
+  `⌘K` et menu compte (personnalisation, thème clair / sombre / auto,
+  déconnexion) ; dessous, les vues avec surlignage au survol et soulignement
+  glissant, et les actions du projet.
+- Rail des projets regroupés par client, lignes compactes, bouton « + » dans
+  l'en-tête.
+- Vue d'ensemble : KPI en une bande avec courbes des reçus et traités,
+  démarrage compact, graphique d'activité plus haut avec lecture au survol,
+  répartition en barre empilée, avancement par projet, pages en barres,
+  derniers mouvements en fil.
+- « Lancer la correction » sur la fiche d'un retour : choix de l'agent
+  (Claude Code, Codex, Cursor, VS Code, Claude Desktop, API), commande ou
+  prompt prêt à coller, retour mis en file « Correction demandée » (statut
+  `En cours`, trace au journal), demande annulable et close d'elle-même au
+  passage à `À valider` ou `Traité`. Migration `008_fix_requests`, routes
+  `POST`/`DELETE /api/tickets/:id/fix-request`, filtre `requested` de l'API
+  agent et nouvel outil MCP `next_fix_request`.
+- Mise en avant des agents IA : carte « Agents IA » dans la vue d'ensemble
+  (logos des outils reliés à la marque, état de connexion, corrections en
+  attente) et logos dans le bouton « Accès agents ».
+- Fiche d'un retour sans doublon : un seul fil d'échanges, un seul
+  compositeur (« Répondre au client » ou « Note interne ») ; la réponse que
+  voit le client est marquée « Affiché au client » dans le fil, les messages
+  du client « Du client » ; la colonne de droite ne garde que les
+  informations. L'ancien champ « réponse interne » reste lisible en note
+  épinglée.
+- Tableau Kanban en cartes compactes (sans miniature, une icône signale la
+  capture) ; liste sur toute la largeur.
+- Formulaire de projet simplifié : « Nom du site », « Client » avec
+  suggestion des clients existants, adresses saisies en étiquettes (une URL
+  collée, même avec un chemin, est réduite à son origine ; les adresses
+  invalides sont signalées sous le champ), suggestions discrètes et
+  notification sortante rangée dans « Options avancées ».
+- Palette de commandes `⌘K` / `Ctrl+K` (`src/admin/palette.ts`) : vues,
+  projets, retours récents et actions, au clavier, recherche sans accents.
+- Couleurs de statut sémantiques (bleu à traiter, ambre en cours, cyan à
+  valider, vert traité), toutes à 4,5:1 sur leur fond, en clair et en sombre ;
+  avatars de projet (initiale sur une teinte stable par projet).
+- Fiche retour repensée comme une conversation : barre fixe (retour
+  précédent/suivant, statut, « Ouvrir au point d'ancrage »), capture en grand,
+  fil des échanges, puis un compositeur unique « Répondre au client » /
+  « Message interne » (`⌘↵` / `Ctrl+↵` pour envoyer). Une colonne latérale
+  montre ce que voit le client, la note interne, le contexte (page, écran,
+  navigateur) et, repliés, le sélecteur et les diagnostics.
+- Assistant d'intégration : aperçu en direct du bouton (position, thème,
+  libellé) et coloration des extraits de code.
+- Écran de connexion en deux colonnes avec une illustration dessinée en CSS.
+- Page de démonstration refaite (« Atelier Démo ») : bandeau explicatif,
+  mode d'emploi en trois étapes, CSS externe `public/demo.css`.
+- Widget : panneau qui naît du bouton, catégories à icônes SVG, compositeur à
+  séparateur pointillé, envoi avec indicateur de chargement, confirmation
+  animée, pastilles de statut dans « Mes retours », bouton œil pour les
+  pastilles de la page.
+- Test E2E de régression : le texte d'un reviewer reste du texte dans les
+  pastilles collaboratives.
+- Distribution Docker autonome, sans compte cloud : stockage S3 intégré par
+  défaut (SeaweedFS épinglé par digest, volume `s3data`, aucun port publié,
+  télémétrie et création automatique de bucket désactivées). SeaweedFS tourne
+  dans `s3-storage`, **sans interface réseau** : tous ses ports, dont le gRPC
+  S3 (appels d'administration des identités non authentifiés sans clé de
+  signature du filer), restent sur sa boucle locale, et son port S3 principal
+  est en HTTPS seul (aucun HTTP 8333). Le seul point d'accès réseau est la
+  passerelle `s3` (`app/s3-gateway.mjs`) en HTTPS `https://s3:8443`, qui
+  transmet au socket Unix de SeaweedFS via un volume en mémoire (`s3socket`). `install.sh --non-interactive --port X`
+  ne demande aucune valeur S3 : il génère deux identités S3 distinctes et
+  propres à l'installation (application ; initialisation limitée à la
+  création du bucket), une autorité TLS interne (`certs/ca.pem`, clé détruite
+  après signature), le certificat du service `s3` (`certs/s3.pem`) et sa clé
+  privée (`secrets/s3_tls_key`, 600). La configuration SeaweedFS est dérivée
+  des secrets dans le conteneur, en mémoire, sans variable d'environnement.
+  Service ponctuel `s3-init` : création idempotente du bucket privé en TLS
+  vérifié. L'app fait confiance à l'autorité via `NODE_EXTRA_CA_CERTS`, sans
+  contournement TLS ; garde-fous de démarrage inchangés. S3 externe conservé
+  en option (`--s3-endpoint`, profils Compose).
+
+### Modifié
+
+- `install.sh` refuse une nouvelle configuration si le volume `pgdata` **ou**
+  `s3data` existe, vérifie à la relance le certificat (nom `s3`, autorité,
+  correspondance de la clé) sans rien régénérer, et refuse les options propres
+  au S3 externe sans `--s3-endpoint`. `.env` gagne `REVIEWDESK_S3` et
+  `COMPOSE_PROFILES` ; un `.env` de l'ancien format (sans ces deux clés) reste
+  accepté tel quel comme S3 externe, sans réécriture.
+- Mise à jour documentée avec `docker compose up -d --build --force-recreate`
+  (sinon un conteneur inchangé garde les secrets montés depuis l'ancien dossier).
+
+- Distribution Docker Compose auto-hébergée 8.0.0 (`reviewdesk-v8.0.0-docker.zip`) :
+  application compilée et dépendances de production verrouillées sans PGlite
+  (`npm ci` dans l'image `node:22.23.3-bookworm-slim` épinglée par digest),
+  PostgreSQL `17.11-alpine3.24` sur réseau interne sans port publié,
+  application publiée sur `127.0.0.1` uniquement, S3 externe HTTPS exact,
+  autorité privée via `NODE_EXTRA_CA_CERTS`. Au démarrage : `HeadBucket`
+  signé, liste anonyme refusée, et objet de test temporaire écrit puis relu
+  sans identifiants (401/403 exigé) puis toujours supprimé — prouve qu'un
+  nouvel objet n'est pas public à cet instant, pas l'absence d'ACL publique
+  sur d'autres objets ni une dérive ultérieure de la politique. Permissions
+  minimales documentées (`s3:ListBucket`, `s3:PutObject`, `s3:GetObject`,
+  `s3:DeleteObject`). `install.sh` (POSIX sh + openssl + Docker) génère des
+  mots de passe forts et distincts, enregistre la configuration en droits 600
+  sans afficher de secret, ne l'écrase jamais (verrou exclusif, publication
+  sans écrasement), refuse une configuration partielle, refuse une nouvelle
+  configuration tant que Docker ne confirme pas l'absence du volume
+  PostgreSQL, et n'accepte que les endpoints que le démarrage accepte.
+  Génération par `scripts/packaging/docker/package-docker.mjs`, guide
+  `docs/GUIDE-DOCKER-FR.md` (reverse proxy HTTPS, tunnel, exploitation), tests
+  unitaires, tests de l'installeur et smoke test Compose de bout en bout.
+
+- Kit ZIP local 8.0.0 : serveur/MCP compilés, assets publics complets,
+  manifeste runtime verrouillé incluant PGlite, scripts Node 22
+  `install.mjs` et `start.mjs`, mot de passe initial sans valeur par défaut,
+  écoute limitée à `127.0.0.1`, données persistantes et guide français.
+  Génération du ZIP et du SHA-256 par `scripts/packaging/package-kit.mjs` ;
+  tests du packaging et smoke test depuis une archive extraite avec
+  installation, authentification admin, captures, redémarrage et réinstallation.
 - Tableau de bord : lien « Aller au contenu » en tête de la tabulation, qui
   saute la barre de navigation et le rail des projets.
 - Liste des retours : squelette de chargement au premier affichage, et état
@@ -27,6 +209,23 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Modifié
 
+- **Rupture d'usage** : la navigation passe dans une barre latérale (tiroir
+  sur mobile) ; l'assistant de marque blanche ne s'ouvre plus de lui-même et
+  se retrouve sous « Personnalisation » ; « Liens reviewer » devient
+  « Installer » et « Accès agents » devient « Agents IA ».
+- **Rupture d'usage** : plus de bouton « Enregistrer » commun. Le statut est
+  enregistré dès qu'il est choisi, la note interne (ex-« Réponse interne ») a
+  son propre bouton, et la réponse au client passe par le compositeur, qui
+  l'inscrit aussi dans le fil.
+- Le disque de statut se remplit à mesure que le travail avance (vide « à
+  traiter », plein « traité ») : c'était l'inverse.
+- Widget : styles posés par feuille construite (`adoptedStyleSheets`), avec
+  repli sur `<style>` ; surfaces opaques au lieu du verre translucide.
+- Widget : la couleur `data-accent` passe par `src/brand-tokens.ts`, le texte
+  posé dessus est calculé pour rester lisible sur une teinte claire.
+- Capture « admin-desktop » du README prise sur la fenêtre, et non en pleine
+  page, où la barre collante tombait au milieu de l'image.
+- Le kit ZIP local est marqué obsolète au profit de la distribution Docker.
 - Le gris de texte le plus clair (`--text-3`) passe à `#6b6b74` en clair et
   `#8b8b94` en sombre, pour atteindre 4,5:1 sur toutes les surfaces (dates,
   compteurs, métadonnées, statut « Traité »).
@@ -38,6 +237,35 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ### Corrigé
 
+- Sur ordinateur, faire défiler la fiche d'un retour faisait aussi défiler
+  la liste : c'était la page entière qui défilait. Chaque colonne défile
+  désormais seule, sans aucun élément collant : la barre, le fil (avec le
+  compositeur posé dessous) et la colonne latérale sont des zones séparées.
+  Sur mobile, la page ne défile plus sous la fiche ouverte.
+- Une capture prise sur téléphone était étirée sur toute la largeur ; elle
+  s'affiche maintenant à la taille d'un téléphone.
+- L'assistant de personnalisation revenait à chaque chargement tant qu'il
+  n'était pas terminé ; « Configurer plus tard » est maintenant retenu par le
+  navigateur (Personnalisation et `⌘K` le rouvrent).
+- Vue d'ensemble : dans la hauteur fixe de l'écran, la bande des KPI
+  s'écrasait à 2 px (grille sans hauteur de ligne au contenu).
+- Dans le formulaire de projet, tous les boutons (suggestions d'origine,
+  suppression) prenaient le style du bouton principal.
+- Les champs de saisie affichaient deux anneaux de focus superposés.
+- Quand le client validait ou rouvrait un retour depuis son widget, son
+  propre message remplaçait la réponse de l'équipe affichée dans le widget.
+  Seuls les messages de l'équipe ou d'un agent deviennent la réponse affichée.
+- **Sécurité** : le texte d'un retour était injecté en `innerHTML` dans
+  l'info-bulle des pastilles collaboratives du widget ; un reviewer muni d'un
+  lien pouvait exécuter du script sur la page du client chez les autres
+  reviewers. Le nœud est désormais construit en `textContent`.
+- Servie par l'instance (`style-src 'self'`), la page démo perdait ses styles
+  inline et le widget les siens ; elle s'affichait cassée.
+- La pastille de l'élément pointé passait au-dessus du panneau du widget
+  (`z-index` hors limite) et masquait « Localiser » sur mobile.
+- Emojis restants (🔍 📱 💻 📷, chips du widget) remplacés par des icônes.
+- Déclarations `font: … inherit` invalides dans le widget : la police de repli
+  n'était pas celle prévue.
 - Un échec de chargement de la liste au démarrage renvoyait à l'écran de
   connexion alors que la session était valide ; un échec lors d'un changement
   de filtre restait silencieux.

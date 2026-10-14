@@ -483,6 +483,9 @@ test('a reviewer can validate and reopen tickets in review status', async (t) =>
   // Check ticket in admin
   const checkedDone = await app.inject({ method: 'GET', url: `/api/tickets?projectId=${project.id}`, headers: auth.read });
   assert.equal(checkedDone.json().tickets[0].status, 'DONE');
+  // The client's own words go to the log; the team's answer stays the one its
+  // widget shows.
+  assert.equal(checkedDone.json().tickets[0].replyText, 'Alignement corrigé sur mobile et desktop.');
 
   // 4. Reviewer reopens if need adjustment
   const reopened = await app.inject({
@@ -497,6 +500,7 @@ test('a reviewer can validate and reopen tickets in review status', async (t) =>
 
   const checkedTodo = await app.inject({ method: 'GET', url: `/api/tickets?projectId=${project.id}`, headers: auth.read });
   assert.equal(checkedTodo.json().tickets[0].status, 'TODO');
+  assert.equal(checkedTodo.json().tickets[0].replyText, 'Alignement corrigé sur mobile et desktop.');
 
   // Unauthorized access (missing or invalid token/origin) is forbidden
   const unauthorized = await app.inject({
