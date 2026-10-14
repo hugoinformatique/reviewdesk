@@ -463,7 +463,9 @@ test('ZIP contains only the self-host allowlist, no secrets, no sources, no PGli
   const checksum = (await readFile(`${first}.sha256`, 'utf8')).trim().split(/\s+/)[0];
   assert.equal(createHash('sha256').update(zip).digest('hex'), checksum);
   const entries = await readZip(zip);
-  const prefix = 'reviewdesk-v8.0.0-docker/';
+  // The archive is named after the version being shipped, whatever it is.
+  const { version } = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+  const prefix = `reviewdesk-v${version}-docker/`;
   const members = [...entries.keys()].map(name => { assert.ok(name.startsWith(prefix), name); return name.slice(prefix.length); });
   for (const name of members) {
     assert.match(name, /^(compose\.yaml|install\.sh|GUIDE-DOCKER-FR\.md|NOTICE\.txt|certs\/LISEZMOI\.txt|s3\/entrypoint\.sh|app\/(Dockerfile|entrypoint\.mjs|s3-gateway\.mjs|runtime-config\.mjs|s3-bootstrap\.mjs|package\.json|package-lock\.json|dist\/(server|mcp|s3-signer)\.js|public\/.+))$/, name);

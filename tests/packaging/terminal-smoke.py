@@ -13,7 +13,8 @@ import time
 import zipfile
 
 repository = Path(__file__).resolve().parents[2]
-archive = Path(sys.argv[1]) if len(sys.argv) > 1 else repository / 'test-results/local-kit/reviewdesk-v8.0.0-local.zip'
+version = json.loads((repository / 'package.json').read_text())['version']
+archive = Path(sys.argv[1]) if len(sys.argv) > 1 else repository / f'test-results/local-kit/reviewdesk-v{version}-local.zip'
 password = 'fougere-Quartz!7926-violet'  # Disposable test credential.
 
 
@@ -63,10 +64,10 @@ with tempfile.TemporaryDirectory(prefix='kit terminal espaces ') as scratch:
     with zipfile.ZipFile(archive) as package:
         assert package.testzip() is None, 'ZIP CRC validation failed'
         for name in package.namelist():
-            assert name.startswith('reviewdesk-v8.0.0-local/') and '..' not in Path(name).parts
+            assert name.startswith(f'reviewdesk-v{version}-local/') and '..' not in Path(name).parts
         package.extractall(scratch)
     print('Independent ZIP reader: directory, DEFLATE and CRC checks passed.')
-    root = Path(scratch) / 'reviewdesk-v8.0.0-local'
+    root = Path(scratch) / f'reviewdesk-v{version}-local'
     prompt = 'Mot de passe admin (saisie masquée, 16 caractères minimum) : '
     confirm = 'Confirmez le mot de passe : '
     interaction(root, [(prompt, 'weak\r')], 1)
