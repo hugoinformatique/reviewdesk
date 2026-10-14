@@ -88,6 +88,65 @@ Refonte de l'interface : administration, widget client et intégration.
   pastilles de la page.
 - Test E2E de régression : le texte d'un reviewer reste du texte dans les
   pastilles collaboratives.
+- Distribution Docker autonome, sans compte cloud : stockage S3 intégré par
+  défaut (SeaweedFS épinglé par digest, volume `s3data`, aucun port publié,
+  télémétrie et création automatique de bucket désactivées). SeaweedFS tourne
+  dans `s3-storage`, **sans interface réseau** : tous ses ports, dont le gRPC
+  S3 (appels d'administration des identités non authentifiés sans clé de
+  signature du filer), restent sur sa boucle locale, et son port S3 principal
+  est en HTTPS seul (aucun HTTP 8333). Le seul point d'accès réseau est la
+  passerelle `s3` (`app/s3-gateway.mjs`) en HTTPS `https://s3:8443`, qui
+  transmet au socket Unix de SeaweedFS via un volume en mémoire (`s3socket`). `install.sh --non-interactive --port X`
+  ne demande aucune valeur S3 : il génère deux identités S3 distinctes et
+  propres à l'installation (application ; initialisation limitée à la
+  création du bucket), une autorité TLS interne (`certs/ca.pem`, clé détruite
+  après signature), le certificat du service `s3` (`certs/s3.pem`) et sa clé
+  privée (`secrets/s3_tls_key`, 600). La configuration SeaweedFS est dérivée
+  des secrets dans le conteneur, en mémoire, sans variable d'environnement.
+  Service ponctuel `s3-init` : création idempotente du bucket privé en TLS
+  vérifié. L'app fait confiance à l'autorité via `NODE_EXTRA_CA_CERTS`, sans
+  contournement TLS ; garde-fous de démarrage inchangés. S3 externe conservé
+  en option (`--s3-endpoint`, profils Compose).
+
+### Modifié
+
+- `install.sh` refuse une nouvelle configuration si le volume `pgdata` **ou**
+  `s3data` existe, vérifie à la relance le certificat (nom `s3`, autorité,
+  correspondance de la clé) sans rien régénérer, et refuse les options propres
+  au S3 externe sans `--s3-endpoint`. `.env` gagne `REVIEWDESK_S3` et
+  `COMPOSE_PROFILES` ; un `.env` de l'ancien format (sans ces deux clés) reste
+  accepté tel quel comme S3 externe, sans réécriture.
+- Mise à jour documentée avec `docker compose up -d --build --force-recreate`
+  (sinon un conteneur inchangé garde les secrets montés depuis l'ancien dossier).
+
+- Distribution Docker Compose auto-hébergée 8.0.0 (`reviewdesk-v8.0.0-docker.zip`) :
+  application compilée et dépendances de production verrouillées sans PGlite
+  (`npm ci` dans l'image `node:22.23.3-bookworm-slim` épinglée par digest),
+  PostgreSQL `17.11-alpine3.24` sur réseau interne sans port publié,
+  application publiée sur `127.0.0.1` uniquement, S3 externe HTTPS exact,
+  autorité privée via `NODE_EXTRA_CA_CERTS`. Au démarrage : `HeadBucket`
+  signé, liste anonyme refusée, et objet de test temporaire écrit puis relu
+  sans identifiants (401/403 exigé) puis toujours supprimé — prouve qu'un
+  nouvel objet n'est pas public à cet instant, pas l'absence d'ACL publique
+  sur d'autres objets ni une dérive ultérieure de la politique. Permissions
+  minimales documentées (`s3:ListBucket`, `s3:PutObject`, `s3:GetObject`,
+  `s3:DeleteObject`). `install.sh` (POSIX sh + openssl + Docker) génère des
+  mots de passe forts et distincts, enregistre la configuration en droits 600
+  sans afficher de secret, ne l'écrase jamais (verrou exclusif, publication
+  sans écrasement), refuse une configuration partielle, refuse une nouvelle
+  configuration tant que Docker ne confirme pas l'absence du volume
+  PostgreSQL, et n'accepte que les endpoints que le démarrage accepte.
+  Génération par `scripts/packaging/docker/package-docker.mjs`, guide
+  `docs/GUIDE-DOCKER-FR.md` (reverse proxy HTTPS, tunnel, exploitation), tests
+  unitaires, tests de l'installeur et smoke test Compose de bout en bout.
+
+- Kit ZIP local 8.0.0 : serveur/MCP compilés, assets publics complets,
+  manifeste runtime verrouillé incluant PGlite, scripts Node 22
+  `install.mjs` et `start.mjs`, mot de passe initial sans valeur par défaut,
+  écoute limitée à `127.0.0.1`, données persistantes et guide français.
+  Génération du ZIP et du SHA-256 par `scripts/packaging/package-kit.mjs` ;
+  tests du packaging et smoke test depuis une archive extraite avec
+  installation, authentification admin, captures, redémarrage et réinstallation.
 - Tableau de bord : lien « Aller au contenu » en tête de la tabulation, qui
   saute la barre de navigation et le rail des projets.
 - Liste des retours : squelette de chargement au premier affichage, et état
@@ -114,6 +173,7 @@ Refonte de l'interface : administration, widget client et intégration.
   posé dessus est calculé pour rester lisible sur une teinte claire.
 - Capture « admin-desktop » du README prise sur la fenêtre, et non en pleine
   page, où la barre collante tombait au milieu de l'image.
+- Le kit ZIP local est marqué obsolète au profit de la distribution Docker.
 - Le gris de texte le plus clair (`--text-3`) passe à `#6b6b74` en clair et
   `#8b8b94` en sombre, pour atteindre 4,5:1 sur toutes les surfaces (dates,
   compteurs, métadonnées, statut « Traité »).
