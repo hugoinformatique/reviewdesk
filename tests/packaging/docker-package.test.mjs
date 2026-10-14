@@ -471,7 +471,8 @@ test('ZIP contains only the self-host allowlist, no secrets, no sources, no PGli
     assert.match(name, /^(compose\.yaml|install\.sh|GUIDE-DOCKER-FR\.md|NOTICE\.txt|certs\/LISEZMOI\.txt|s3\/entrypoint\.sh|app\/(Dockerfile|entrypoint\.mjs|s3-gateway\.mjs|runtime-config\.mjs|s3-bootstrap\.mjs|package\.json|package-lock\.json|dist\/(server|mcp|s3-signer)\.js|public\/.+))$/, name);
     assert.doesNotMatch(name, /(^|\/)(\.env|secrets?|src|node_modules)(\/|$)|\.(ts|map|pem|key)$/);
   }
-  for (const required of ['compose.yaml', 'install.sh', 's3/entrypoint.sh', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs', 'app/Dockerfile', 'app/dist/server.js', 'app/dist/s3-signer.js', 'app/public/widget.js', 'app/public/admin.js', 'app/package-lock.json']) assert.ok(members.includes(required), required);
+  for (const required of ['compose.yaml', 'install.sh', 's3/entrypoint.sh', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs', 'app/Dockerfile', 'app/dist/server.js', 'app/dist/s3-signer.js', 'app/public/widget.js', 'app/public/index.html', 'app/package-lock.json']) assert.ok(members.includes(required), required);
+  assert.ok(members.some((name) => /^app\/public\/assets\/index-[\w-]+\.js$/.test(name)), 'React admin entry chunk');
   const lock = entries.get(`${prefix}app/package-lock.json`).toString('utf8');
   assert.doesNotMatch(lock, /pglite/i);
   assert.doesNotMatch(entries.get(`${prefix}app/package.json`).toString('utf8'), /pglite/i);

@@ -1,6 +1,6 @@
 // Loaded from <head> and kept as its own file on purpose: the admin serves
 // `script-src 'self'`, so an inline boot script would be blocked by CSP and the
-// shell would flash the wrong theme before admin.js runs at the end of <body>.
+// shell would flash the wrong theme before the React admin mounts.
 (function () {
   try {
     var theme = localStorage.getItem('reviewdesk-theme');

@@ -76,6 +76,8 @@ async function freePort() {
 async function assets(root, prefix = '') {
   const names = [];
   for (const entry of await readdir(path.join(root, prefix), { withFileTypes: true })) {
+    // Build outputs a local `npm run build` may have left: the kit rebuilds them.
+    if (!prefix && ['index.html', 'assets', 'next', 'admin.js', 'widget.js'].includes(entry.name)) continue;
     if (entry.isDirectory()) names.push(...await assets(root, `${prefix}${entry.name}/`));
     else names.push(prefix + entry.name);
   }
@@ -137,9 +139,11 @@ test('ZIP installs in a path with spaces; local HTTP/admin, uploads and database
   await verifyResolution('absent');
   for (const name of await assets(path.join(repository, 'public'))) {
     assert.ok(members.includes(`public/${name}`), `missing asset ${name}`);
-    if (!['admin.js', 'widget.js'].includes(name)) assert.deepEqual(await readFile(path.join(root, 'public', name)), await readFile(path.join(repository, 'public', name)));
+    assert.deepEqual(await readFile(path.join(root, 'public', name)), await readFile(path.join(repository, 'public', name)));
   }
-  assert.ok(members.includes('public/widget.js') && members.includes('public/admin.js'));
+  assert.ok(members.includes('public/widget.js') && members.includes('public/index.html'));
+  const adminEntry = members.find((name) => /^public\/assets\/index-[\w-]+\.js$/.test(name));
+  assert.ok(adminEntry, 'React admin entry chunk');
   const originalConfig = path.join(root, '.reviewdesk/config.json');
   const startPath = path.join(root, 'start.mjs');
   const installPath = path.join(root, 'install.mjs');
@@ -214,7 +218,7 @@ test('ZIP installs in a path with spaces; local HTTP/admin, uploads and database
     return { cookie, 'x-csrf-token': csrfToken };
   }
   await start();
-  for (const route of ['/', '/admin.js', '/widget.js', '/admin.css', '/theme.js', '/demo.js', '/demo.html', '/fonts/geist-latin.woff2', '/fonts/geist-mono-latin.woff2', '/favicon.svg']) {
+  for (const route of ['/', `/${adminEntry.slice('public/'.length)}`, '/widget.js', '/theme.js', '/demo.js', '/demo.html', '/fonts/geist-latin.woff2', '/fonts/geist-mono-latin.woff2', '/favicon.svg']) {
     const response = await api(route);
     assert.equal(response.status, 200, route);
     assert.ok((await response.arrayBuffer()).byteLength > 0);

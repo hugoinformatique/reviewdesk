@@ -3,6 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildAdmin } from '../../build-admin.mjs';
 import { buildWordPressPlugin } from '../../build-integrations.mjs';
 import { collectAssets, createZip } from '../package-kit.mjs';
 import { assertNode22 } from '../runtime/kit.mjs';
@@ -93,7 +94,6 @@ export async function packageDocker(outputDirectory) {
     const { build } = await import('esbuild');
     const base = { absWorkingDir: repository, bundle: true, sourcemap: false, logLevel: 'warning' };
     await build({ ...base, entryPoints: ['src/widget/index.ts'], format: 'iife', globalName: 'ReviewDesk', outfile: path.join(staging, 'widget.js') });
-    await build({ ...base, entryPoints: ['src/admin/app.ts'], format: 'iife', outfile: path.join(staging, 'admin.js') });
     await build({ ...base, entryPoints: ['src/server.ts'], platform: 'node', format: 'esm', packages: 'external', outfile: path.join(staging, 'server.js') });
     await build({ ...base, entryPoints: ['src/mcp/server.ts'], platform: 'node', format: 'esm', packages: 'external', banner: { js: '#!/usr/bin/env node' }, outfile: path.join(staging, 'mcp.js') });
     await build({ ...base, entryPoints: ['scripts/packaging/docker/s3-signer.ts'], platform: 'node', format: 'esm', outfile: path.join(staging, 's3-signer.js') });
@@ -109,7 +109,9 @@ export async function packageDocker(outputDirectory) {
     entries.set('app/package-lock.json', Buffer.from(`${JSON.stringify(lock, null, 2)}\n`));
     await buildWordPressPlugin();
     for (const asset of await collectAssets(path.join(repository, 'public'))) entries.set(`app/public/${asset.name}`, asset.data);
-    for (const name of ['widget', 'admin']) await include(path.join(staging, `${name}.js`), `app/public/${name}.js`);
+    await include(path.join(staging, 'widget.js'), 'app/public/widget.js');
+    // The React admin, built fresh: index.html and its hashed assets/.
+    for (const file of await buildAdmin()) entries.set(`app/public/${file.name}`, file.data);
     for (const name of ['server', 'mcp', 's3-signer']) await include(path.join(staging, `${name}.js`), `app/dist/${name}.js`);
     const root = `reviewdesk-v${manifest.version}-docker`;
     const archive = createZip([...entries].map(([name, data]) => ({ name: `${root}/${name}`, data })));

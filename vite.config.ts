@@ -4,10 +4,10 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
 
 /**
- * The admin SPA. It is built into public/ so every host that already serves
- * public/ (Fastify, Vercel, the Docker and local kits) serves it unchanged.
- * Until the cut-over it lives under /next/, next to the legacy admin, on the
- * same origin: one session cookie for both.
+ * The admin SPA, served at the root of the site. `npm run build:admin`
+ * (scripts/build-admin.mjs) builds it into a fresh directory and hands
+ * index.html + assets/ over to public/, which every host already serves
+ * (Fastify, Vercel, the Docker and local kits); the kits build it themselves.
  *
  * Production runs under `script-src 'self'; style-src 'self'`: no inline
  * script or <style> may be emitted. React's style props go through the CSSOM,
@@ -37,18 +37,18 @@ function noRuntimeStyleTags(): Plugin {
   };
 }
 
-const base = process.env.ADMIN_BASE ?? '/next/';
 const api = process.env.REVIEWDESK_API ?? 'http://127.0.0.1:4390';
 
 export default defineConfig({
   root: fileURLToPath(new URL('./admin', import.meta.url)),
-  base,
+  base: '/',
   publicDir: false,
   plugins: [react(), tailwindcss(), noRuntimeStyleTags()],
   resolve: { alias: { '@': fileURLToPath(new URL('./admin/src', import.meta.url)) } },
   build: {
-    outDir: fileURLToPath(new URL(`./public${base}`, import.meta.url)),
-    emptyOutDir: base !== '/',
+    // Never public/ directly: scripts/build-admin.mjs swaps the result in.
+    outDir: fileURLToPath(new URL('./dist/admin', import.meta.url)),
+    emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
     // Fonts stay files: a data: URI would need `font-src data:`.

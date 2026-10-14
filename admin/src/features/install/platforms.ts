@@ -1,6 +1,6 @@
 /**
  * Widget install platforms: pure data and URL builders, no React. Texts and
- * steps are those of the legacy admin (src/admin/app.ts), kept word for word.
+ * steps are those of the previous (vanilla) admin, kept word for word.
  */
 
 export type WidgetContext = {

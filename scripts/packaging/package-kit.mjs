@@ -15,10 +15,18 @@ function safeName(name) {
   }
 }
 
+/**
+ * Build outputs that land in public/ during development. A package rebuilds
+ * them from source instead, so whatever a local build left there (an older
+ * hashed chunk, a stale widget) never ships.
+ */
+const GENERATED_PUBLIC = new Set(['index.html', 'assets', 'next', 'admin.js', 'widget.js']);
+
 export async function collectAssets(directory, prefix = '') {
   const result = [];
   for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : 1)) {
     const name = prefix + entry.name;
+    if (!prefix && GENERATED_PUBLIC.has(entry.name)) continue;
     safeName(name);
     if (entry.isSymbolicLink()) throw new Error(`Lien symbolique interdit : ${name}`);
     if (entry.isDirectory()) result.push(...await collectAssets(path.join(directory, entry.name), `${name}/`));
@@ -124,7 +132,13 @@ export async function packageKit(outputDirectory) {
     const { build } = await import('esbuild');
     const base = { absWorkingDir: repository, bundle: true, sourcemap: false, logLevel: 'info' };
     await build({ ...base, entryPoints: ['src/widget/index.ts'], format: 'iife', globalName: 'ReviewDesk', outfile: path.join(staging, 'public/widget.js') });
-    await build({ ...base, entryPoints: ['src/admin/app.ts'], format: 'iife', outfile: path.join(staging, 'public/admin.js') });
+    // The React admin, built fresh: index.html and its hashed assets/.
+    const { buildAdmin } = await import('../build-admin.mjs');
+    for (const file of await buildAdmin()) {
+      const target = path.join(staging, 'public', file.name);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, file.data);
+    }
     for (const [entry, name] of [['src/server.ts', 'server'], ['src/mcp/server.ts', 'mcp'], ['scripts/packaging/local-server.ts', 'local-server']]) {
       await build({ ...base, entryPoints: [entry], platform: 'node', format: 'esm', packages: 'external', outfile: path.join(staging, `dist/${name}.js`), ...(name === 'mcp' ? { banner: { js: '#!/usr/bin/env node' } } : {}) });
     }
