@@ -85,6 +85,7 @@ export function TicketSheet() {
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
+        aria-labelledby="ticket-sheet-title"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           document.getElementById('ticket-sheet-title')?.focus();

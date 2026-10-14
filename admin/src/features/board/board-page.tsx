@@ -88,7 +88,8 @@ export function BoardPage() {
   const columns: Record<Status, ColumnData> = { TODO: todo.data, IN_PROGRESS: progress.data, REVIEW: review.data, DONE: done.data };
 
   const pending = all.some((column) => column.query.isPending);
-  const failed = !pending && all.some((column) => column.query.isError && !column.query.data);
+  // A failed refresh counts even when an older answer is cached (legacy: the flag lasts until a load succeeds).
+  const failed = !pending && all.some((column) => column.query.isError && !column.query.isFetchNextPageError);
   const settled = all.every((column) => !column.query.isPending);
   const open = todo.data.total + progress.data.total + review.data.total;
   const totalAll = open + done.data.total;
