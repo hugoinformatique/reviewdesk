@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { markFromCard } from './ticket-nav';
 import { Bot, Camera, MessageSquare, Monitor, Smartphone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function TicketCard({ ticket, projectParam, showProject, variant, selecte
       data-ticket-id={ticket.id}
       draggable={false}
       {...linkProps}
+      onClickCapture={() => markFromCard(true)}
       className={cn(
         'group/card flex gap-3 rounded-lg border border-border bg-card text-left shadow-1 transition-[border-color,box-shadow,background-color] duration-150 outline-none hover:border-border-strong hover:shadow-2 focus-visible:ring-[3px] focus-visible:ring-ring',
         variant === 'card' ? 'flex-col p-3' : 'items-start p-3 sm:items-center',

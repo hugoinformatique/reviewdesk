@@ -1,6 +1,6 @@
 import { FileDownIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CodeBlock } from './code-block';
+import { CodeBlock } from '@/components/code-block';
 import type { WidgetContext, WidgetPlatform } from './platforms';
 
 /** Numbered steps, the download if any, and the code or link to copy. */

@@ -3,12 +3,9 @@
  * (#/projets, #/p/<id|all>, #/p/<id>/stats, #/p/<id>/t/<ticket>) and the
  * server needs no fallback route: links already shared keep working.
  */
-import { createHashHistory, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
+import { createHashHistory, createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/react-router';
 import { AppShell } from '@/features/shell/app-shell';
-import { DashboardPage } from '@/features/dashboard/dashboard-page';
-import { BoardPage } from '@/features/board/board-page';
-import { TicketSheet } from '@/features/ticket/ticket-sheet';
-import { OverviewPage } from '@/features/overview/overview-page';
+import { RouteFallback } from '@/features/shell/route-fallback';
 
 const rootRoute = createRootRoute({ component: AppShell });
 
@@ -20,14 +17,14 @@ const indexRoute = createRoute({
   },
 });
 
-export const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projets', component: DashboardPage });
+export const dashboardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/projets', component: lazyRouteComponent(() => import('@/features/dashboard/dashboard-page'), 'DashboardPage'), pendingComponent: RouteFallback });
 
 /** `projectId` is a project's id, or `all` for every project. */
-export const boardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/p/$projectId', component: BoardPage });
+export const boardRoute = createRoute({ getParentRoute: () => rootRoute, path: '/p/$projectId', component: lazyRouteComponent(() => import('@/features/board/board-page'), 'BoardPage'), pendingComponent: RouteFallback });
 
-export const ticketRoute = createRoute({ getParentRoute: () => boardRoute, path: 't/$ticketId', component: TicketSheet });
+export const ticketRoute = createRoute({ getParentRoute: () => boardRoute, path: 't/$ticketId', component: lazyRouteComponent(() => import('@/features/ticket/ticket-sheet'), 'TicketSheet') });
 
-export const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/p/$projectId/stats', component: OverviewPage });
+export const overviewRoute = createRoute({ getParentRoute: () => rootRoute, path: '/p/$projectId/stats', component: lazyRouteComponent(() => import('@/features/overview/overview-page'), 'OverviewPage'), pendingComponent: RouteFallback });
 
 const routeTree = rootRoute.addChildren([indexRoute, dashboardRoute, boardRoute.addChildren([ticketRoute]), overviewRoute]);
 
@@ -35,6 +32,7 @@ export const router = createRouter({
   routeTree,
   history: createHashHistory(),
   defaultPreload: false,
+  defaultPendingMs: 150,
   // Anything unknown goes home, as the legacy router did.
   notFoundMode: 'root',
   defaultNotFoundComponent: () => {

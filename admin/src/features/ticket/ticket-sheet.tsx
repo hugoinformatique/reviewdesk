@@ -13,6 +13,7 @@ import { useCancelFix } from '@/lib/queries';
 import { openOverlay, useOverlay } from '@/lib/ui-store';
 import { STATUSES, STATUS_LABELS, type Status, type Ticket } from '@/lib/types';
 import { useBoard } from '@/features/board/board-context';
+import { isFromCard, markFromCard } from '@/features/board/ticket-nav';
 import { STATUS_DOT } from '@/features/board/ticket-card';
 import { useMoveTicket } from '@/features/board/use-move-ticket';
 import { Composer } from './composer';
@@ -40,7 +41,14 @@ export function TicketSheet() {
     return undefined;
   }, [board, ticketId]);
 
-  const backToBoard = () => void navigate({ to: '/p/$projectId', params: { projectId: param }, replace: true });
+  // Closing returns to where the person came from: back when they clicked a card, else replace.
+  const backToBoard = () => {
+    if (isFromCard()) {
+      markFromCard(false);
+      window.history.back();
+    } else void navigate({ to: '/p/$projectId', params: { projectId: param }, replace: true });
+  };
+  useEffect(() => () => markFromCard(false), []);
   const openTicket = (id: string) => void navigate({ to: '/p/$projectId/t/$ticketId', params: { projectId: param, ticketId: id }, replace: true });
 
   // A link to a ticket this board does not show (old link, or a treated one past the first page).
@@ -77,6 +85,10 @@ export function TicketSheet() {
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          document.getElementById('ticket-sheet-title')?.focus();
+        }}
         className="flex h-[calc(100dvh-1.5rem)] max-h-none flex-col gap-0 overflow-hidden p-0 sm:h-[calc(100dvh-3rem)] sm:max-w-[min(72rem,calc(100%-3rem))]"
       >
         {ticket ? (
@@ -123,6 +135,8 @@ function SheetBody({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const mobile = isMobileViewport(ticket);
   const anchor = safeHttpUrl(ticket.pageUrl) ? anchorUrl(ticket) : undefined;
+
+  useEffect(() => titleRef.current?.focus({ preventScroll: true }), []);
 
   const scrollToEnd = () => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -216,7 +230,7 @@ function SheetBody({
                 </span>
                 <Badge status={ticket.status}>{STATUS_LABELS[ticket.status]}</Badge>
               </p>
-              <DialogTitle ref={titleRef} tabIndex={-1} className="text-xl leading-snug font-semibold tracking-tight break-words whitespace-pre-wrap outline-none">
+              <DialogTitle id="ticket-sheet-title" ref={titleRef} tabIndex={-1} className="text-xl leading-snug font-semibold tracking-tight break-words whitespace-pre-wrap outline-none">
                 {ticket.text}
               </DialogTitle>
               <DialogDescription>

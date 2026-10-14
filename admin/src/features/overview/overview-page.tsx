@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { BarChart3, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,8 @@ import { agentTokensQuery, connectedAgentLabels, onboardingQuery, projectsQuery,
 import type { Stats } from '@/lib/types';
 import { projectIdOf } from '@/router';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/features/shell/page-header';
+import { ProjectTabs } from '@/features/shell/project-tabs';
 import { ActivityChart } from './activity-chart';
 import { AiCard } from './ai-card';
 import { Kpi } from './kpi';
@@ -19,31 +21,6 @@ import { BreakdownPanel, FeedPanel, PagesPanel, Panel, ProjectsPanel } from './p
 
 type Period = 7 | 30 | 90;
 const PERIODS: Period[] = [7, 30, 90];
-
-/*
- * TODO(shell): swap for `features/shell/page-header.tsx` (PageHeader) once it lands.
- * Minimal local header: title, Retours / Vue d'ensemble tabs, actions on the right.
- */
-function LocalHeader({ title, projectId, actions }: { title: string; projectId: string; actions: React.ReactNode }) {
-  const param = projectId || 'all';
-  const tab = 'relative px-1 pb-2.5 text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground';
-  return (
-    <header className="flex flex-col gap-3 border-b border-border pb-0">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight">{title}</h1>
-        {actions}
-      </div>
-      <nav aria-label="Sections du projet" className="-mb-px flex gap-5">
-        <Link to="/p/$projectId" params={{ projectId: param }} className={tab}>
-          Retours
-        </Link>
-        <Link to="/p/$projectId/stats" params={{ projectId: param }} aria-current="page" className={cn(tab, 'border-b-2 border-primary text-foreground')}>
-          Vue d’ensemble
-        </Link>
-      </nav>
-    </header>
-  );
-}
 
 function OverviewSkeleton() {
   return (
@@ -114,7 +91,7 @@ export function OverviewPage() {
   const projects = useQuery(projectsQuery);
 
   const connected = connectedAgentLabels(agents.data);
-  const title = projectId ? (projects.data?.find((p) => p.id === projectId)?.name ?? 'Projet') : 'Tous les projets';
+  const title = projectId ? (projects.data?.find((p) => p.id === projectId)?.name ?? 'Projet') : 'Tous les retours';
   const noTickets = onboarding.data?.tickets === 0;
 
   const controls = (
@@ -141,7 +118,7 @@ export function OverviewPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 px-4 py-5 sm:px-6">
-      <LocalHeader title={title} projectId={projectId} actions={controls} />
+      <PageHeader title={title} actions={controls} tabs={<ProjectTabs param={param} />} />
 
       {onboarding.data && onboarding.data.connectedAgents === 0 && <OnboardingPanel onboarding={onboarding.data} projectId={projectId} />}
       {(agents.data || agents.isError) && <AiCard agents={connected} requested={requested.data ?? 0} projectId={projectId} />}

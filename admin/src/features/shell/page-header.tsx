@@ -12,12 +12,15 @@ export function PageHeader({
   description,
   actions,
   tabs,
+  toolbar,
   className,
 }: {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   tabs?: ReactNode;
+  /** Filters / view controls, under the tabs. */
+  toolbar?: ReactNode;
   className?: string;
 }) {
   return (
@@ -30,6 +33,7 @@ export function PageHeader({
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
       {tabs && <div className="-mb-px">{tabs}</div>}
+      {toolbar}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export function OnboardingPanel({ onboarding, projectId }: { onboarding: Onboard
         {steps.map((step, index) => (
           <li
             key={step.label}
-            className={cn('flex min-h-[84px] flex-col justify-between gap-3 rounded-md border border-border p-3', step.done ? 'bg-sunken' : 'bg-card')}
+            className={cn('flex flex-col gap-3 sm:justify-between rounded-md border border-border p-3', step.done ? 'bg-sunken' : 'bg-card')}
           >
             <div className="flex items-start gap-2.5">
               <span

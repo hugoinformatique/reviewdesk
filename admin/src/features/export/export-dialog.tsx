@@ -11,7 +11,7 @@ import { anchorUrl, formatDate } from '@/lib/format';
 import { projectsQuery, type TicketFilters } from '@/lib/queries';
 import { closeOverlay } from '@/lib/ui-store';
 import type { Project, Ticket, TicketPage } from '@/lib/types';
-import { copyText } from '@/features/board/clipboard';
+import { copyText } from '@/lib/clipboard';
 
 const EXPORT_PAGE = 200;
 const EXPORT_MAX = 400;

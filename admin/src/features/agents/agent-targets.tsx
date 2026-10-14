@@ -14,6 +14,12 @@ export type AgentTarget = {
   hint: string;
   Logo: ComponentType<SVGProps<SVGSVGElement>>;
   where: string;
+  /** Short name shown by the guide and the fix dialog (sent as the agent label). */
+  shortName: string;
+  /** How the fix dialog hands the brief over: terminal command, chat prompt, or HTTP call. */
+  kind: 'cli' | 'chat' | 'api';
+  /** Where to run the fix command / paste the fix prompt. */
+  fixWhere: string;
   install: (context: InstallContext) => string;
 };
 
@@ -35,6 +41,9 @@ const mcpJson = (key: string) => (context: InstallContext) =>
 export const AGENT_TARGETS: AgentTarget[] = [
   {
     id: 'claude-code',
+    shortName: 'Claude Code',
+    kind: 'cli',
+    fixWhere: 'Dans un terminal, depuis le dépôt du site.',
     name: 'Claude Code',
     hint: 'CLI, une commande',
     Logo: ClaudeLogo,
@@ -44,6 +53,9 @@ export const AGENT_TARGETS: AgentTarget[] = [
   },
   {
     id: 'codex',
+    shortName: 'Codex CLI',
+    kind: 'cli',
+    fixWhere: 'Dans un terminal, depuis le dépôt du site.',
     name: 'Codex CLI',
     hint: '~/.codex/config.toml',
     Logo: OpenAILogo,
@@ -53,6 +65,9 @@ export const AGENT_TARGETS: AgentTarget[] = [
   },
   {
     id: 'cursor',
+    shortName: 'Cursor',
+    kind: 'chat',
+    fixWhere: 'Dans le chat Agent de Cursor, projet ouvert.',
     name: 'Cursor',
     hint: '.cursor/mcp.json',
     Logo: CursorLogo,
@@ -61,6 +76,9 @@ export const AGENT_TARGETS: AgentTarget[] = [
   },
   {
     id: 'claude-desktop',
+    shortName: 'Claude Desktop',
+    kind: 'chat',
+    fixWhere: 'Dans une conversation Claude Desktop.',
     name: 'Claude Desktop',
     hint: 'claude_desktop_config.json',
     Logo: ClaudeLogo,
@@ -69,6 +87,9 @@ export const AGENT_TARGETS: AgentTarget[] = [
   },
   {
     id: 'vscode',
+    shortName: 'VS Code',
+    kind: 'chat',
+    fixWhere: 'Dans Copilot Chat en mode Agent.',
     name: 'VS Code',
     hint: '.vscode/mcp.json',
     Logo: VSCodeLogo,
@@ -77,6 +98,9 @@ export const AGENT_TARGETS: AgentTarget[] = [
   },
   {
     id: 'api',
+    shortName: 'API HTTP',
+    kind: 'api',
+    fixWhere: 'Depuis un script, n8n ou votre propre agent.',
     name: 'Autre outil',
     hint: 'API HTTP, script, n8n…',
     Logo: PlugLogo,

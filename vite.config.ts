@@ -53,6 +53,19 @@ export default defineConfig({
     sourcemap: false,
     // Fonts stay files: a data: URI would need `font-src data:`.
     assetsInlineLimit: 0,
+    rolldownOptions: {
+      output: {
+        // Stable vendor chunks: the entry stays small and they cache across releases.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 30 },
+            { name: 'vendor-motion', test: /node_modules[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/, priority: 20 },
+            { name: 'vendor-tanstack', test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
+            { name: 'vendor-radix', test: /node_modules[\\/](radix-ui|@radix-ui|@floating-ui)[\\/]/, priority: 10 },
+          ],
+        },
+      },
+    },
   },
   server: {
     host: process.env.ADMIN_HOST ?? '127.0.0.1',

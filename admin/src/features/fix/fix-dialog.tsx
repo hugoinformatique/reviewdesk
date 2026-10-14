@@ -9,18 +9,10 @@ import { agentTokensQuery, connectedAgentLabels, useRequestFix } from '@/lib/que
 import { closeOverlay, openOverlay } from '@/lib/ui-store';
 import type { Ticket } from '@/lib/types';
 import { findTicketInCache } from '@/features/board/cache';
-import { copyText } from '@/features/board/clipboard';
+import { useCopy } from '@/lib/clipboard';
+import { AGENT_TARGETS, type AgentTarget } from '@/features/agents/agent-targets';
 
-type Target = { id: string; name: string; kind: 'cli' | 'chat' | 'api'; where: string };
-
-const TARGETS: Target[] = [
-  { id: 'claude-code', name: 'Claude Code', kind: 'cli', where: 'Dans un terminal, depuis le dépôt du site.' },
-  { id: 'codex', name: 'Codex CLI', kind: 'cli', where: 'Dans un terminal, depuis le dépôt du site.' },
-  { id: 'cursor', name: 'Cursor', kind: 'chat', where: 'Dans le chat Agent de Cursor, projet ouvert.' },
-  { id: 'vscode', name: 'VS Code', kind: 'chat', where: 'Dans Copilot Chat en mode Agent.' },
-  { id: 'claude-desktop', name: 'Claude Desktop', kind: 'chat', where: 'Dans une conversation Claude Desktop.' },
-  { id: 'api', name: 'API HTTP', kind: 'api', where: 'Depuis un script, n8n ou votre propre agent.' },
-];
+type Target = AgentTarget;
 
 /** Typographic apostrophes, so the brief survives shell double quotes. */
 const prompt = (ticket: Ticket) =>
@@ -40,11 +32,11 @@ export function FixDialog({ ticketId }: { ticketId: string }) {
   const ticket = findTicketInCache(client, ticketId);
   const tokens = useQuery(agentTokensQuery);
   const connected = connectedAgentLabels(tokens.data);
-  const isConnected = (target: Target) => connected.some((label) => label.toLowerCase().includes(target.name.toLowerCase()));
+  const isConnected = (target: Target) => connected.some((label) => label.toLowerCase().includes(target.shortName.toLowerCase()));
   const [chosen, setChosen] = useState<string>('');
-  const target = TARGETS.find((candidate) => candidate.id === chosen) ?? TARGETS.find(isConnected) ?? TARGETS[0]!;
+  const target = AGENT_TARGETS.find((candidate) => candidate.id === chosen) ?? AGENT_TARGETS.find(isConnected) ?? AGENT_TARGETS[0]!;
   const request = useRequestFix();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
 
   useEffect(() => {
     if (ticket) return;
@@ -56,27 +48,24 @@ export function FixDialog({ ticketId }: { ticketId: string }) {
   const text = command(target, ticket);
 
   const copyOnly = async () => {
-    if (await copyText(text)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } else {
+    if (!(await copy(text))) {
       toast.error('Copie refusée par le navigateur. Sélectionnez le texte.');
     }
   };
 
   const launch = async () => {
-    const didCopy = await copyText(text);
+    const didCopy = await copy(text);
     try {
-      await request.mutateAsync({ ticketId: ticket.id, agent: target.name });
+      await request.mutateAsync({ ticketId: ticket.id, agent: target.shortName });
     } catch {
       toast.error('Demande de correction impossible.');
       return;
     }
     if (didCopy) {
       closeOverlay();
-      toast.success(`Correction demandée à ${target.name}. ${target.kind === 'chat' ? 'Prompt copié' : 'Commande copiée'}.`);
+      toast.success(`Correction demandée à ${target.shortName}. ${target.kind === 'chat' ? 'Prompt copié' : 'Commande copiée'}.`);
     } else {
-      toast.success(`Correction demandée à ${target.name}. Copiez la ${target.kind === 'chat' ? 'consigne' : 'commande'} affichée.`);
+      toast.success(`Correction demandée à ${target.shortName}. Copiez la ${target.kind === 'chat' ? 'consigne' : 'commande'} affichée.`);
     }
   };
 
@@ -92,7 +81,7 @@ export function FixDialog({ ticketId }: { ticketId: string }) {
         </DialogHeader>
 
         <div role="radiogroup" aria-label="Agent" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {TARGETS.map((candidate) => {
+          {AGENT_TARGETS.map((candidate) => {
             const active = candidate.id === target.id;
             return (
               <button
@@ -106,14 +95,14 @@ export function FixDialog({ ticketId }: { ticketId: string }) {
                   active && 'border-foreground bg-accent',
                 )}
               >
-                {candidate.name}
+                {candidate.shortName}
                 {isConnected(candidate) && <span title="Agent connecté" className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-st-done" />}
               </button>
             );
           })}
         </div>
 
-        <p className="-mt-1 text-[13px] text-muted-foreground">{target.where}</p>
+        <p className="-mt-1 text-[13px] text-muted-foreground">{target.fixWhere}</p>
 
         <div className="rounded-lg border border-border bg-sunken">
           <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
@@ -159,7 +148,7 @@ export function FixDialog({ ticketId }: { ticketId: string }) {
           </Button>
           <Button disabled={request.isPending} onClick={() => void launch()}>
             <Sparkles />
-            Copier et lancer avec {target.name}
+            Copier et lancer avec {target.shortName}
           </Button>
         </div>
       </DialogContent>

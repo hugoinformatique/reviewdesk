@@ -27,8 +27,7 @@ import { PlatformLogo } from '@/features/install/platform-logos';
 import { demoUrl, WIDGET_PLATFORMS, widgetContext } from '@/features/install/platforms';
 import { rememberToken } from '@/features/install/session-tokens';
 import { WidgetStatus } from '@/features/install/widget-status';
-import { AgentLogo } from './agent-logos';
-import { AGENT_TARGETS } from './agent-targets';
+import { AGENT_TARGETS } from '@/features/agents/agent-targets';
 
 type Created = { id: string; name: string; origins: string[]; token: string; tokenId: string };
 
@@ -341,9 +340,9 @@ function AgentStep({ created, onPick, onOpen }: { created: Created; onPick: () =
               onClick={onPick}
               className="group flex h-full w-full cursor-pointer flex-col items-start gap-3 rounded-lg border border-border bg-card p-4 text-left shadow-1 transition-[border-color,box-shadow,transform] duration-150 outline-none hover:border-border-strong hover:shadow-2 focus-visible:ring-[3px] focus-visible:ring-ring active:scale-[0.98]"
             >
-              <AgentLogo mark={target.mark} className="size-6" />
+              <target.Logo className="size-6" />
               <span className="grid gap-0.5">
-                <strong className="text-[14px] font-medium">{target.name}</strong>
+                <strong className="text-[14px] font-medium">{target.shortName}</strong>
                 <span className="text-xs text-muted-foreground">{target.kind === 'api' ? 'API HTTP' : 'MCP'}</span>
               </span>
             </button>

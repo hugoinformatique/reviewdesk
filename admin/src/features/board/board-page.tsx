@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useParams } from '@tanstack/react-router';
+import { Outlet, useParams } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { AlertTriangle, Download, Inbox, LayoutGrid, Link2, List, Search, Settings2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { columnQuery, flattenColumn, projectsQuery, useCreateReviewLink, type TicketFilters } from '@/lib/queries';
+import { copyText } from '@/lib/clipboard';
 import { openOverlay } from '@/lib/ui-store';
+import { PageHeader } from '@/features/shell/page-header';
+import { ProjectTabs } from '@/features/shell/project-tabs';
+import { knownToken, rememberToken } from '@/features/install/session-tokens';
 import { STATUSES, STATUS_LABELS, type Status } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { BoardContext } from './board-context';
-import { BoardHeader } from './board-header';
-import { copyText } from './clipboard';
 import { Kanban, type ColumnData } from './kanban';
 import { ListView } from './list-view';
 import { useMoveTicket } from './use-move-ticket';
@@ -29,9 +31,6 @@ function readMode(): Mode {
     return 'board';
   }
 }
-
-/** Reviewer tokens already minted this session, per project: never reuse another project's. */
-const sessionTokens = new Map<string, string>();
 
 function useColumn(filters: TicketFilters, status: Status) {
   const query = useInfiniteQuery(columnQuery(filters, status));
@@ -112,13 +111,12 @@ export function BoardPage() {
   return (
     <BoardContext.Provider value={context}>
       <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-6">
-        <BoardHeader
-          title={isAll ? 'Tous les projets' : (project?.name ?? 'Projet')}
+        <PageHeader
+          title={isAll ? 'Tous les retours' : (project?.name ?? 'Projet')}
           actions={!isAll && <ProjectActions projectId={projectId} origin={project?.origins[0]} />}
-          tabs={!isAll && <ProjectTabs param={routeParam} />}
-        />
-
-        <div className="flex flex-wrap items-center gap-2">
+          tabs={<ProjectTabs param={routeParam} />}
+          toolbar={
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <div className="relative min-w-[11rem] flex-1 sm:max-w-xs">
             <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label="Filtrer par page" placeholder="Filtrer par page" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={120} className="pl-8" />
@@ -176,6 +174,8 @@ export function BoardPage() {
             </Button>
           </div>
         </div>
+          }
+        />
 
         <div aria-busy={pending} className="flex min-h-0 flex-1 flex-col">
           {pending ? (
@@ -230,29 +230,17 @@ function BoardSkeleton() {
   );
 }
 
-function ProjectTabs({ param }: { param: string }) {
-  const base = 'relative -mb-px border-b-2 border-transparent px-1 pb-2 text-[13.5px] font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring';
-  return (
-    <nav aria-label="Sections du projet" className="flex gap-4 border-b border-border">
-      <Link to="/p/$projectId" params={{ projectId: param }} className={base} activeOptions={{ exact: false }} activeProps={{ className: 'border-foreground text-foreground' }}>
-        Retours
-      </Link>
-      <Link to="/p/$projectId/stats" params={{ projectId: param }} className={base} activeProps={{ className: 'border-foreground text-foreground' }}>
-        Vue d'ensemble
-      </Link>
-    </nav>
-  );
-}
-
 function ProjectActions({ projectId, origin }: { projectId: string; origin: string | undefined }) {
   const createLink = useCreateReviewLink();
   const copyLink = async () => {
     try {
-      let token = sessionTokens.get(projectId);
-      if (!token) {
-        token = (await createLink.mutateAsync({ projectId })).token;
-        sessionTokens.set(projectId, token);
+      let known = knownToken(projectId);
+      if (!known) {
+        const link = await createLink.mutateAsync({ projectId });
+        known = { id: link.id, token: link.token };
+        rememberToken(projectId, known);
       }
+      const token = known.token;
       const hash = new URLSearchParams({ project: projectId, token });
       if (origin && origin !== location.origin) hash.set('site', origin);
       if (await copyText(`${location.origin}/relecture.html#${hash}`)) {

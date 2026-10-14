@@ -22,7 +22,7 @@ import type { AgentToken } from '@/lib/types';
 import { closeOverlay } from '@/lib/ui-store';
 import { cn } from '@/lib/utils';
 import { AGENT_TARGETS, STARTER_PROMPT, readServerPath, writeServerPath, type AgentTarget } from './agent-targets';
-import { CodeBlock, CopyButton } from './copy';
+import { CodeBlock, CopyButton } from '@/components/code-block';
 
 const ALL = 'all';
 const GIVE_UP_AFTER_MS = 120_000;
@@ -335,14 +335,14 @@ function ResultStep({ target, created }: { target: AgentTarget; created: Created
 
       <div className="grid gap-2">
         <p className="text-[13px] text-subtle-foreground">{target.where}</p>
-        <CodeBlock text={snippet} copyLabel="Copier la configuration" />
+        <CodeBlock code={snippet} copyLabel="Copier la configuration" />
       </div>
 
       <ConnectionStatus tokenId={created.id} />
 
       <div className="grid gap-2">
         <h3 className="text-[13px] font-medium">Puis, dans votre agent</h3>
-        <CodeBlock text={STARTER_PROMPT} copyLabel="Copier le prompt" wrap />
+        <CodeBlock code={STARTER_PROMPT} copyLabel="Copier le prompt" caption="Prompt à coller dans l’agent" />
       </div>
     </div>
   );
