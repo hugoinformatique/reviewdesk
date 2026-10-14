@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, stat, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { collectAssets, createZip, validateRuntimeManifest } from '../../scripts/packaging/package-kit.mjs';
+import { collectAssets, collectSourceAssets, createZip, validateRuntimeManifest } from '../../scripts/packaging/package-kit.mjs';
 import { configure, readConfig, validatePassword, parsePort, assertNode22, acquireLock, npmCliCandidates } from '../../scripts/packaging/runtime/kit.mjs';
 
 const strong = 'fougere-Quartz!7926-violet';
@@ -114,4 +114,18 @@ test('standalone manifest pins runtime dependencies including PGlite and lockfil
   assert.equal(lock.packages['node_modules/@electric-sql/pglite'].dev, undefined);
   assert.equal(lock.packages['node_modules/esbuild'], undefined);
   assert.throws(() => validateRuntimeManifest({ ...manifest, dependencies: { ...manifest.dependencies, fastify: '^5' } }, lock));
+});
+
+test('a package leaves out what a local build left in public/, and keeps the rest', async (t) => {
+  const root = await scratch(t);
+  await mkdir(path.join(root, 'assets'));
+  await mkdir(path.join(root, 'fonts'));
+  await writeFile(path.join(root, 'assets/index-old.js'), 'stale chunk');
+  await writeFile(path.join(root, 'index.html'), '<html>local build</html>');
+  await writeFile(path.join(root, 'widget.js'), 'local widget');
+  await writeFile(path.join(root, 'fonts/geist.woff2'), 'font');
+  await writeFile(path.join(root, 'demo.html'), '<html>demo</html>');
+  assert.deepEqual((await collectSourceAssets(root)).map(x => x.name), ['demo.html', 'fonts/geist.woff2']);
+  // The plain collector still takes everything: it packs the fresh build.
+  assert.equal((await collectAssets(root)).length, 5);
 });

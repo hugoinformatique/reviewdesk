@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildAdmin } from '../../build-admin.mjs';
 import { buildWordPressPlugin } from '../../build-integrations.mjs';
-import { collectAssets, createZip } from '../package-kit.mjs';
+import { collectSourceAssets, createZip } from '../package-kit.mjs';
 import { assertNode22 } from '../runtime/kit.mjs';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -108,7 +108,7 @@ export async function packageDocker(outputDirectory) {
     entries.set('app/package.json', Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
     entries.set('app/package-lock.json', Buffer.from(`${JSON.stringify(lock, null, 2)}\n`));
     await buildWordPressPlugin();
-    for (const asset of await collectAssets(path.join(repository, 'public'))) entries.set(`app/public/${asset.name}`, asset.data);
+    for (const asset of await collectSourceAssets(path.join(repository, 'public'))) entries.set(`app/public/${asset.name}`, asset.data);
     await include(path.join(staging, 'widget.js'), 'app/public/widget.js');
     // The React admin, built fresh: index.html and its hashed assets/.
     for (const file of await buildAdmin()) entries.set(`app/public/${file.name}`, file.data);

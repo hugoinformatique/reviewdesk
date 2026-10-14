@@ -15,18 +15,10 @@ function safeName(name) {
   }
 }
 
-/**
- * Build outputs that land in public/ during development. A package rebuilds
- * them from source instead, so whatever a local build left there (an older
- * hashed chunk, a stale widget) never ships.
- */
-const GENERATED_PUBLIC = new Set(['index.html', 'assets', 'next', 'admin.js', 'widget.js']);
-
 export async function collectAssets(directory, prefix = '') {
   const result = [];
   for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name < b.name ? -1 : 1)) {
     const name = prefix + entry.name;
-    if (!prefix && GENERATED_PUBLIC.has(entry.name)) continue;
     safeName(name);
     if (entry.isSymbolicLink()) throw new Error(`Lien symbolique interdit : ${name}`);
     if (entry.isDirectory()) result.push(...await collectAssets(path.join(directory, entry.name), `${name}/`));
@@ -38,6 +30,18 @@ export async function collectAssets(directory, prefix = '') {
     }
   }
   return result;
+}
+
+/**
+ * Build outputs that land in public/ during development. A package rebuilds
+ * them from source instead, so whatever a local build left there (an older
+ * hashed chunk, a stale widget) never ships.
+ */
+const GENERATED_PUBLIC = new Set(['index.html', 'assets', 'next', 'admin.js', 'widget.js']);
+
+/** The hand-written files of the repository's public/, without build outputs. */
+export async function collectSourceAssets(directory) {
+  return (await collectAssets(directory)).filter((asset) => !GENERATED_PUBLIC.has(asset.name.split('/')[0]));
 }
 
 export function validateRuntimeManifest(manifest, lock) {
@@ -124,7 +128,7 @@ export async function packageKit(outputDirectory) {
     // Rebuilt here so a kit never ships a stale or missing plugin archive. A
     // child process, not an import: that script imports this module back.
     execFileSync(process.execPath, [path.join(repository, 'scripts/build-integrations.mjs')], { stdio: 'ignore' });
-    for (const asset of await collectAssets(path.join(repository, 'public'))) {
+    for (const asset of await collectSourceAssets(path.join(repository, 'public'))) {
       const target = path.join(staging, 'public', asset.name);
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, asset.data);
