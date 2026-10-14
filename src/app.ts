@@ -177,6 +177,9 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     for (const [name, value] of Object.entries(headers)) {
       if (!reply.hasHeader(name)) reply.header(name, value);
     }
+    // The widget is the one file other sites must load: with same-origin,
+    // browsers refuse the <script> on every client site.
+    if (req.url.split('?')[0] === '/widget.js') reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
     if (req.url.startsWith('/api/') && !reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'no-store');
     return payload;
   });

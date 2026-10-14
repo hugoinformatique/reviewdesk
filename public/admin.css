@@ -1365,7 +1365,7 @@ body.guide-open { overflow: hidden; }
 .guide-check input { width: 16px; height: 16px; margin: 0; }
 .guide-primary { justify-self: end; height: 38px; padding: 0 18px; font-size: 13.5px; }
 
-.guide-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.guide-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 
 .guide-tab {
   display: flex;
@@ -3003,6 +3003,34 @@ button.mobile-only, .scrim { display: none; }
 
 .code-block { display: grid; gap: 8px; }
 
+/* Install steps: numbered, in the platform's own menu names. */
+.platform-instructions { display: grid; gap: 12px; }
+.platform-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.platform-steps li {
+  position: relative;
+  padding-left: 30px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-2);
+  counter-increment: step;
+}
+.platform-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+}
+.platform-download { justify-self: start; text-decoration: none; }
+
 .code {
   margin: 0;
   padding: 12px 13px;
@@ -3179,12 +3207,12 @@ button.mobile-only, .scrim { display: none; }
 
 .platform-picker {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 @media (max-width: 540px) {
-  .platform-picker { grid-template-columns: 1fr; }
+  .platform-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .platform-card {

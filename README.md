@@ -176,17 +176,42 @@ l'instance, la page reçoit la même CSP `style-src 'self'` que l'administration
 ### Une ligne, à coller avant `</body>`
 
 ```html
-<script src="https://reviewdesk.example/widget.js"
-        data-api="https://reviewdesk.example"
-        data-project="UUID_DU_PROJET"
-        data-token="SECRET_DU_LIEN_REVIEWER"></script>
+<script src="https://reviewdesk.example/widget.js#project=UUID_DU_PROJET&token=SECRET_DU_LIEN_REVIEWER" defer></script>
 ```
 
-C'est tout : le widget s'initialise seul, y compris s'il est injecté par un CMS
-ou un gestionnaire de balises. L'administration génère ce snippet, déjà rempli,
-au moment où vous créez un lien reviewer.
+C'est tout : le widget lit ses réglages dans le fragment (`#…`) de sa propre
+adresse et s'initialise seul, y compris s'il est injecté par un CMS ou un
+gestionnaire de balises. Le fragment n'est jamais envoyé au serveur : le secret
+ne finit pas dans les journaux d'accès. L'administration génère cette ligne,
+déjà remplie (Installer, ou étape 2 du guide).
+
+### Par outil
+
+L'assistant d'installation donne la marche à suivre clic par clic :
+
+| Outil | Où coller la ligne |
+| --- | --- |
+| **WordPress** | Extension ReviewDesk (`/integrations/reviewdesk-wordpress.zip`, servie par l'instance) : Extensions › Ajouter › Téléverser, puis Réglages › ReviewDesk. Option : bouton visible des seuls utilisateurs connectés. |
+| **Webflow** | Site settings › Custom code › Footer code, puis publier. |
+| **Framer** | Site Settings › General › Custom Code › End of `<body>` tag, puis publier. |
+| **Wix** | Paramètres › Code personnalisé, toutes les pages, « Body - fin » (domaine connecté requis). |
+| **Squarespace** | Paramètres › Avancé › Injection de code › Pied de page (selon l'offre). |
+| **Google Tag Manager** | Balise « HTML personnalisé », déclencheur All Pages, publier. |
+
+### Sans rien installer : le lien de relecture
+
+`https://reviewdesk.example/relecture.html#project=…&token=…&site=…` (bouton
+« Copier le lien client » ou plateforme « Sans installation ») ouvre une page
+où le client glisse le bouton **Faire un retour** dans sa barre de favoris. Sur
+le site, un clic sur ce favori charge le widget de l'instance. Limites :
+ordinateur uniquement, et sans effet sur un site dont la politique de sécurité
+(CSP) interdit les scripts externes. L'adresse du site doit figurer dans les
+adresses autorisées du projet, comme pour toute installation.
 
 ### Options
+
+Chaque réglage s'écrit dans le fragment (`#project=…&label=…`), en attribut
+`data-*` ou dans `init()` ; l'attribut l'emporte sur le fragment.
 
 | Attribut | `init()` | Défaut | Effet |
 | --- | --- | --- | --- |

@@ -3,6 +3,7 @@ import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildWordPressPlugin } from '../../build-integrations.mjs';
 import { collectAssets, createZip } from '../package-kit.mjs';
 import { assertNode22 } from '../runtime/kit.mjs';
 
@@ -106,6 +107,7 @@ export async function packageDocker(outputDirectory) {
     await include(path.join(repository, 'scripts/packaging/docker/NOTICE.txt'), 'NOTICE.txt');
     entries.set('app/package.json', Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
     entries.set('app/package-lock.json', Buffer.from(`${JSON.stringify(lock, null, 2)}\n`));
+    await buildWordPressPlugin();
     for (const asset of await collectAssets(path.join(repository, 'public'))) entries.set(`app/public/${asset.name}`, asset.data);
     for (const name of ['widget', 'admin']) await include(path.join(staging, `${name}.js`), `app/public/${name}.js`);
     for (const name of ['server', 'mcp', 's3-signer']) await include(path.join(staging, `${name}.js`), `app/dist/${name}.js`);

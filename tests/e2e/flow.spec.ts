@@ -36,10 +36,10 @@ async function createProject(page: Page, name: string, client: string) {
   await guide.getByLabel('Adresse du site à faire relire').fill(PREVIEW_ORIGIN);
   await guide.getByRole('button', { name: 'Créer le projet' }).click();
   const snippet = guide.locator('.code');
-  await expect(snippet).toContainText('data-token=');
+  await expect(snippet).toContainText('/widget.js#project=');
   const code = (await snippet.textContent())!;
-  const projectId = /data-project="([0-9a-f-]{36})"/.exec(code)![1]!;
-  const token = /data-token="([A-Za-z0-9_-]+)"/.exec(code)![1]!;
+  const projectId = /#project=([0-9a-f-]{36})/.exec(code)![1]!;
+  const token = /&token=([A-Za-z0-9_-]+)/.exec(code)![1]!;
   await guide.getByRole('button', { name: 'Continuer' }).click();
   await guide.getByRole('button', { name: 'Ouvrir le projet' }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
@@ -527,4 +527,46 @@ test('a reviewer’s text stays text in the collaborative pins on the client pag
   await expect(tip).toHaveText(payload);
   await expect(widget(page).locator('.collab-pin img')).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { __rdInjected?: number }).__rdInjected)).toBeUndefined();
+});
+
+test('the one-line install and the no-code bookmark both bring the widget up on a bare page', async ({ page, request }) => {
+  await login(page);
+  const projectName = `Sans code ${Date.now()}`;
+  const { projectId, token } = await createProject(page, projectName, 'Agence témoin');
+
+  // The plugin WordPress asks for is served, as a real ZIP.
+  const plugin = await request.get(`${API_ORIGIN}/integrations/reviewdesk-wordpress.zip`);
+  expect(plugin.status()).toBe(200);
+  expect((await plugin.body()).subarray(0, 4).toString('latin1')).toBe('PK\x03\x04');
+
+  // The pasted line alone, loaded from another origin as on a client's site
+  // (this once failed on Cross-Origin-Resource-Policy: same-origin).
+  await page.goto(`${PREVIEW_ORIGIN}/demo.html`);
+  await expect(widget(page)).toHaveCount(0);
+  await page.evaluate((src) => {
+    const script = document.createElement('script');
+    script.src = src;
+    document.body.append(script);
+  }, `${API_ORIGIN}/widget.js#project=${projectId}&token=${token}&label=Un%20avis%20%3F`);
+  await expect(widget(page).locator('.fab-label')).toHaveText('Un avis ?');
+
+  // The review page hands out a bookmark; run it the way a click would.
+  await page.goto(`${API_ORIGIN}/relecture.html#project=${projectId}&token=${token}&site=${encodeURIComponent(PREVIEW_ORIGIN)}`);
+  await expect(page.locator('#site-link')).toHaveAttribute('href', `${PREVIEW_ORIGIN}/`);
+  const href = (await page.locator('#bookmarklet').getAttribute('href'))!;
+  expect(href).toMatch(/^javascript:/);
+  expect(href).toContain(`${API_ORIGIN}/widget.js#project=${projectId}&token=${token}`);
+
+  // A crafted link cannot point the bookmark at another server.
+  await page.goto(`${API_ORIGIN}/relecture.html#api=https%3A%2F%2Fevil.example&project=${projectId}&token=${token}`);
+  expect(await page.locator('#bookmarklet').getAttribute('href')).not.toContain('evil.example');
+
+  await page.goto(`${PREVIEW_ORIGIN}/demo.html`);
+  await page.evaluate((code) => new Function(code)(), decodeURIComponent(href.slice('javascript:'.length)));
+  await widget(page).getByRole('button', { name: 'Donner mon avis' }).click();
+  await expect(widget(page).locator('textarea')).toBeVisible();
+
+  // A broken link explains itself instead of handing out a dead bookmark.
+  await page.goto(`${API_ORIGIN}/relecture.html#project=nope`);
+  await expect(page.locator('#review-error')).toBeVisible();
 });

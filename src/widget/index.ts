@@ -2167,21 +2167,42 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 }
 
 /**
- * One-line integration: the client pastes a single <script> tag with its data
- * attributes and nothing else. Hand-writing an init() call was the step people
- * got wrong, and it is the only step a CMS or a tag manager makes awkward.
+ * One-line integration: the client pastes a single <script> tag and nothing
+ * else. The settings are read from its data attributes, or from the fragment
+ * of its own URL (`widget.js#project=…&token=…`): WordPress plugins, Framer,
+ * Wix and Google Tag Manager may drop data attributes or re-insert the tag,
+ * but they all keep the src. The fragment is never sent with the request, so
+ * the reviewer token stays out of every access log. A bookmarklet loads the
+ * script the same way.
  */
-const script = document.currentScript as HTMLScriptElement | null;
-if (script?.dataset.project && script.dataset.token) {
-  const boot = () => init({
-    api: script.dataset.api || new URL(script.src, location.href).origin,
-    projectId: script.dataset.project!,
-    token: script.dataset.token!,
-    label: script.dataset.label,
-    theme: script.dataset.theme === 'dark' || script.dataset.theme === 'light' ? script.dataset.theme : 'auto',
-    position: script.dataset.position === 'bottom-left' ? 'bottom-left' : 'bottom-right',
-    accent: script.dataset.accent,
-  });
-  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot, { once: true });
-  else boot();
+function ownScript(): HTMLScriptElement | null {
+  const current = document.currentScript as HTMLScriptElement | null;
+  if (current?.src) return current;
+  // Re-inserted by a tag manager: currentScript can be null. Find our tag by
+  // its URL, carrying a project to tell it from an unrelated widget.js.
+  const tags = [...document.querySelectorAll<HTMLScriptElement>('script[src*="widget.js"]')];
+  return tags.find((tag) => tag.dataset.project || /[#&]project=/.test(new URL(tag.src, location.href).hash)) ?? null;
+}
+
+const script = ownScript();
+if (script) {
+  const fragment = new URLSearchParams(new URL(script.src, location.href).hash.slice(1));
+  const setting = (name: string) => script.dataset[name] || fragment.get(name) || undefined;
+  const projectId = setting('project');
+  const token = setting('token');
+  if (projectId && token) {
+    const theme = setting('theme');
+    const boot = () =>
+      init({
+        api: setting('api') || new URL(script.src, location.href).origin,
+        projectId,
+        token,
+        label: setting('label'),
+        theme: theme === 'dark' || theme === 'light' ? theme : 'auto',
+        position: setting('position') === 'bottom-left' ? 'bottom-left' : 'bottom-right',
+        accent: setting('accent'),
+      });
+    if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot, { once: true });
+    else boot();
+  }
 }

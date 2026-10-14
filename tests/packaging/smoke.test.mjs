@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const archivePath = process.env.REVIEWDESK_KIT_ZIP || path.join(repository, 'test-results/local-kit/reviewdesk-v8.0.0-local.zip');
+const version = JSON.parse(await readFile(path.join(repository, 'package.json'), 'utf8')).version;
+const archivePath = process.env.REVIEWDESK_KIT_ZIP || path.join(repository, `test-results/local-kit/reviewdesk-v${version}-local.zip`);
 const password = 'fougere-Quartz!7926-violet'; // Disposable test credential only.
 const timeout = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -98,7 +99,7 @@ test('ZIP installs in a path with spaces; local HTTP/admin, uploads and database
     await rm(scratch, { recursive: true, force: true });
   });
   const names = await extractZip(zip, scratch);
-  const prefix = 'reviewdesk-v8.0.0-local/';
+  const prefix = `reviewdesk-v${version}-local/`;
   assert.ok(names.every(name => name.startsWith(prefix)));
   const members = names.map(name => name.slice(prefix.length));
   assert.ok(members.every(name => /^(dist\/(server|mcp|local-server)\.js|public\/.+|install\.mjs|start\.mjs|kit\.mjs|package(-lock)?\.json|GUIDE-FR\.md|NOTICE\.txt)$/.test(name)));

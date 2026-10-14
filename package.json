@@ -15,7 +15,7 @@
     "migrate": "tsx scripts/migrate.ts",
     "build": "npm run build:assets && npm run build:mcp && esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server.js",
     "build:mcp": "esbuild src/mcp/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/mcp.js --banner:js=\"#!/usr/bin/env node\"",
-    "build:assets": "npm run build:widget && esbuild src/admin/app.ts --bundle --format=iife --outfile=public/admin.js",
+    "build:assets": "node scripts/build-integrations.mjs && npm run build:widget && esbuild src/admin/app.ts --bundle --format=iife --outfile=public/admin.js",
     "build:widget": "esbuild src/widget/index.ts --bundle --format=iife --global-name=ReviewDesk --outfile=public/widget.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

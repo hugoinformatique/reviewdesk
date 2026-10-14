@@ -1,4 +1,4 @@
-# Construire et vérifier les distributions ZIP 8.0.0
+# Construire et vérifier les distributions ZIP 9.0.0
 
 Le packaging est isolé dans `scripts/packaging/` ; il ne modifie ni `src/`,
 ni `public/`, ni les manifestes de l'application. Le guide livré au destinataire
@@ -32,8 +32,8 @@ maintenance, jamais pour le kit.
 
 Sorties :
 
-- `test-results/local-kit/reviewdesk-v8.0.0-local.zip`
-- `test-results/local-kit/reviewdesk-v8.0.0-local.zip.sha256`
+- `test-results/local-kit/reviewdesk-v9.0.0-local.zip`
+- `test-results/local-kit/reviewdesk-v9.0.0-local.zip.sha256`
 
 Le dossier `--output` est obligatoire et accepte les espaces. Le smoke test
 prend par défaut le chemin ci-dessus ; `REVIEWDESK_KIT_ZIP` permet de tester
@@ -123,11 +123,11 @@ obsolète. Le guide livré au destinataire est
 node scripts/packaging/docker/package-docker.mjs --output test-results/docker-kit
 ```
 
-Produit `reviewdesk-v8.0.0-docker.zip` et son `.sha256`, de façon
+Produit `reviewdesk-v9.0.0-docker.zip` et son `.sha256`, de façon
 reproductible (octet pour octet). Mêmes prérequis de construction que le kit
 local (Node 22, esbuild installé dans le dépôt).
 
-Contenu, sous `reviewdesk-v8.0.0-docker/` : `compose.yaml`, `install.sh`
+Contenu, sous `reviewdesk-v9.0.0-docker/` : `compose.yaml`, `install.sh`
 (POSIX sh + openssl), `GUIDE-DOCKER-FR.md`, `NOTICE.txt`, `certs/LISEZMOI.txt`,
 `s3/entrypoint.sh` (démarrage du S3 intégré) et `app/` (contexte de build :
 `Dockerfile`, `entrypoint.mjs`, `runtime-config.mjs`, `s3-bootstrap.mjs`,

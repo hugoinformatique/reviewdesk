@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Relecture du site</title>
+<link rel="icon" href="/favicon.svg">
+<!-- External, not inline: the instance serves this page under `style-src 'self'`. -->
+<link rel="stylesheet" href="/relecture.css">
+<script src="/theme.js"></script>
+</head>
+<body>
+<main class="review" id="review">
+  <header class="review-head">
+    <span class="review-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7.6 4h8.8a4 4 0 0 1 4 4v4.9a4 4 0 0 1-4 4h-3.8l-3.9 3.5a.7.7 0 0 1-1.2-.5v-3H7.6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Zm4.4 3.9a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Z"/></svg>
+    </span>
+    <p class="review-eyebrow" id="review-product">ReviewDesk</p>
+    <h1 id="review-title">Relisez le site et dites ce qui ne va pas</h1>
+    <p class="review-lead">Pas de compte, pas d’installation : un bouton dans vos favoris, et vos remarques arrivent directement à l’équipe, épinglées au bon endroit de la page.</p>
+  </header>
+
+  <ol class="review-steps" id="review-steps">
+    <li>
+      <span class="step-num">1</span>
+      <div>
+        <h2>Glissez ce bouton dans votre barre de favoris</h2>
+        <p>Cliquez dessus, gardez le bouton enfoncé, et déposez-le dans la barre de favoris de votre navigateur.</p>
+        <a class="bookmarklet" id="bookmarklet" href="#" draggable="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7.6 4h8.8a4 4 0 0 1 4 4v4.9a4 4 0 0 1-4 4h-3.8l-3.9 3.5a.7.7 0 0 1-1.2-.5v-3H7.6a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Zm4.4 3.9a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2Z"/></svg>
+          <span id="bookmarklet-label">Faire un retour</span>
+        </a>
+        <p class="review-hint" id="bookmarklet-hint">La barre de favoris n’apparaît pas ? <kbd id="shortcut">Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>B</kbd> l’affiche.</p>
+      </div>
+    </li>
+    <li>
+      <span class="step-num">2</span>
+      <div>
+        <h2>Ouvrez le site à relire</h2>
+        <p id="site-text">Le site s’ouvre dans un nouvel onglet.</p>
+        <a class="review-button" id="site-link" href="#" target="_blank" rel="noopener">Ouvrir le site</a>
+      </div>
+    </li>
+    <li>
+      <span class="step-num">3</span>
+      <div>
+        <h2>Cliquez sur le favori « Faire un retour »</h2>
+        <p>Le panneau de relecture s’ouvre sur la page : pointez l’élément concerné, écrivez une phrase, envoyez. Recommencez sur chaque page, autant de fois que nécessaire.</p>
+      </div>
+    </li>
+  </ol>
+
+  <p class="review-note">Sur ordinateur uniquement. Sur téléphone, demandez à l’équipe d’installer le bouton directement sur le site.</p>
+
+  <section class="review-error" id="review-error" hidden>
+    <h2>Ce lien est incomplet</h2>
+    <p>Demandez à l’équipe de vous renvoyer le lien de relecture en entier.</p>
+  </section>
+</main>
+<script src="/relecture.js"></script>
+</body>
+</html>

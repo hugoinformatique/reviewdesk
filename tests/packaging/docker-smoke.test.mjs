@@ -7,6 +7,7 @@
 // (.env, secrets/, certs/) is kept in a state directory so a rerun reuses them.
 // No compose overlay: the stack under test is exactly the archive's compose.yaml.
 // This process only plays the same-host TLS reverse proxy, with its own test CA.
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
@@ -82,7 +83,7 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   // 1. Package, verify the checksum, extract into a path with spaces and accents.
   const zipPath = process.env.REVIEWDESK_DOCKER_ZIP || await packageDocker(path.join(scratch, 'dist'));
   await run('sha256sum', ['-c', `${path.basename(zipPath)}.sha256`], { cwd: path.dirname(zipPath) });
-  root = path.join(scratch, 'srv', 'reviewdesk-v8.0.0-docker');
+  root = path.join(scratch, 'srv', `reviewdesk-v${JSON.parse(readFileSync(new URL('../../package.json', import.meta.url))).version}-docker`);
   await readZip(await readFile(zipPath), path.join(scratch, 'srv'));
   assert.deepEqual((await readdir(path.join(root, 'certs'))).sort(), ['LISEZMOI.txt'], 'the archive ships no certificate nor key');
 
@@ -333,7 +334,7 @@ test('Docker ZIP, self-contained: install.sh, compose up, bundled HTTPS S3 with 
   // 11. A new install next to the existing volumes is refused and writes nothing.
   const fresh = path.join(scratch, 'fresh copy');
   await readZip(await readFile(zipPath), fresh);
-  const freshRoot = path.join(fresh, 'reviewdesk-v8.0.0-docker');
+  const freshRoot = path.join(fresh, `reviewdesk-v${JSON.parse(readFileSync(new URL('../../package.json', import.meta.url))).version}-docker`);
   const refused = await run('sh', ['install.sh', '--non-interactive', '--port', '48394'], { cwd: freshRoot, env: installEnv, allowFail: true });
   assert.notEqual(refused.code, 0);
   assert.match(refused.stdout + refused.stderr, new RegExp(`${PROJECT}_(pgdata|s3data) existe`));

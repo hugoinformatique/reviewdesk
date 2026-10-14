@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -22,7 +23,7 @@ export async function collectAssets(directory, prefix = '') {
     if (entry.isSymbolicLink()) throw new Error(`Lien symbolique interdit : ${name}`);
     if (entry.isDirectory()) result.push(...await collectAssets(path.join(directory, entry.name), `${name}/`));
     else {
-      if (!entry.isFile() || !/\.(?:html|css|js|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|txt)$/i.test(name) || /(?:^|\/)(?:secret|credentials?)(?:[.-]|$)/i.test(name)) {
+      if (!entry.isFile() || !(/\.(?:html|css|js|svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|txt)$/i.test(name) || /^integrations\/[\w-]+\.zip$/.test(name)) || /(?:^|\/)(?:secret|credentials?)(?:[.-]|$)/i.test(name)) {
         throw new Error(`Asset public interdit : ${name}`);
       }
       result.push({ name, data: await readFile(path.join(directory, entry.name)) });
@@ -32,7 +33,7 @@ export async function collectAssets(directory, prefix = '') {
 }
 
 export function validateRuntimeManifest(manifest, lock) {
-  if (manifest.name !== 'reviewdesk-local' || manifest.version !== '8.0.0' || manifest.license !== 'UNLICENSED' || !manifest.private || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || !manifest.dependencies?.['@electric-sql/pglite']) {
+  if (manifest.name !== 'reviewdesk-local' || !/^\d+\.\d+\.\d+$/.test(manifest.version ?? '') || manifest.license !== 'UNLICENSED' || !manifest.private || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || !manifest.dependencies?.['@electric-sql/pglite']) {
     throw new Error('Manifeste runtime invalide.');
   }
   if (lock.lockfileVersion !== 3 || lock.name !== manifest.name || lock.version !== manifest.version || JSON.stringify(lock.packages[''].dependencies) !== JSON.stringify(manifest.dependencies)) throw new Error('Lock runtime incohérent.');
@@ -112,6 +113,9 @@ export async function packageKit(outputDirectory) {
   const staging = await mkdtemp(path.join(tmpdir(), 'reviewdesk-package-'));
   try {
     await mkdir(path.join(staging, 'public'), { recursive: true });
+    // Rebuilt here so a kit never ships a stale or missing plugin archive. A
+    // child process, not an import: that script imports this module back.
+    execFileSync(process.execPath, [path.join(repository, 'scripts/build-integrations.mjs')], { stdio: 'ignore' });
     for (const asset of await collectAssets(path.join(repository, 'public'))) {
       const target = path.join(staging, 'public', asset.name);
       await mkdir(path.dirname(target), { recursive: true });

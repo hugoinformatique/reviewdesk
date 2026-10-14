@@ -1,4 +1,4 @@
-ReviewDesk 8.0.0 — distribution Docker Compose auto-hébergée
+ReviewDesk 9.0.0 — distribution Docker Compose auto-hébergée
 
 Tous droits réservés. Ce logiciel n'est pas placé sous une licence open source
 et cette archive n'accorde aucune licence. Sa redistribution n'est autorisée

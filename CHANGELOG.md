@@ -15,6 +15,29 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+### Ajouté
+
+- Installation du widget en une seule adresse : `widget.js#project=…&token=…`
+  porte tous les réglages dans son fragment, jamais envoyé au serveur.
+- Extension WordPress à téléverser (servie en `/integrations/reviewdesk-wordpress.zip`) :
+  on colle la ligne dans Réglages › ReviewDesk, option « utilisateurs connectés
+  uniquement ».
+- Assistant d'installation par outil, clic par clic : WordPress, Webflow,
+  Framer, Wix, Squarespace, Google Tag Manager, HTML, Next.js.
+- Lien de relecture sans installation (`/relecture.html`) : le client glisse un
+  favori « Faire un retour » qui charge le widget sur le site.
+
+### Corrigé
+
+- Le widget ne se chargeait sur aucun site tiers : `widget.js` était servi avec
+  `Cross-Origin-Resource-Policy: same-origin`. Il est désormais en
+  `cross-origin` (le reste de l'instance ne change pas). Test E2E de chargement
+  depuis une autre origine ajouté.
+- L'ancien « lien direct » (`site/#project=…&review=…`) n'affichait rien sur un
+  site sans code ReviewDesk ; remplacé par le lien de relecture.
+- Kit local : version du runtime alignée sur l'application, désormais vérifiée
+  d'après `package.json` plutôt qu'en dur.
+
 ## [9.0.0] — 2026-10-09
 
 Refonte de l'interface : administration, widget client et intégration.

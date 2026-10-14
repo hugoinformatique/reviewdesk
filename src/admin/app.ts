@@ -574,16 +574,17 @@ function guideInstallStep(): HTMLElement[] {
   const draw = () => {
     for (const tab of tabs.children) tab.setAttribute('aria-selected', String((tab as HTMLElement).dataset.platform === platform.id));
     where.textContent = platform.where;
-    const text = platform.generate({
-      origin: location.origin,
-      projectId: project.id,
-      token: guide.token,
-      previewOrigin: project.origins[0] ?? location.origin,
-      position: 'bottom-right',
-      theme: 'auto',
-      label: '',
-    });
-    code.replaceChildren(codeBlock(text, platform.id === 'direct' ? 'Copier le lien' : 'Copier le code'));
+    code.replaceChildren(
+      platformInstructions(platform, {
+        origin: location.origin,
+        projectId: project.id,
+        token: guide.token,
+        previewOrigin: project.origins[0] ?? location.origin,
+        position: 'bottom-right',
+        theme: 'auto',
+        label: '',
+      }),
+    );
   };
   for (const candidate of WIDGET_PLATFORMS) {
     const tab = el('button', 'guide-tab');
@@ -635,7 +636,7 @@ function guideInstallStep(): HTMLElement[] {
   actions.append(test, el('span', 'detail-bar-spacer'), next);
 
   return [
-    guideHeading('Étape 2 sur 3', `Installez le widget sur ${project.name}`, 'Une ligne de code, ou un lien à envoyer au client.'),
+    guideHeading('Étape 2 sur 3', `Installez le widget sur ${project.name}`, 'Choisissez l’outil du site : une ligne à coller, ou un simple lien à envoyer au client.'),
     tabs,
     where,
     code,
@@ -2857,6 +2858,16 @@ function codeBlock(text: string, copyLabel = 'Copier') {
 
 // ------------------------------------------------------------- review links & widget onboarding
 
+type WidgetContext = {
+  origin: string;
+  projectId: string;
+  token: string;
+  previewOrigin: string;
+  position: string;
+  theme: string;
+  label: string;
+};
+
 type WidgetPlatform = {
   id: string;
   name: string;
@@ -2865,106 +2876,188 @@ type WidgetPlatform = {
   badgeHighlight?: boolean;
   mark: string;
   where: string;
-  generate: (ctx: {
-    origin: string;
-    projectId: string;
-    token: string;
-    previewOrigin: string;
-    position: string;
-    theme: string;
-    label: string;
-  }) => string;
+  /** Click-by-click, in the platform's own menu names. */
+  steps: string[];
+  /** A file the steps ask for, offered as a download next to them. */
+  download?: { href: string; label: string };
+  /** A link to send rather than code to paste. */
+  isLink?: boolean;
+  generate: (ctx: WidgetContext) => string;
 };
+
+/**
+ * The widget reads its settings from the fragment of its own URL, so the whole
+ * install is one URL. A fragment is never sent to the server: the reviewer
+ * token stays out of access logs, and builders that only take a script URL
+ * (or strip data-* attributes) still carry everything.
+ */
+function widgetUrl({ origin, projectId, token, position, theme, label }: WidgetContext) {
+  const params = new URLSearchParams({ project: projectId, token });
+  if (position !== 'bottom-right') params.set('position', position);
+  if (theme !== 'auto') params.set('theme', theme);
+  if (label.trim()) params.set('label', label.trim());
+  return `${origin}/widget.js#${params.toString().replace(/\+/g, '%20')}`;
+}
+
+const widgetTag = (ctx: WidgetContext) => `<script src="${widgetUrl(ctx)}" defer></script>`;
+
+/** The client-facing page that hands out the "Faire un retour" bookmark. */
+function reviewPageUrl(ctx: Pick<WidgetContext, 'origin' | 'projectId' | 'token' | 'previewOrigin'>) {
+  const params = new URLSearchParams({ project: ctx.projectId, token: ctx.token });
+  if (ctx.previewOrigin && ctx.previewOrigin !== ctx.origin) params.set('site', ctx.previewOrigin);
+  return `${ctx.origin}/relecture.html#${params}`;
+}
 
 const WIDGET_PLATFORMS: WidgetPlatform[] = [
   {
+    id: 'wordpress',
+    name: 'WordPress',
+    hint: 'Extension à téléverser',
+    badge: 'Le plus simple',
+    badgeHighlight: true,
+    mark: 'i-wordpress',
+    where: 'Une extension à installer, une ligne à coller dans ses réglages. Aucun fichier du thème à modifier.',
+    steps: [
+      'Téléchargez l’extension ReviewDesk (bouton ci-dessous).',
+      'Dans WordPress : Extensions › Ajouter › Téléverser une extension, choisissez le fichier, puis Activer.',
+      'Réglages › ReviewDesk : collez la ligne ci-dessous et enregistrez.',
+    ],
+    download: { href: '/integrations/reviewdesk-wordpress.zip', label: 'Télécharger l’extension' },
+    generate: widgetTag,
+  },
+  {
+    id: 'webflow',
+    name: 'Webflow',
+    hint: 'Custom code',
+    badge: 'Sans code',
+    mark: 'i-webflow',
+    where: 'Dans les réglages du site, pas dans une page : le bouton apparaît alors partout.',
+    steps: [
+      'Site settings › Custom code.',
+      'Collez la ligne dans « Footer code » et enregistrez.',
+      'Publiez le site : le code personnalisé n’apparaît qu’après publication.',
+    ],
+    generate: widgetTag,
+  },
+  {
+    id: 'framer',
+    name: 'Framer',
+    hint: 'Custom Code',
+    badge: 'Sans code',
+    mark: 'i-framer',
+    where: 'Dans les réglages du site : le bouton apparaît sur toutes les pages.',
+    steps: [
+      'Site Settings › General › Custom Code.',
+      'Collez la ligne dans « End of <body> tag ».',
+      'Publiez le site.',
+    ],
+    generate: widgetTag,
+  },
+  {
+    id: 'wix',
+    name: 'Wix',
+    hint: 'Code personnalisé',
+    badge: 'Sans code',
+    mark: 'i-wix',
+    where: 'Le code personnalisé de Wix demande un site publié sur un domaine connecté.',
+    steps: [
+      'Tableau de bord › Paramètres › Code personnalisé, puis « + Ajouter un code ».',
+      'Collez la ligne, choisissez « Toutes les pages » et l’emplacement « Body - fin ».',
+      'Appliquez, puis ouvrez le site publié.',
+    ],
+    generate: widgetTag,
+  },
+  {
+    id: 'squarespace',
+    name: 'Squarespace',
+    hint: 'Injection de code',
+    badge: 'Sans code',
+    mark: 'i-squarespace',
+    where: 'L’injection de code dépend de l’offre Squarespace du site.',
+    steps: ['Paramètres › Avancé › Injection de code.', 'Collez la ligne dans « Pied de page » et enregistrez.'],
+    generate: widgetTag,
+  },
+  {
+    id: 'gtm',
+    name: 'Tag Manager',
+    hint: 'Balise HTML',
+    badge: 'Sans déploiement',
+    mark: 'i-gtm',
+    where: 'Si le site charge déjà Google Tag Manager, inutile de toucher au site.',
+    steps: [
+      'Balises › Nouvelle › Configuration : « HTML personnalisé ».',
+      'Collez la ligne ; déclencheur « All Pages » (ou limité au domaine de préproduction).',
+      'Envoyez la version (Publier).',
+    ],
+    generate: widgetTag,
+  },
+  {
     id: 'html',
-    name: 'HTML / Statique',
+    name: 'HTML',
     hint: 'Balise <script>',
     badge: 'Universel',
     mark: 'i-html5',
-    where: 'À coller juste avant la fermeture de </body> sur vos pages de test.',
-    generate: ({ origin, projectId, token, position, theme, label }) => {
-      const attrs = [
-        `src="${origin}/widget.js"`,
-        `data-api="${origin}"`,
-        `data-project="${projectId}"`,
-        `data-token="${token}"`,
-      ];
-      if (position !== 'bottom-right') attrs.push(`data-position="${position}"`);
-      if (theme !== 'auto') attrs.push(`data-theme="${theme}"`);
-      if (label.trim()) attrs.push(`data-label="${label.trim()}"`);
-      return `<!-- ReviewDesk — Widget de retour visuel -->\n<script\n  ${attrs.join('\n  ')}\n  defer>\n</script>`;
-    },
+    where: 'Juste avant </body>, sur chaque page à faire relire (ou dans le gabarit commun).',
+    steps: ['Collez la ligne juste avant </body>.', 'Mettez le site en ligne et ouvrez-le.'],
+    generate: (ctx) => `<!-- ReviewDesk : bouton de relecture -->\n${widgetTag(ctx)}`,
   },
   {
     id: 'nextjs',
-    name: 'Next.js & React',
+    name: 'Next.js',
     hint: 'app/layout.tsx',
-    badge: 'Recommandé',
-    badgeHighlight: true,
+    badge: 'React',
     mark: 'i-react',
-    where: 'Dans app/layout.tsx (Next.js App Router) ou pages/_app.tsx. Hors production uniquement.',
-    generate: ({ origin, projectId, token, position, theme, label }) => {
-      const extra = [];
-      if (position !== 'bottom-right') extra.push(`            data-position="${position}"`);
-      if (theme !== 'auto') extra.push(`            data-theme="${theme}"`);
-      if (label.trim()) extra.push(`            data-label="${label.trim()}"`);
-      const extraStr = extra.length ? '\n' + extra.join('\n') : '';
-      return (
-        `import Script from 'next/script';\n\n` +
-        `export default function RootLayout({ children }: { children: React.ReactNode }) {\n` +
-        `  return (\n` +
-        `    <html lang="fr">\n` +
-        `      <body>\n` +
-        `        {children}\n` +
-        `        {process.env.NODE_ENV !== 'production' && (\n` +
-        `          <Script\n` +
-        `            src="${origin}/widget.js"\n` +
-        `            data-api="${origin}"\n` +
-        `            data-project="${projectId}"\n` +
-        `            data-token="${token}"${extraStr}\n` +
-        `            strategy="afterInteractive"\n` +
-        `          />\n` +
-        `        )}\n` +
-        `      </body>\n` +
-        `    </html>\n` +
-        `  );\n` +
-        `}`
-      );
-    },
-  },
-  {
-    id: 'cms',
-    name: 'Webflow / WordPress',
-    hint: 'Custom Code / Footer',
-    badge: 'No-Code',
-    mark: 'i-webflow',
-    where: 'Dans les réglages de votre CMS > Code personnalisé (Footer / avant </body>).',
-    generate: ({ origin, projectId, token, position, theme, label }) => {
-      const attrs = [
-        `src="${origin}/widget.js"`,
-        `data-api="${origin}"`,
-        `data-project="${projectId}"`,
-        `data-token="${token}"`,
-      ];
-      if (position !== 'bottom-right') attrs.push(`data-position="${position}"`);
-      if (theme !== 'auto') attrs.push(`data-theme="${theme}"`);
-      if (label.trim()) attrs.push(`data-label="${label.trim()}"`);
-      return `<!-- ReviewDesk (Footer Code) -->\n<script\n  ${attrs.join('\n  ')}>\n</script>`;
-    },
+    where: 'Dans app/layout.tsx (App Router) ou pages/_app.tsx. Hors production uniquement.',
+    steps: ['Ajoutez le composant Script à la mise en page racine.', 'Déployez la préproduction.'],
+    generate: (ctx) =>
+      `import Script from 'next/script';\n\n` +
+      `export default function RootLayout({ children }: { children: React.ReactNode }) {\n` +
+      `  return (\n` +
+      `    <html lang="fr">\n` +
+      `      <body>\n` +
+      `        {children}\n` +
+      `        {process.env.NODE_ENV !== 'production' && (\n` +
+      `          <Script src="${widgetUrl(ctx)}" strategy="afterInteractive" />\n` +
+      `        )}\n` +
+      `      </body>\n` +
+      `    </html>\n` +
+      `  );\n` +
+      `}`,
   },
   {
     id: 'direct',
-    name: 'Lien direct (sans code)',
-    hint: 'Zéro code dans le site',
+    name: 'Sans installation',
+    hint: 'Lien à envoyer',
     badge: 'Zéro code',
     mark: 'i-share-direct',
-    where: 'Partagez cette URL au client. Le token voyage dans le fragment d’URL sans toucher au code du site.',
-    generate: ({ previewOrigin, projectId, token }) =>
-      `${previewOrigin}/#project=${projectId}&review=${token}`,
+    where:
+      'Rien à installer sur le site : le client ouvre ce lien et glisse le bouton « Faire un retour » dans ses favoris. Sur son site, un clic sur ce favori ouvre ReviewDesk. Ordinateur uniquement.',
+    steps: [
+      'Envoyez ce lien au client.',
+      'Il glisse le bouton « Faire un retour » dans sa barre de favoris.',
+      'Sur le site, un clic sur ce favori affiche le panneau de retour.',
+    ],
+    isLink: true,
+    generate: reviewPageUrl,
   },
 ];
+
+/** Numbered steps, the download if any, and the code or link to copy. */
+function platformInstructions(platform: WidgetPlatform, ctx: WidgetContext) {
+  const wrap = el('div', 'platform-instructions');
+  const list = el('ol', 'platform-steps');
+  for (const step of platform.steps) list.append(el('li', '', step));
+  wrap.append(list);
+  if (platform.download) {
+    const download = el('a', 'btn btn-secondary platform-download');
+    download.href = platform.download.href;
+    download.setAttribute('download', '');
+    download.append(icon('i-file'), document.createTextNode(platform.download.label));
+    wrap.append(download);
+  }
+  wrap.append(codeBlock(platform.generate(ctx), platform.isLink ? 'Copier le lien' : 'Copier la ligne'));
+  return wrap;
+}
 
 let installWizardStep = 1;
 let currentPlatform: WidgetPlatform = WIDGET_PLATFORMS[0]!;
@@ -3034,7 +3127,7 @@ function renderWidgetSnippet() {
 
   $('#link-step-desc').textContent = currentPlatform.where;
 
-  const codeText = currentPlatform.generate({
+  const ctx: WidgetContext = {
     origin,
     projectId: selectedProject,
     token,
@@ -3042,9 +3135,8 @@ function renderWidgetSnippet() {
     position: widgetOptPosition,
     theme: widgetOptTheme,
     label: widgetOptLabel,
-  });
-
-  container.append(codeBlock(codeText, 'Copier le code'));
+  };
+  container.append(platformInstructions(currentPlatform, ctx));
   const mobileNotice = el('p', 'note wizard-mobile-notice');
   mobileNotice.append(
     icon('i-phone'),
@@ -3055,17 +3147,15 @@ function renderWidgetSnippet() {
 
   // Update preview links for step 3
   $('#test-preview-target').textContent = `Préproduction : ${previewOrigin}`;
-  const testPreviewUrl = `${previewOrigin}/#api=${encodeURIComponent(origin)}&project=${selectedProject}&review=${token}`;
+  const testPreviewUrl = currentPlatform.isLink ? reviewPageUrl(ctx) : previewOrigin;
   const testDemoUrl = `/demo.html#api=${encodeURIComponent(origin)}&project=${selectedProject}&review=${token}`;
   $<HTMLAnchorElement>('#test-preview-link').href = testPreviewUrl;
   $<HTMLAnchorElement>('#test-demo-link').href = testDemoUrl;
 
   // Keep #link-output updated for Playwright tests and legacy callers
   $<HTMLTextAreaElement>('#link-output').value =
-    `URL reviewer DEMO : ${previewOrigin}/#project=${selectedProject}&review=${token}\n\n` +
-    `Installation dans la preview — une seule ligne à coller avant </body> :\n` +
-    `<script src="${origin}/widget.js" data-api="${origin}" ` +
-    `data-project="${selectedProject}" data-token="${token}"></script>`;
+    `Lien de relecture sans installation : ${reviewPageUrl(ctx)}\n\n` +
+    `Installation sur le site — une seule ligne à coller avant </body> :\n${widgetTag(ctx)}`;
 }
 
 function watchWidgetConnection(status: HTMLElement) {
@@ -3164,10 +3254,11 @@ $('#copy-quick-link').addEventListener('click', async () => {
       activeProjectTokenId = link.id;
       await refreshOnboarding();
     }
-    const origin = projects.find((p) => p.id === selectedProject)?.origins[0] || location.origin;
-    const directUrl = `${origin}/#project=${selectedProject}&review=${token}`;
-    await navigator.clipboard.writeText(directUrl);
-    toast('Lien reviewer copié dans le presse-papiers !');
+    const previewOrigin = projects.find((p) => p.id === selectedProject)?.origins[0] || location.origin;
+    await navigator.clipboard.writeText(
+      reviewPageUrl({ origin: location.origin, projectId: selectedProject, token, previewOrigin }),
+    );
+    toast('Lien de relecture copié : le client y trouve son bouton « Faire un retour ».');
   } catch {
     toast('Impossible de copier le lien reviewer.', 'error');
   } finally {
