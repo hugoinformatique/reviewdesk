@@ -1,4 +1,4 @@
-ReviewDesk 9.0.0 — kit local
+ReviewDesk 10.0.0 — kit local
 
 Tous droits réservés. Ce projet n'est pas placé sous une licence open source.
 Demandez une autorisation avant toute réutilisation. La fourniture de ce kit

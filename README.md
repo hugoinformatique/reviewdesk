@@ -268,9 +268,10 @@ il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
 Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. Le parcours :
 
 1. **Connexion**, puis, sur une instance vide, le **guide** en trois étapes :
-   créer le projet (nom, client, adresse du site), installer le widget (HTML,
-   Next.js, CMS ou lien direct, avec vérification en direct de la première
-   connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
+   créer le projet (nom, client, adresse du site), installer le widget
+   (WordPress, Webflow, Framer, Wix, Squarespace, Tag Manager, HTML, Next.js ou
+   lien de relecture sans installation, avec vérification en direct de la
+   première connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
    nouveau projet. La marque blanche se règle quand on le souhaite, depuis le
    menu du compte.
 2. **Tableau de bord** (d'après « App Dashboard » de shadcnstore sur
@@ -299,14 +300,15 @@ le travail.
   **ouverts** (dont ceux qui traînent depuis plus de 7 jours), **reçus** et
   **traités** sur la période, chacun comparé à la période précédente de même
   longueur, et le **délai moyen** entre le dépôt et le passage à « traité » ;
-- un graphe d'activité jour par jour, reçus contre traités, en SVG écrit à la
-  main — l'administration ne charge aucun script tiers, et sa CSP le refuserait ;
-- la répartition par statut, le classement des projets (cliquer une ligne filtre
-  tout le reste dessus), les pages les plus signalées, et le journal des
-  derniers mouvements, agents compris.
+- un graphe d'activité jour par jour, reçus contre traités (Recharts, compilé
+  dans l'admin : aucun script n'est chargé depuis un CDN, la CSP le refuserait) ;
+- la répartition par statut, le classement des projets (cliquer une ligne ouvre
+  ce projet), les pages les plus signalées, et le journal des derniers
+  mouvements, agents compris (cliquer un mouvement ouvre le retour).
 
-La période se choisit entre 7, 30 et 90 jours ; le projet sélectionné dans le
-rail de gauche restreint l'ensemble des chiffres.
+La période se choisit entre 7, 30 et 90 jours ; ouverte depuis un projet, la vue
+d'ensemble ne compte que ce projet, depuis « Tous les retours » elle les compte
+tous.
 
 ### Exporter le reste à faire en un prompt
 
@@ -432,7 +434,7 @@ l'appeler à la place de l'agent.
 **La marque.** Une bulle de dialogue dont le seul contenu visible est le point
 dont on parle : le retour, et l'endroit exact auquel il appartient. Un seul
 tracé, une seule silhouette, lisible de 16 px à une tuile d'application. Elle
-vit dans `public/favicon.svg`, dans le symbole `#i-brand` de l'administration et
+vit dans `public/favicon.svg`, dans `admin/src/features/shell/brand-mark.tsx` et
 dans le lanceur du widget — trois fichiers, un même chemin.
 
 **Le logotype.** `Review` en graisse normale, `Desk` en demi-gras : le contraste
@@ -458,7 +460,7 @@ client qui reçoit un commentaire. Seule la marque reste la nôtre.
 
 **Tout ce qui précède est un défaut, pas une contrainte.** Une instance est
 auto-hébergée et destinée à être revendue : l'assistant de personnalisation
-(première connexion, puis l'entrée « Personnalisation ») remplace le nom, le
+(entrée « Personnalisation » de la barre latérale) remplace le nom, le
 logo, le favicon et la couleur par ceux de l'agence qui la déploie. La rampe de
 gris reste ce que voit une instance non configurée ; dès qu'une teinte est
 choisie, elle devient la couleur d'action, et le texte qui s'y pose est calculé
@@ -685,7 +687,7 @@ injection au build et leurs règles vivent dans `admin/src/styles.css`.
 ## Versions
 
 Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **8.0.0**.
+Keep a Changelog. Version courante : **10.0.0**.
 
 Le numéro se décide à la taille du changement : **majeur** pour une grosse
 fonctionnalité ou une refonte, **mineur** pour une petite amélioration,

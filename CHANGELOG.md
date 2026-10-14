@@ -15,6 +15,11 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [10.0.0] — 2026-10-14
+
+Administration réécrite en React, installation du widget simplifiée pour les
+sites sans code, kits téléchargeables (local et Docker).
+
 ### Rupture
 
 - L'administration est réécrite en **React 19 + Vite 8 + TypeScript**, avec

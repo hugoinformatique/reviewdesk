@@ -77,7 +77,7 @@ async function assets(root, prefix = '') {
   const names = [];
   for (const entry of await readdir(path.join(root, prefix), { withFileTypes: true })) {
     // Build outputs a local `npm run build` may have left: the kit rebuilds them.
-    if (!prefix && ['index.html', 'assets', 'next', 'admin.js', 'widget.js'].includes(entry.name)) continue;
+    if (!prefix && ['index.html', 'assets', 'widget.js'].includes(entry.name)) continue;
     if (entry.isDirectory()) names.push(...await assets(root, `${prefix}${entry.name}/`));
     else names.push(prefix + entry.name);
   }

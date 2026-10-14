@@ -1,4 +1,4 @@
-# ReviewDesk 9.0.0 — guide du kit local
+# ReviewDesk 10.0.0 — guide du kit local
 
 > **Obsolète.** Pour un auto-hébergement, utilisez la distribution Docker
 > Compose ([GUIDE-DOCKER-FR.md](GUIDE-DOCKER-FR.md)).
@@ -24,14 +24,14 @@ locale et déclarez son origine exacte dans le projet.
    `npm --version` dans PowerShell ou un terminal. Aucune base externe, Docker,
    compilation, commande Unix ou outil ZIP supplémentaire n'est nécessaire.
 2. Vérifiez si possible le SHA-256 fourni à côté de l'archive :
-   Windows : `Get-FileHash .\reviewdesk-v9.0.0-local.zip -Algorithm SHA256` ;
-   macOS : `shasum -a 256 reviewdesk-v9.0.0-local.zip` ;
-   Linux : `sha256sum -c reviewdesk-v9.0.0-local.zip.sha256`.
+   Windows : `Get-FileHash .\reviewdesk-v10.0.0-local.zip -Algorithm SHA256` ;
+   macOS : `shasum -a 256 reviewdesk-v10.0.0-local.zip` ;
+   Linux : `sha256sum -c reviewdesk-v10.0.0-local.zip.sha256`.
    Comparez avec le fichier `.sha256` provenant d'une source de confiance.
 3. Extrayez **tout** le ZIP dans un dossier personnel accessible en écriture.
    Évitez les dossiers partagés et la synchronisation cloud de la base active.
    Les espaces dans le chemin sont acceptés. Ouvrez un terminal dans le dossier
-   `reviewdesk-v9.0.0-local` extrait (ou `cd "chemin avec espaces"`).
+   `reviewdesk-v10.0.0-local` extrait (ou `cd "chemin avec espaces"`).
 4. Exécutez `node install.mjs`. Choisissez et confirmez votre mot de passe
    administrateur dans la saisie masquée. Une connexion Internet au registre
    npm est nécessaire pour télécharger les dépendances verrouillées.
@@ -41,7 +41,7 @@ locale et déclarez son origine exacte dans le projet.
    Les lancements suivants utilisent simplement `node start.mjs`.
 
 Le lancement fonctionne aussi depuis un autre dossier :
-`node "chemin avec espaces/reviewdesk-v9.0.0-local/start.mjs"`.
+`node "chemin avec espaces/reviewdesk-v10.0.0-local/start.mjs"`.
 Pour choisir un autre port : `node start.mjs --port 4301`.
 `http://127.0.0.1:4301/health` doit répondre avec `ok: true`.
 La sonde appelle la base et indique `postgresql` (PGlite) et le stockage disque.

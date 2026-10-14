@@ -37,7 +37,7 @@ export async function collectAssets(directory, prefix = '') {
  * them from source instead, so whatever a local build left there (an older
  * hashed chunk, a stale widget) never ships.
  */
-const GENERATED_PUBLIC = new Set(['index.html', 'assets', 'next', 'admin.js', 'widget.js']);
+const GENERATED_PUBLIC = new Set(['index.html', 'assets', 'widget.js']);
 
 /** The hand-written files of the repository's public/, without build outputs. */
 export async function collectSourceAssets(directory) {
