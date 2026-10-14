@@ -52,7 +52,7 @@ temporaire, jamais dans `public/` du dépôt :
 - `dist/server.js` : serveur original compilé ;
 - `dist/mcp.js` : serveur MCP original compilé ;
 - `dist/local-server.js` : adaptateur de packaging du serveur local ;
-- `public/admin.js` et `public/widget.js` : interfaces compilées ;
+- `public/index.html` et `public/assets/` (admin React, reconstruite par Vite) et `public/widget.js` : interfaces compilées ;
 - tous les autres assets de `public/`, dont polices et licence.
 
 L'adaptateur fixe les pilotes PGlite/filesystem et l'adresse loopback. Le

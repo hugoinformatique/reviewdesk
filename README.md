@@ -471,9 +471,17 @@ désigner l'outil que la configuration vise, rien d'autre.
 ## Architecture
 
 ```text
-public/widget.js   widget Shadow DOM (build de src/widget/index.ts)
-public/admin.js    interface d'administration (build de src/admin/app.ts)
-src/admin/palette.ts palette de commandes ⌘K, indépendante de l'application
+admin/             interface d'administration : Vite + React 19 + TypeScript,
+                   Tailwind CSS 4, shadcn/ui (Radix), TanStack Router et Query
+  src/lib/         client API (CSRF), types, requêtes, formatage, thème
+  src/components/  primitives UI (shadcn/ui) partagées
+  src/features/    un dossier par écran : shell, auth, dashboard, board,
+                   ticket, overview, guide, projects, install, agents,
+                   branding, fix, export, palette
+  src/styles.css   jetons de thème clair/sombre (contraste testé)
+public/index.html  admin compilée (+ public/assets/), générée par npm run build:admin
+public/widget.js   widget Shadow DOM sans framework (build de src/widget/index.ts)
+public/relecture.* page de relecture sans installation (favori « Faire un retour »)
 public/demo.html   page de test fictive (styles dans public/demo.css)
 public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
 public/favicon.svg marque du produit
@@ -642,7 +650,10 @@ Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
 ## Développer et vérifier
 
 ```bash
-npm run dev          # serveur en rechargement à chaud
+npm run dev          # serveur en rechargement à chaud (sert public/)
+npm run dev:admin    # admin React en rechargement à chaud (Vite, :5173,
+                     # API proxifiée vers REVIEWDESK_API, défaut http://127.0.0.1:4390)
+npm run build:admin  # admin React → public/index.html + public/assets/
 npm run build        # widget + admin + serveur
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
@@ -661,8 +672,15 @@ Le serveur MCP est testé comme un agent l'utilise : un vrai processus fils, du
 vrai JSON-RPC sur stdio, contre une instance ReviewDesk qui écoute (voir
 `tests/integration/mcp.test.ts`).
 
-Le widget est un artefact de build : modifier `src/widget/index.ts`, jamais
-`public/widget.js`, puis `npm run build:widget`.
+Le widget et l'admin sont des artefacts de build : modifier
+`src/widget/index.ts` et `admin/src/`, jamais `public/widget.js`,
+`public/index.html` ni `public/assets/`, puis `npm run build:assets`.
+
+L'admin tourne sous la même CSP stricte que le reste
+(`script-src 'self'; style-src 'self'`) : aucune balise `<style>` ni script
+inline. Deux dépendances (Sonner, le verrouillage de défilement de Radix)
+injectent normalement une balise `<style>` ; `vite.config.ts` coupe cette
+injection au build et leurs règles vivent dans `admin/src/styles.css`.
 
 ## Versions
 

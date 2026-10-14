@@ -15,6 +15,30 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+### Rupture
+
+- L'administration est réécrite en **React 19 + Vite 8 + TypeScript**, avec
+  Tailwind CSS 4, shadcn/ui (Radix), TanStack Router et TanStack Query
+  (`admin/`). L'ancienne admin sans framework (`src/admin/`,
+  `public/admin.js`, `public/admin.css`) est supprimée. Les adresses
+  (`#/projets`, `#/p/…`, `#/p/…/t/…`) ne changent pas. Le widget reste sans
+  framework.
+
+### Ajouté (administration)
+
+- Nouvel écran de connexion, nouveau guide de démarrage et nouvelle fiche d'un
+  retour (un seul fil de discussion, un seul champ de réponse).
+- Bundle découpé : l'entrée pèse environ 60 Ko, les graphiques et les dialogs
+  se chargent à la demande.
+
+### Corrigé (administration)
+
+- Le filtre « client » de « Tous les retours » est enfin rempli.
+- Le lien d'installation et « Copier le lien » d'un projet ne réutilisent plus
+  le jeton créé pour un autre projet.
+- Une adresse de page mal formée envoyée par un reviewer ne casse plus
+  l'affichage d'une carte ou d'une fiche.
+
 ### Ajouté
 
 - Installation du widget en une seule adresse : `widget.js#project=…&token=…`
