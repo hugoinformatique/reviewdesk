@@ -30,7 +30,7 @@ const entry = (version, extra = {}) => ({ version, resolved: `https://registry.n
 test('production manifest pins the app dependencies exactly and excludes PGlite', async () => {
   const manifest = buildDockerManifest(await json('package.json'), await json('package-lock.json'));
   assert.equal(manifest.name, 'reviewdesk-docker');
-  assert.equal(manifest.license, 'UNLICENSED');
+  assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.private, true);
   assert.equal(manifest.devDependencies, undefined);
   assert.equal(manifest.dependencies['@electric-sql/pglite'], undefined);
@@ -39,7 +39,7 @@ test('production manifest pins the app dependencies exactly and excludes PGlite'
 });
 
 test('lock derivation removes PGlite and orphans, keeps shared packages, and is deterministic', () => {
-  const manifest = { name: 'reviewdesk-docker', version: '8.0.0', private: true, license: 'UNLICENSED', type: 'module', engines: { node: '22.x' }, dependencies: { a: '1.0.0' } };
+  const manifest = { name: 'reviewdesk-docker', version: '8.0.0', private: true, license: 'MIT', type: 'module', engines: { node: '22.x' }, dependencies: { a: '1.0.0' } };
   const source = {
     name: 'reviewdesk-local', version: '8.0.0', lockfileVersion: 3, requires: true,
     packages: {
@@ -60,7 +60,7 @@ test('lock derivation removes PGlite and orphans, keeps shared packages, and is 
 });
 
 test('manifest validation fails closed on PGlite, ranges, dev entries and non-registry sources', () => {
-  const manifest = { name: 'reviewdesk-docker', version: '8.0.0', private: true, license: 'UNLICENSED', type: 'module', engines: { node: '22.x' }, dependencies: { a: '1.0.0' } };
+  const manifest = { name: 'reviewdesk-docker', version: '8.0.0', private: true, license: 'MIT', type: 'module', engines: { node: '22.x' }, dependencies: { a: '1.0.0' } };
   const lock = () => ({ name: 'reviewdesk-docker', version: '8.0.0', lockfileVersion: 3, packages: { '': { name: 'reviewdesk-docker', version: '8.0.0', dependencies: { a: '1.0.0' } }, 'node_modules/a': entry('1.0.0') } });
   validateDockerManifest(manifest, lock());
   assert.throws(() => validateDockerManifest({ ...manifest, dependencies: { a: '^1.0.0' } }, lock()));
@@ -468,29 +468,31 @@ test('ZIP contains only the self-host allowlist, no secrets, no sources, no PGli
   const prefix = `reviewdesk-v${version}-docker/`;
   const members = [...entries.keys()].map(name => { assert.ok(name.startsWith(prefix), name); return name.slice(prefix.length); });
   for (const name of members) {
-    assert.match(name, /^(compose\.yaml|install\.sh|GUIDE-DOCKER-FR\.md|NOTICE\.txt|certs\/LISEZMOI\.txt|s3\/entrypoint\.sh|app\/(Dockerfile|entrypoint\.mjs|s3-gateway\.mjs|runtime-config\.mjs|s3-bootstrap\.mjs|package\.json|package-lock\.json|dist\/(server|mcp|s3-signer)\.js|public\/.+))$/, name);
+    assert.match(name, /^(compose\.yaml|install\.sh|update\.sh|GUIDE-DOCKER-FR\.md|NOTICE\.txt|certs\/LISEZMOI\.txt|s3\/entrypoint\.sh|app\/(Dockerfile|entrypoint\.mjs|s3-gateway\.mjs|runtime-config\.mjs|s3-bootstrap\.mjs|package\.json|package-lock\.json|dist\/(server|mcp|s3-signer)\.js|public\/.+))$/, name);
     assert.doesNotMatch(name, /(^|\/)(\.env|secrets?|src|node_modules)(\/|$)|\.(ts|map|pem|key)$/);
   }
-  for (const required of ['compose.yaml', 'install.sh', 's3/entrypoint.sh', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs', 'app/Dockerfile', 'app/dist/server.js', 'app/dist/s3-signer.js', 'app/public/widget.js', 'app/public/index.html', 'app/package-lock.json']) assert.ok(members.includes(required), required);
+  for (const required of ['compose.yaml', 'install.sh', 'update.sh', 's3/entrypoint.sh', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs', 'app/Dockerfile', 'app/dist/server.js', 'app/dist/s3-signer.js', 'app/public/widget.js', 'app/public/index.html', 'app/package-lock.json']) assert.ok(members.includes(required), required);
   assert.ok(members.some((name) => /^app\/public\/assets\/index-[\w-]+\.js$/.test(name)), 'React admin entry chunk');
   const lock = entries.get(`${prefix}app/package-lock.json`).toString('utf8');
   assert.doesNotMatch(lock, /pglite/i);
   assert.doesNotMatch(entries.get(`${prefix}app/package.json`).toString('utf8'), /pglite/i);
   assert.doesNotMatch(entries.get(`${prefix}app/dist/server.js`).toString('utf8'), /BEGIN (RSA |EC )?PRIVATE KEY/);
   const notice = entries.get(`${prefix}NOTICE.txt`).toString('utf8');
-  assert.match(notice, /Tous droits réservés/);
-  assert.doesNotMatch(notice, /\b(MIT|Apache|GPL|open source licen[cs]e granted)\b/i);
+  assert.match(notice, /licence MIT/);
+  assert.match(notice, /Permission is hereby granted, free of charge/, 'full MIT text ships with the archive');
   assert.match(notice, /seaweedfs/i, 'third-party SeaweedFS image is named');
   const guide = entries.get(`${prefix}GUIDE-DOCKER-FR.md`).toString('utf8');
-  assert.match(guide, /Tous droits réservés/);
+  assert.match(guide, /licence MIT/);
   assert.match(guide, /frais d'hébergement|coûts d'hébergement/i, 'hosting costs are stated');
 });
 
-test('install.sh is POSIX sh: it parses under sh -n and uses no bashisms marker', async () => {
-  const script = path.join(template, 'install.sh');
+test('install.sh and update.sh are POSIX sh: they parse under sh -n and use no bashisms marker', async () => {
+ for (const name of ['install.sh', 'update.sh']) {
+  const script = path.join(template, name);
   await chmod(script, 0o644);
   await run('sh', ['-n', script]);
   const text = await readFile(script, 'utf8');
   assert.match(text, /^#!\/bin\/sh\n/);
   assert.doesNotMatch(text, /\[\[|\bfunction\b|\$\{[A-Za-z_]+\/\/|<<<|\bnode\b|\bnpm\b|\bpython/);
+ }
 });

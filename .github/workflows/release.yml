@@ -1,0 +1,45 @@
+name: Release
+
+# Pushing a tag such as v10.1.0 builds both kits and publishes them as a
+# GitHub release, so self-hosters download a ready archive instead of sources.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tag matches package.json
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run package:docker
+      - run: npm run package:local
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" 'index($0, "## [" v "]") == 1 {f=1; next} f && /^## \[/ {exit} f' CHANGELOG.md > notes.md
+          test -s notes.md
+          cat >> notes.md <<'NOTES'
+
+          ---
+
+          **Self-host with Docker:** download `reviewdesk-*-docker.zip`, then follow the [Docker guide](https://github.com/hugoinformatique/reviewdesk/blob/main/docs/GUIDE-DOCKER-EN.md) ([FR](https://github.com/hugoinformatique/reviewdesk/blob/main/docs/GUIDE-DOCKER-FR.md)).
+
+          **Try it on your machine (Node 22, no Docker):** `reviewdesk-*-local.zip`, see the [local kit guide](https://github.com/hugoinformatique/reviewdesk/blob/main/docs/KIT-LOCAL.md).
+          NOTES
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/kits/* --title "ReviewDesk $GITHUB_REF_NAME" --notes-file notes.md --verify-tag

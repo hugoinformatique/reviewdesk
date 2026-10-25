@@ -2,6 +2,8 @@
 Requires at least: 5.8
 Requires PHP: 7.4
 Stable tag: 1.0.0
+License: MIT
+License URI: https://opensource.org/licenses/MIT
 
 Ajoute le bouton de relecture ReviewDesk à votre site WordPress, sans toucher au code.
 

@@ -34,6 +34,7 @@ import { cn, modKey } from '@/lib/utils';
 import { projectParam } from '@/router';
 import { BrandMark, Wordmark } from './brand-mark';
 import { OverlayHost } from './overlay-host';
+import { VersionNote } from './version-note';
 
 const HUE_CLASS = ['bg-[var(--hue-0)]', 'bg-[var(--hue-1)]', 'bg-[var(--hue-2)]', 'bg-[var(--hue-3)]', 'bg-[var(--hue-4)]', 'bg-[var(--hue-5)]'];
 
@@ -209,6 +210,7 @@ function SidebarNav({ route, onNavigate }: { route: Route; onNavigate: () => voi
 
       <div className="shrink-0 border-t border-sidebar-border p-3">
         <AccountMenu />
+        <VersionNote />
       </div>
     </div>
   );

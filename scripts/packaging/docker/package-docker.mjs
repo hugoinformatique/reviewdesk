@@ -21,7 +21,7 @@ export function buildDockerManifest(app, appLock) {
     if (!version) throw new Error(`Dépendance absente du lock applicatif : ${name}`);
     dependencies[name] = version;
   }
-  return { name: NAME, version: app.version, private: true, license: 'UNLICENSED', type: 'module', engines: { node: '22.x' }, dependencies };
+  return { name: NAME, version: app.version, private: true, license: 'MIT', type: 'module', engines: { node: '22.x' }, dependencies };
 }
 
 function resolveFrom(packages, from, name) {
@@ -65,7 +65,7 @@ export function deriveProductionLock(source, manifest) {
 }
 
 export function validateDockerManifest(manifest, lock) {
-  if (manifest.name !== NAME || manifest.license !== 'UNLICENSED' || manifest.private !== true || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || manifest.scripts) {
+  if (manifest.name !== NAME || manifest.license !== 'MIT' || manifest.private !== true || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || manifest.scripts) {
     throw new Error('Manifeste Docker invalide.');
   }
   if (/pglite/i.test(JSON.stringify(manifest)) || /pglite/i.test(JSON.stringify(lock))) throw new Error('PGlite ne doit pas figurer dans la distribution Docker.');
@@ -102,7 +102,7 @@ export async function packageDocker(outputDirectory) {
       if (!(await lstat(source)).isFile()) throw new Error(`Fichier régulier requis : ${name}`);
       entries.set(name, await readFile(source));
     };
-    for (const name of ['compose.yaml', 'install.sh', 'certs/LISEZMOI.txt', 's3/entrypoint.sh', 'app/Dockerfile', 'app/entrypoint.mjs', 'app/runtime-config.mjs', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs']) await include(path.join(template, name), name);
+    for (const name of ['compose.yaml', 'install.sh', 'update.sh', 'certs/LISEZMOI.txt', 's3/entrypoint.sh', 'app/Dockerfile', 'app/entrypoint.mjs', 'app/runtime-config.mjs', 'app/s3-bootstrap.mjs', 'app/s3-gateway.mjs']) await include(path.join(template, name), name);
     await include(path.join(repository, 'docs/GUIDE-DOCKER-FR.md'), 'GUIDE-DOCKER-FR.md');
     await include(path.join(repository, 'scripts/packaging/docker/NOTICE.txt'), 'NOTICE.txt');
     entries.set('app/package.json', Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));

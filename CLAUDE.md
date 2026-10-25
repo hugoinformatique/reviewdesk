@@ -16,9 +16,15 @@ Retours visuels clients épinglés sur la page, auto-hébergeable (kit Docker, k
 - `npm run build:assets` (intégrations + widget + admin), `npm run build`
 - `npm run lint`, `npm run typecheck` (serveur + admin), `npm test`, `npm run test:e2e`
 - `node --test tests/packaging/*.test.mjs` après `node scripts/packaging/package-kit.mjs --output test-results/local-kit` et `node scripts/packaging/docker/package-docker.mjs --output test-results/docker-kit`
+- `npm run package:docker`, `npm run package:local` : kits dans `dist/kits/` (ceux des releases)
 
 ## Règles
 - CSP stricte partout (`script-src 'self'; style-src 'self'`) : pas de `<style>` injecté, pas de script inline, pas de CDN ; `style={{}}` React autorisé. Toute nouvelle dépendance front qui injecte du CSS doit être neutralisée (voir `vite.config.ts`).
 - Texte venant d'un reviewer ou d'un agent : toujours rendu comme texte, jamais `dangerouslySetInnerHTML`. Jamais de jeton reviewer dans un lien de rejeu ni un export.
 - Dépendances front en `devDependencies` (le serveur n'en a pas besoin à l'exécution).
-- Versions : majeur/mineur/correctif selon la taille du changement, `CHANGELOG.md` section « Non publié ».
+- Versions : majeur/mineur/correctif selon la taille du changement, `CHANGELOG.md` section « Non publié ». Un changement de version touche `package.json` (+ lock, via `npm version X.Y.Z --no-git-tag-version`), `src/version.ts` et `scripts/packaging/runtime/package.json` (+ lock) : les tests vérifient qu'ils concordent.
+
+## Publication
+- Licence MIT. Pousser sur `main` ne livre rien aux hébergeurs : une version sort quand le tag `vX.Y.Z` (égal à `package.json`) est poussé, `.github/workflows/release.yml` publie alors la release GitHub avec les deux kits et la section du CHANGELOG. `ci.yml` vérifie chaque push/PR.
+- Mise à jour côté hébergeur : `update.sh` du kit Docker ; l'admin signale une release plus récente (`src/update-check.ts`, désactivable par `UPDATE_CHECK=false`).
+- Docs en deux langues, à modifier ensemble : `README.md` (EN) ↔ `README.fr.md`, `docs/GUIDE-DOCKER-EN.md` ↔ `docs/GUIDE-DOCKER-FR.md`. Captures du README : `docs/assets/screenshots/` (données de démonstration fictives).

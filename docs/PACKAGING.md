@@ -1,4 +1,4 @@
-# Construire et vérifier les distributions ZIP 10.0.0
+# Construire et vérifier les distributions ZIP
 
 Le packaging est isolé dans `scripts/packaging/` ; il ne modifie ni `src/`,
 ni `public/`, ni les manifestes de l'application. Le guide livré au destinataire
@@ -7,14 +7,11 @@ est [KIT-LOCAL.md](KIT-LOCAL.md), renommé `GUIDE-FR.md` dans le ZIP.
 ## Génération
 
 Prérequis de construction : Node 22.x et les dépendances de développement
-installées dans le dépôt, notamment esbuild. Dans ce worktree, le verrou de
-l'application a une incohérence préexistante détectée par npm 10.9.9
-(`json-schema-ref-resolver@3.0.1` manquant). Sans modifier ce verrou, l'outillage
-peut être installé avec :
+installées par `npm ci` à la racine du dépôt (esbuild, Vite).
 
-```sh
-npm install --no-package-lock --ignore-scripts --no-audit --no-fund
-```
+Raccourcis : `npm run package:local` et `npm run package:docker` écrivent
+l'archive et son `.sha256` dans `dist/kits/`. Les tests ci-dessous attendent
+les chemins `test-results/…`.
 
 Depuis la racine du dépôt :
 
@@ -32,8 +29,8 @@ maintenance, jamais pour le kit.
 
 Sorties :
 
-- `test-results/local-kit/reviewdesk-v10.0.0-local.zip`
-- `test-results/local-kit/reviewdesk-v10.0.0-local.zip.sha256`
+- `test-results/local-kit/reviewdesk-vX.Y.Z-local.zip`
+- `test-results/local-kit/reviewdesk-vX.Y.Z-local.zip.sha256`
 
 Le dossier `--output` est obligatoire et accepte les espaces. Le smoke test
 prend par défaut le chemin ci-dessus ; `REVIEWDESK_KIT_ZIP` permet de tester
@@ -58,7 +55,7 @@ temporaire, jamais dans `public/` du dépôt :
 L'adaptateur fixe les pilotes PGlite/filesystem et l'adresse loopback. Le
 lanceur attend `app.close()` lors d'un arrêt normal pour fermer PGlite.
 Le ZIP contient uniquement ces fichiers, les scripts runtime, le manifeste
-runtime et son verrou, le guide et la notice de droits. Il ne parcourt jamais
+runtime et son verrou, le guide et la notice de licence. Il ne parcourt jamais
 le dépôt pour recopier son contenu global : pas de lecture de `.env`, ni de
 copie de source TypeScript, sourcemap, donnée, secret, Git, journal ou
 node_modules. Les liens symboliques et assets non autorisés font échouer la
@@ -106,7 +103,7 @@ ne sont pas utilisés.
 Quand une interface réseau non loopback existe, il vérifie que la connexion
 sur cette interface est refusée.
 
-Les scripts sont portables ; la validation exécutée dans ce worktree se fait
+Les scripts sont portables ; la validation de référence se fait
 sous Linux, Node 22. Les branches de résolution npm Windows sont testées, mais
 cela ne remplace pas une validation native Windows/macOS de l'installation et
 de Ctrl+C. Aucune publication distante ni infrastructure n'est impliquée.
@@ -123,12 +120,12 @@ obsolète. Le guide livré au destinataire est
 node scripts/packaging/docker/package-docker.mjs --output test-results/docker-kit
 ```
 
-Produit `reviewdesk-v10.0.0-docker.zip` et son `.sha256`, de façon
+Produit `reviewdesk-vX.Y.Z-docker.zip` et son `.sha256`, de façon
 reproductible (octet pour octet). Mêmes prérequis de construction que le kit
 local (Node 22, esbuild installé dans le dépôt).
 
-Contenu, sous `reviewdesk-v10.0.0-docker/` : `compose.yaml`, `install.sh`
-(POSIX sh + openssl), `GUIDE-DOCKER-FR.md`, `NOTICE.txt`, `certs/LISEZMOI.txt`,
+Contenu, sous `reviewdesk-vX.Y.Z-docker/` : `compose.yaml`, `install.sh`
+(POSIX sh + openssl), `update.sh` (mise à jour en une commande, POSIX sh), `GUIDE-DOCKER-FR.md`, `NOTICE.txt`, `certs/LISEZMOI.txt`,
 `s3/entrypoint.sh` (démarrage du S3 intégré) et `app/` (contexte de build :
 `Dockerfile`, `entrypoint.mjs`, `runtime-config.mjs`, `s3-bootstrap.mjs`,
 `s3-gateway.mjs` (passerelle TLS du S3 intégré),
@@ -163,7 +160,7 @@ il est référencé par digest seul (aucun tag n'est revendiqué).
 ### Vérification
 
 ```bash
-node --test tests/packaging/docker-package.test.mjs tests/packaging/docker-install.test.mjs
+node --test tests/packaging/docker-package.test.mjs tests/packaging/docker-install.test.mjs tests/packaging/docker-update.test.mjs
 REVIEWDESK_DOCKER_SMOKE=1 node --test tests/packaging/docker-smoke.test.mjs
 ```
 
@@ -185,7 +182,7 @@ REVIEWDESK_DOCKER_SMOKE=1 node --test tests/packaging/docker-smoke.test.mjs
   passerelle `s3-gateway.mjs` contre un faux SeaweedFS sur socket Unix (TLS
   vérifié pour `s3`, autre nom refusé, HTTP clair jamais transmis, socket
   absent sans arrêt de la passerelle), `s3/entrypoint.sh` POSIX, liste blanche du ZIP, NOTICE
-  et guide (droits réservés, frais d'hébergement).
+  et guide (licence MIT, frais d'hébergement).
 - `docker-install` : `install.sh` sous `sh` (dash) avec un `PATH` réduit à
   `/usr/bin:/bin` précédé d'un faux `docker` (le Docker de l'hôte n'est jamais
   interrogé). Mode intégré : aucune question S3, clés uniques et distinctes,
@@ -201,6 +198,20 @@ REVIEWDESK_DOCKER_SMOKE=1 node --test tests/packaging/docker-smoke.test.mjs
   `bfea010`, fixture `tests/packaging/fixtures/env-bfea010.env`) est accepté
   et laissé octet pour octet ; avec `COMPOSE_PROFILES` mais sans
   `REVIEWDESK_S3`, il est refusé sans modification.
+- `docker-update` : `update.sh` sous `sh` (et `dash` si présent) avec un faux
+  `docker` et un faux `curl` en tête de `PATH` (ni Docker ni réseau réels),
+  archives générées par le test, configuration de départ produite par le vrai
+  `install.sh`. Mise à jour nominale (`pg_dump` dans l'ancien dossier avant
+  `up -d --build --force-recreate` dans le nouveau, configuration copiée avec
+  ses droits, ancien dossier intact), déjà à jour, SHA-256 faux (aucun dossier
+  créé), dossier cible existant refusé, `--archive` hors ligne, versions mal
+  formées refusées, sauvegarde en échec (arrêt avant `up`), service jamais
+  `healthy`, aucune commande destructrice dans le journal Docker.
+  Validation manuelle sur un vrai Docker (2026-10-25, projet Compose jetable) :
+  kit 10.1.0 installé et peuplé, puis `sh update.sh --archive … --yes` vers
+  une 10.1.1 reconditionnée : sauvegarde écrite (600), conteneurs recréés,
+  `app` sain, projet existant conservé ; une seconde exécution répond
+  « déjà à jour ».
 - `docker-smoke` (opt-in, Docker requis) : ZIP vérifié (`sha256sum -c`) et
   extrait dans un chemin avec espaces et accents, `install.sh --non-interactive
   --port X` puis `docker compose up -d --build` **sans overlay**, dans le seul

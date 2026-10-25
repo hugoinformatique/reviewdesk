@@ -15,6 +15,55 @@ Une rupture est signalée sous **Rupture** dans l'entrée concernée.
 
 ## [Non publié]
 
+## [10.1.0] — 2026-10-25
+
+ReviewDesk devient un logiciel libre sous licence MIT, prêt à être publié :
+README refait, guide Docker en anglais, kits publiés automatiquement à chaque
+version, et un vrai circuit de mise à jour pour les instances auto-hébergées.
+
+### Changé
+
+- **Licence MIT** (`LICENSE`), à la place de « tous droits réservés ». Les
+  notices des kits local et Docker (`NOTICE.txt`) contiennent le texte
+  intégral ; l'extension WordPress déclare `License: MIT`.
+- README réécrit, en anglais (`README.md`) et en français (`README.fr.md`),
+  avec de nouvelles captures d'écran.
+- Les guides des kits ne figent plus de numéro de version
+  (`reviewdesk-v*-docker.zip`).
+
+### Ajouté
+
+- Guide d'auto-hébergement Docker en anglais (`docs/GUIDE-DOCKER-EN.md`).
+- `npm run package:docker` et `npm run package:local` construisent les kits
+  dans `dist/kits/`.
+- Intégration continue GitHub Actions (lint, types, tests, build, tests de
+  packaging) et release GitHub automatique à chaque tag `v*`, avec les deux
+  kits et leurs empreintes SHA-256.
+- **Mise à jour en une commande du kit Docker** : `sh update.sh` télécharge la
+  dernière release (ou `--version X.Y.Z`, ou `--archive` hors ligne), vérifie
+  son SHA-256, sauvegarde la base, reprend `.env`, `secrets/` et `certs/`,
+  redémarre et attend que l'application soit saine. L'ancien dossier et les
+  volumes sont conservés pour un retour arrière.
+- **Version installée et nouvelle version dans l'administration** (pied de la
+  barre latérale). Le serveur interroge l'API publique des releases GitHub
+  deux fois par jour, sans rien envoyer d'autre ; `UPDATE_CHECK=false` coupe
+  cette vérification, `UPDATE_CHECK_REPOSITORY` la pointe vers un fork.
+  Route `GET /api/version` (admin).
+- `SECURITY.md` : signalement privé des vulnérabilités.
+
+### Sécurité
+
+- Dépendances mises à jour pour corriger les alertes `npm audit` (1 critique,
+  4 hautes, 4 modérées en production) : Fastify 5.12.7, Zod 4.6.7, SDK MCP
+  1.32.1 et leurs dépendances transitives (`proxy-addr`, `body-parser`,
+  `fast-uri`, `hono`…), dans l'application comme dans le verrou des kits ;
+  Vite 8.3.4 côté développement. `npm audit` : 0 vulnérabilité.
+
+### Retiré
+
+- `REPORT.md`, rapport de développement interne, et les anciennes captures
+  `artifacts/` (les E2E écrivent désormais leurs captures dans `test-results/`).
+
 ## [10.0.0] — 2026-10-14
 
 Administration réécrite en React, installation du widget simplifiée pour les
@@ -781,16 +830,5 @@ Première version autonome, privée, multi-projets.
 - Suite de vérification : lint, typecheck, tests Node adversariaux contre
   PostgreSQL + MinIO jetables, build, E2E Playwright cross-origine.
 
-[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v7.0.0...HEAD
-[7.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v7.0.0
-[6.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v6.0.0
-[5.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v5.0.0
-[4.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v4.0.0
-[3.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v3.0.0
-[2.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v2.0.0
-[1.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.2.0
-[1.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.1.0
-[1.0.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v1.0.0
-[0.3.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.3.0
-[0.2.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.2.0
-[0.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v0.1.0
+[Non publié]: https://github.com/hugoinformatique/reviewdesk/compare/v10.1.0...HEAD
+[10.1.0]: https://github.com/hugoinformatique/reviewdesk/releases/tag/v10.1.0

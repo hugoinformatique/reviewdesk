@@ -9,6 +9,8 @@
  *    not even installed in a production build.
  */
 
+import { DEFAULT_UPDATE_REPOSITORY, isValidRepository } from './update-check.js';
+
 export type DatabaseConfig =
   | { driver: 'postgres'; url: string; poolMax: number; ssl: boolean; statementTimeoutMs: number }
   | { driver: 'pglite'; path: string };
@@ -45,6 +47,9 @@ export type AppConfig = {
   /** Bounds how long a feedback submission can wait on the project's webhook. */
   webhookTimeoutMs: number;
   runMigrationsOnBoot: boolean;
+  /** Ask GitHub (server side only) whether a newer release exists. */
+  updateCheck: boolean;
+  updateCheckRepository: string;
   logLevel: string;
 };
 
@@ -175,6 +180,12 @@ function storageConfig(env: Env, production: boolean): StorageConfig {
   };
 }
 
+function updateRepository(env: Env): string {
+  const value = env.UPDATE_CHECK_REPOSITORY?.trim() || DEFAULT_UPDATE_REPOSITORY;
+  if (!isValidRepository(value)) throw new ConfigError('UPDATE_CHECK_REPOSITORY must look like owner/repo');
+  return value;
+}
+
 export function loadConfig(env: Env = process.env): AppConfig {
   const production = env.NODE_ENV === 'production' || env.VERCEL === '1';
   const adminPassword = required(env, 'ADMIN_PASSWORD');
@@ -194,6 +205,8 @@ export function loadConfig(env: Env = process.env): AppConfig {
     agentRequestsPerMinute: integer(env, 'AGENT_REQUESTS_PER_MINUTE', 120, 1, 10_000),
     webhookTimeoutMs: integer(env, 'WEBHOOK_TIMEOUT_MS', 3_000, 200, 10_000),
     runMigrationsOnBoot: boolean(env, 'RUN_MIGRATIONS_ON_BOOT', true),
+    updateCheck: boolean(env, 'UPDATE_CHECK', true),
+    updateCheckRepository: updateRepository(env),
     logLevel: env.LOG_LEVEL?.trim() || (production ? 'warn' : 'error'),
   };
 }

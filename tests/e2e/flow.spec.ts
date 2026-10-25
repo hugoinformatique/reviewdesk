@@ -108,7 +108,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await page.mouse.click(cta.x + cta.width / 2, cta.y + cta.height / 2);
   await expect(widget(page).locator('.target')).toContainText('Découvrir la collection');
   await expect(widget(page).locator('.pin')).toBeVisible();
-  await page.screenshot({ path: 'artifacts/widget-mobile.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/e2e-widget-mobile.png', fullPage: true });
 
   await widget(page).locator('textarea').fill('Rendre ce bouton plus visible sur mobile');
   await widget(page).locator('.diagcheck').check();
@@ -153,7 +153,7 @@ test('a reviewer on another origin files an anchored ticket that the admin triag
   await expect(page.locator('[data-column="TODO"]')).toHaveAttribute('aria-label', 'À traiter : 1 retour');
   // The app is one screen tall: the document itself never scrolls.
   expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(800);
-  await page.screenshot({ path: 'artifacts/admin-desktop.png' });
+  await page.screenshot({ path: 'test-results/e2e-admin-desktop.png' });
 
   // The ticket opens over the board, with its own address.
   await ticket.click();

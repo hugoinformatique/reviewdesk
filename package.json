@@ -1,7 +1,8 @@
 {
   "name": "reviewdesk",
-  "version": "10.0.0",
+  "version": "10.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -27,18 +28,20 @@
     "test:e2e": "PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 LD_LIBRARY_PATH=.deps/root/usr/lib/x86_64-linux-gnu playwright test",
     "check": "npm run lint && npm run typecheck && npm run test:docker && npm run build && npm run test:e2e && npm audit --omit=dev",
     "dev:admin": "vite",
-    "build:admin": "node scripts/build-admin.mjs"
+    "build:admin": "node scripts/build-admin.mjs",
+    "package:local": "node scripts/packaging/package-kit.mjs --output dist/kits",
+    "package:docker": "node scripts/packaging/docker/package-docker.mjs --output dist/kits"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",
     "@fastify/multipart": "10.1.1",
     "@fastify/static": "10.1.3",
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "fastify": "5.12.3",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "fastify": "5.12.7",
     "html2canvas": "^1.4.1",
     "pg": "8.16.3",
     "pg-connection-string": "2.14.0",
-    "zod": "4.1.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@dnd-kit/core": "6.3.1",
@@ -74,6 +77,6 @@
     "tsx": "4.23.15",
     "typescript": "5.9.2",
     "typescript-eslint": "8.42.0",
-    "vite": "8.3.1"
+    "vite": "8.3.4"
   }
 }
