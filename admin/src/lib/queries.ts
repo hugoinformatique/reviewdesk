@@ -16,6 +16,7 @@ import type {
   Status,
   Ticket,
   TicketPage,
+  VersionInfo,
 } from './types';
 
 /** Board filters; `projectId` empty means every project. */
@@ -34,6 +35,7 @@ export const keys = {
   stats: (days: number, projectId: string) => ['stats', days, projectId] as const,
   reviewLinks: (projectId: string) => ['review-links', projectId] as const,
   agentTokens: ['agent-tokens'] as const,
+  version: ['version'] as const,
   onboarding: ['onboarding'] as const,
   brandingSettings: ['branding', 'settings'] as const,
 };
@@ -41,6 +43,15 @@ export const keys = {
 export const projectsQuery = queryOptions({
   queryKey: keys.projects,
   queryFn: () => api<Project[]>('/api/projects'),
+});
+
+/** The server caches the GitHub answer for hours; the page has no reason to ask more often. */
+export const versionQuery = queryOptions({
+  queryKey: keys.version,
+  queryFn: () => api<VersionInfo>('/api/version'),
+  staleTime: 6 * 60 * 60 * 1000,
+  retry: false,
+  refetchOnWindowFocus: false,
 });
 
 function ticketParams(filters: TicketFilters) {

@@ -1,726 +1,426 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mark-dark.svg">
+  <img src="docs/assets/mark-light.svg" width="72" height="72" alt="ReviewDesk">
+</picture>
+
 # ReviewDesk
 
-**Le retour visuel de vos clients, épinglé au bon endroit de la page.**
+**Client feedback, pinned to the exact spot on the page.**
 
-Votre client ouvre la préproduction, clique l'élément qui cloche, écrit une
-phrase. Vous recevez un ticket ancré à cet élément exact, avec le statut, la
-capture et votre réponse — sans compte à créer pour lui, sans Slack, sans
-capture d'écran annotée par mail.
+Your client clicks the thing that's wrong and writes one sentence.
+You get a ticket anchored to that element — no account for them,
+no annotated screenshots by email, no guessing which button they meant.
 
-[![version](https://img.shields.io/badge/version-7.0.0-09090b)](CHANGELOG.md)
-[![node](https://img.shields.io/badge/node-22.x-informational)](package.json)
-[![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20PostgreSQL%20%2B%20S3-lightgrey)](#architecture)
+[![Release](https://img.shields.io/github/v/release/hugoinformatique/reviewdesk?style=flat-square&color=09090b&label=release)](https://github.com/hugoinformatique/reviewdesk/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/hugoinformatique/reviewdesk/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/hugoinformatique/reviewdesk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-09090b?style=flat-square)](LICENSE)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-Docker%20%C2%B7%20Vercel-09090b?style=flat-square)](#get-started)
+
+[Get started](#get-started) · [Features](#features) · [Add it to a site](#add-the-widget-to-a-site) · [AI agents](#plug-in-an-ai-agent-mcp) · [Updating](#updating) · [Français](README.fr.md)
 
 </div>
 
-| Côté client (widget) | Côté agence (administration) |
-| --- | --- |
-| ![Le widget sur mobile](artifacts/widget-mobile.png) | ![L'administration](artifacts/admin-desktop.png) |
+<br>
 
----
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/board-dark.png">
+  <img src="docs/assets/screenshots/board-light.png" alt="ReviewDesk admin: a project's feedback in four columns, To do, In progress, To validate, Done">
+</picture>
 
-## Sommaire
+## Why
 
-- [Pourquoi](#pourquoi)
-- [Fonctionnalités](#fonctionnalités)
-- [Démarrage en local](#démarrage-en-local)
-- [Intégrer le widget sur un site](#intégrer-le-widget-sur-un-site)
-- [Le parcours du reviewer](#le-parcours-du-reviewer)
-- [L'administration](#ladministration)
-- [Brancher un agent IA (MCP)](#brancher-un-agent-ia-mcp)
-- [Identité](#identité)
-- [Architecture](#architecture)
-- [Configuration](#configuration)
-- [Déploiement sur Vercel](#déploiement-sur-vercel)
-- [Sécurité et confidentialité](#sécurité-et-confidentialité)
-- [Référence API](#référence-api)
-- [Développer et vérifier](#développer-et-vérifier)
-- [Versions](#versions)
-- [Limites connues](#limites-connues)
-- [Contribuer](#contribuer)
-- [Licence](#licence)
+Feedback on a staging site usually arrives as *"the button at the bottom looks off"* —
+in an email, with no URL, no screen size and a cropped screenshot. Then you guess.
 
-## Pourquoi
+ReviewDesk removes the guessing. A one-line script adds a feedback button
+to the staging site. The client points at the element and writes what's wrong;
+a screenshot comes with it. The ticket keeps the page, the element, the
+screen size and a **replay link** that reopens the page with the pin in place.
 
-Un retour client sur une maquette en ligne arrive presque toujours sous une
-forme inexploitable : « le bouton en bas est moche », dans un mail, sans URL, sans
-taille d'écran, avec une capture recadrée. Il faut ensuite deviner de quel bouton
-il s'agit, sur quelle page, dans quel navigateur.
+It's free, open source and **self-hosted**: your clients' feedback stays on your server.
 
-ReviewDesk enlève cette étape de devinette. Le retour est **ancré à un élément
-du DOM** et rejouable : depuis l'administration, un lien rouvre la
-préproduction avec l'épingle reposée exactement au même endroit.
+## Features
 
-Et côté client, il n'y a rien à installer, rien à comprendre : un bouton
-« Faire un retour », deux étapes, et il peut relire les réponses de l'équipe
-au même endroit.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-## Fonctionnalités
+**For the client reviewing**
 
-**Pour le client qui relit**
+- A floating button, two steps: *show the spot*, *say what's wrong*.
+- Live highlight of the element, named in plain words — never a CSS selector.
+- A screenshot of the visible page is taken as they point — they can annotate it
+  (draw, arrow, blur), remove it, or attach / paste their own (`Ctrl/⌘ V`).
+- *Bug · Visual · Content · Idea* in one click.
+- **My feedback** tab: status and the team's replies, on the page itself.
+- No account, no password, no extension.
+- Shadow DOM: the host site's CSS can't break it, and it breaks nothing.
+- Adopts the **host page's** light/dark theme; keyboard and touch friendly.
 
-- un bouton flottant, deux étapes numérotées : montrer l'endroit, dire ce qui ne va pas ;
-- surbrillance en direct de l'élément visé, nommé en clair (« Bouton « Voir la collection » »),
-  jamais un sélecteur CSS ;
-- capture facultative, choisie au clic ou simplement collée (`Ctrl/⌘ + V`), avec vignette avant envoi ;
-- diagnostics techniques **opt-in**, avec aperçu exact de ce qui part ;
-- onglet « Mes retours » : statut de chaque retour et réponse de l'équipe, sans
-  avoir à écrire quoi que ce soit ;
-- un panneau qui naît du bouton lui-même, surfaces opaques et contrastées (AA),
-  catégories `Bug` / `Visuel` / `Contenu` / `Idée` en un clic, confirmation animée —
-  et rien que de l'opacité si le visiteur demande moins de mouvement ;
-- styles posés par feuille construite (`adoptedStyleSheets`) : le widget s'affiche
-  aussi sur un site dont la CSP interdit les styles inline ;
-- thème pris **sur la page hôte**, pas sur le système du reviewer : le widget
-  s'habille comme le site sur lequel il est posé ;
-- widget en Shadow DOM : aucun CSS du site hôte ne le déforme, et il ne déforme rien ;
-- desktop, tactile, clavier (`Échap` ferme, `⌘/Ctrl + ↵` envoie), thème clair/sombre automatique.
+</td>
+<td width="50%" valign="top">
 
-**Pour l'équipe qui traite**
+**For the team fixing**
 
-- projets multiples, avec libellé client et **liste exacte** des origines autorisées ;
-- liens reviewer révocables, sans compte ni mot de passe pour le client ;
-- filtres projet, client, page/site, format et statut ; pagination par curseur ;
-- **palette de commandes** (`⌘K` / `Ctrl+K`) : vues, projets, retours récents et
-  actions au clavier, sans quitter la liste ;
-- statuts persistants `À traiter`, `En cours`, `À valider`, `Traité` ;
-- **fiche en conversation** : la capture, le fil des échanges et un seul
-  compositeur, « Répondre au client » (relu dans le widget) ou « Message
-  interne » ; une note interne jamais exposée ; statut enregistré dès qu'il
-  est choisi ;
-- **retour au point d'ancrage** : un lien rouvre la préproduction, épingle reposée ;
-- **export « un seul prompt »** : tous les retours `À traiter` du périmètre filtré,
-  avec page, sélecteur, écran et ancrage, en un bloc Markdown à coller dans un
-  agent de code ;
-- **parcours de connexion d'un agent** en trois étapes, avec la configuration
-  écrite pour l'outil choisi et la détection en direct de sa première requête ;
-- **serveur MCP + API agent** : un agent IA lit les retours, les commente,
-  change leur statut et publie la réponse au client, avec un jeton révocable,
-  scopé à un projet et en lecture seule si besoin ;
-- **journal par retour** : chaque commentaire, humain ou agent, horodaté et
-  rattaché au changement de statut qui l'accompagne ;
-- **notification sortante** par projet : un POST JSON à chaque nouveau retour ;
-- **vue d'ensemble** : ce qui attend, ce qui a bougé sur 7/30/90 jours, la
-  répartition par statut, le classement des projets et des pages, et le journal
-  des derniers mouvements — humains et agents ;
-- **typographie Geist**, auto-hébergée (52 Ko pour les deux graisses variables) :
-  la CSP n'autorise aucun CDN de polices, et une police qui doit arriver d'un
-  tiers est une police qui parfois n'arrive pas ;
-- **interface monochrome** : barre de navigation, barre de configuration, rail
-  projets ; aucune couleur décorative, le statut se lit à un disque qui se vide ;
-- interface utilisable de 390 px à un 21:9 de 3440 px ;
-- téléchargements privés servis seulement après authentification admin.
+- Multiple projects, each with an exact list of allowed origins.
+- Board (drag & drop) or list, filters, `⌘K` command palette.
+- Statuses: *To do · In progress · To validate · Done*.
+- A ticket is a conversation: reply to the client, or leave an internal note.
+- **Replay link**: reopens the page with the pin on the element.
+- **One-prompt export**: every open ticket as one Markdown block for your coding agent.
+- **MCP server + agent API**: let Claude Code, Codex or Cursor read, fix and close tickets.
+- Overview: what's waiting, what moved in 7/30/90 days, per project and page.
+- Outgoing webhook, white-label branding, dark mode.
 
-## Démarrage en local
+</td>
+</tr>
+</table>
 
-Pour **auto-héberger la version 8.0.0 sans les sources**, utilisez la
-distribution Docker Compose : [guide d'auto-hébergement Docker](docs/GUIDE-DOCKER-FR.md).
-L'hôte n'a besoin que de Docker Compose, d'un shell et d'`openssl` (pas de
-Node, aucun compte cloud) ; l'archive contient l'application compilée,
-PostgreSQL 17 interne et un stockage S3 intégré (SeaweedFS, HTTPS interne avec
-autorité générée à l'installation, aucun port S3 publié) — un S3 externe reste
-possible en option. Installation : `sh install.sh --non-interactive --port 48300`
-puis `docker compose up -d --build`. L'accès distant passe par un reverse proxy
-HTTPS sur le même hôte (à fournir ; aucun proxy public n'a été testé).
-Serveur, sauvegardes, domaine et certificat public — et leurs frais
-d'hébergement — restent à la charge de l'exploitant.
-Génération et tests : [documentation de packaging](docs/PACKAGING.md#distribution-docker-compose).
+<table>
+<tr>
+<td width="50%" valign="top">
+<img src="docs/assets/screenshots/widget.png" alt="The widget on a demo shop: the client has pointed at a button, a screenshot is ready, and they are typing feedback">
+<p align="center"><sub><b>Client side</b> — point, write, send.</sub></p>
+</td>
+<td width="50%" valign="top">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/ticket-dark.png">
+  <img src="docs/assets/screenshots/ticket-light.png" alt="A ticket in the admin: the client's screenshot, the element, the conversation">
+</picture>
+<p align="center"><sub><b>Team side</b> — the element, the screenshot, the conversation.</sub></p>
+</td>
+</tr>
+</table>
 
-> **Obsolète :** le [kit ZIP local](docs/KIT-LOCAL.md) (Node 22 + PGlite,
-> `node install.mjs` puis `node start.mjs`) reste disponible mais n'est plus la
-> voie recommandée ; préférez la distribution Docker.
+> [!NOTE]
+> The interface (admin and widget) is in **French** for now. The button label is
+> configurable; a full English UI is a welcome contribution.
 
-Le statut **tous droits réservés** reste inchangé pour les deux distributions.
+## Get started
 
-Prérequis : Node 22.x.
+| | You need | Best for |
+| --- | --- | --- |
+| **[Docker Compose](#docker-compose-recommended)** | A Linux server with Docker | Running it for real, on your own infrastructure |
+| **[Local kit](#try-it-on-your-machine)** | Node.js 22 | Trying it on your laptop in two minutes |
+| **[Vercel](#vercel)** | PostgreSQL + an S3 bucket | Serverless, nothing to maintain |
 
-```bash
-git clone https://github.com/hugoinformatique/reviewdesk.git
-cd reviewdesk
-npm install
+### Docker Compose (recommended)
+
+Everything runs on one host: the app, PostgreSQL 17 and a built-in private S3
+store for screenshots. No Node.js on the host, no cloud account.
+
+1. Download `reviewdesk-vX.Y.Z-docker.zip` and its `.sha256` from the
+   **[latest release](https://github.com/hugoinformatique/reviewdesk/releases/latest)**.
+2. Install and start:
+
+   ```sh
+   sha256sum -c reviewdesk-v*-docker.zip.sha256
+   unzip reviewdesk-v*-docker.zip && cd reviewdesk-v*-docker
+   sh install.sh --non-interactive --port 48300   # writes .env, secrets and the internal TLS
+   docker compose up -d --build
+   curl -fsS http://127.0.0.1:48300/health
+   ```
+
+3. Put a reverse proxy with HTTPS in front (Caddy and nginx examples in the guide)
+   and open the admin. The admin password is in `secrets/admin_password`.
+
+The full walkthrough — HTTPS, external S3, backups, troubleshooting — is in the
+**[Docker guide](docs/GUIDE-DOCKER-EN.md)** ([français](docs/GUIDE-DOCKER-FR.md)).
+
+### Try it on your machine
+
+Download `reviewdesk-vX.Y.Z-local.zip` from the
+[latest release](https://github.com/hugoinformatique/reviewdesk/releases/latest),
+unzip it, then:
+
+```sh
+node install.mjs   # asks for the admin password
+node start.mjs     # http://127.0.0.1:4300 — username: admin
+```
+
+Works on Windows, macOS and Linux with Node.js 22; data stays in the folder.
+For local evaluation only — see the [local kit guide](docs/KIT-LOCAL.md) (French).
+
+### Vercel
+
+1. **Fork** this repository and import it in Vercel.
+2. Create a dedicated **PostgreSQL** database (Neon, Supabase…) and a **private
+   S3 bucket** (Cloudflare R2, AWS S3, Scaleway, Backblaze B2…).
+3. Set the environment variables, then deploy:
+
+   ```text
+   ADMIN_PASSWORD=<long random passphrase>
+   NODE_ENV=production
+   DATABASE_URL=postgresql://…pooler…/reviewdesk?sslmode=require
+   STORAGE_DRIVER=s3
+   S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+   S3_BUCKET=reviewdesk-uploads
+   S3_REGION=auto
+   S3_ACCESS_KEY_ID=…
+   S3_SECRET_ACCESS_KEY=…
+   S3_FORCE_PATH_STYLE=true
+   ```
+
+`vercel.json` builds the static assets and routes `/api/*` and `/health` to the
+function. Check `/health`, sign in, create a project. Every variable is
+documented in [`.env.example`](.env.example).
+
+### From source
+
+```sh
+git clone https://github.com/hugoinformatique/reviewdesk.git && cd reviewdesk
+npm ci
 npm run build
-
-ADMIN_PASSWORD="une-phrase-secrete-longue" \
-DATABASE_URL="pglite://.data/reviewdesk" \
-STORAGE_DRIVER=filesystem \
-npm start
+ADMIN_PASSWORD="a-long-random-passphrase" DATABASE_URL="pglite://.data/reviewdesk" \
+  STORAGE_DRIVER=filesystem npm start          # http://127.0.0.1:4300
 ```
 
-L'administration est sur <http://127.0.0.1:4300>.
+`npm run package:docker` and `npm run package:local` build the same kits as the
+releases, in `dist/kits/`.
 
-Pour exercer le widget depuis une **origine réellement distincte** (c'est le
-seul moyen de valider le CORS et l'authentification par lien) :
+## Add the widget to a site
 
-```bash
-python3 -m http.server 4311 --bind 127.0.0.1 --directory public
-```
-
-Dans l'administration : créer un projet autorisant `http://127.0.0.1:4311`,
-générer un lien reviewer, puis ouvrir
-
-```text
-http://127.0.0.1:4311/demo.html#project=…&review=…&api=http%3A%2F%2F127.0.0.1%3A4300
-```
-
-Le token reste dans le fragment, est retiré de l'URL après initialisation, et
-part ensuite par en-tête `Authorization` — jamais en query HTTP.
-
-`demo.html` est une boutique fictive (« Atelier Démo ») qui explique au client
-comment tester en trois étapes. Son CSS vit dans `public/demo.css` : servie par
-l'instance, la page reçoit la même CSP `style-src 'self'` que l'administration.
-
-## Intégrer le widget sur un site
-
-### Une ligne, à coller avant `</body>`
+In the admin, create a project with the site's address. It gives you one line,
+already filled in, to paste before `</body>`:
 
 ```html
-<script src="https://reviewdesk.example/widget.js#project=UUID_DU_PROJET&token=SECRET_DU_LIEN_REVIEWER" defer></script>
+<script src="https://reviews.example.com/widget.js#project=PROJECT_ID&token=REVIEW_LINK_SECRET" defer></script>
 ```
 
-C'est tout : le widget lit ses réglages dans le fragment (`#…`) de sa propre
-adresse et s'initialise seul, y compris s'il est injecté par un CMS ou un
-gestionnaire de balises. Le fragment n'est jamais envoyé au serveur : le secret
-ne finit pas dans les journaux d'accès. L'administration génère cette ligne,
-déjà remplie (Installer, ou étape 2 du guide).
+Settings travel in the URL fragment (`#…`), which browsers never send to a
+server: the secret doesn't end up in access logs.
 
-### Par outil
-
-L'assistant d'installation donne la marche à suivre clic par clic :
-
-| Outil | Où coller la ligne |
+| Tool | Where the line goes |
 | --- | --- |
-| **WordPress** | Extension ReviewDesk (`/integrations/reviewdesk-wordpress.zip`, servie par l'instance) : Extensions › Ajouter › Téléverser, puis Réglages › ReviewDesk. Option : bouton visible des seuls utilisateurs connectés. |
-| **Webflow** | Site settings › Custom code › Footer code, puis publier. |
-| **Framer** | Site Settings › General › Custom Code › End of `<body>` tag, puis publier. |
-| **Wix** | Paramètres › Code personnalisé, toutes les pages, « Body - fin » (domaine connecté requis). |
-| **Squarespace** | Paramètres › Avancé › Injection de code › Pied de page (selon l'offre). |
-| **Google Tag Manager** | Balise « HTML personnalisé », déclencheur All Pages, publier. |
+| **WordPress** | The ReviewDesk plugin, served by your instance at `/integrations/reviewdesk-wordpress.zip` |
+| **Webflow** | Site settings › Custom code › Footer code |
+| **Framer** | Site Settings › General › Custom Code › End of `<body>` |
+| **Wix** | Settings › Custom code › Body – end |
+| **Squarespace** | Settings › Advanced › Code injection › Footer |
+| **Google Tag Manager** | Custom HTML tag, All Pages trigger |
+| **Nothing installed** | A review link: the client drags a *Faire un retour* bookmark (desktop only) |
 
-### Sans rien installer : le lien de relecture
+<details>
+<summary><b>Widget options and manual initialisation</b></summary>
 
-`https://reviewdesk.example/relecture.html#project=…&token=…&site=…` (bouton
-« Copier le lien client » ou plateforme « Sans installation ») ouvre une page
-où le client glisse le bouton **Faire un retour** dans sa barre de favoris. Sur
-le site, un clic sur ce favori charge le widget de l'instance. Limites :
-ordinateur uniquement, et sans effet sur un site dont la politique de sécurité
-(CSP) interdit les scripts externes. L'adresse du site doit figurer dans les
-adresses autorisées du projet, comme pour toute installation.
+<br>
 
-### Options
+Each setting goes in the fragment (`#project=…&label=…`), a `data-*` attribute,
+or `init()`; the attribute wins over the fragment.
 
-Chaque réglage s'écrit dans le fragment (`#project=…&label=…`), en attribut
-`data-*` ou dans `init()` ; l'attribut l'emporte sur le fragment.
-
-| Attribut | `init()` | Défaut | Effet |
+| Attribute | `init()` | Default | Effect |
 | --- | --- | --- | --- |
-| `data-api` | `api` | origine du script | Origine de l'API ReviewDesk. |
-| `data-project` | `projectId` | — | UUID du projet. **Requis.** |
-| `data-token` | `token` | — | Secret du lien reviewer. **Requis.** |
-| `data-label` | `label` | `Faire un retour` | Libellé du bouton flottant. |
-| `data-position` | `position` | `bottom-right` | `bottom-right` ou `bottom-left`. |
-| `data-accent` | `accent` | `#4338ca` | Couleur d'accent, pour coller à la charte du site. |
+| `data-api` | `api` | the script's origin | ReviewDesk API origin. |
+| `data-project` | `projectId` | — | Project UUID. **Required.** |
+| `data-token` | `token` | — | Review link secret. **Required.** |
+| `data-label` | `label` | `Faire un retour` | Floating button label. |
+| `data-position` | `position` | `bottom-right` | `bottom-right` or `bottom-left`. |
+| `data-accent` | `accent` | `#4338ca` | Accent colour, to match the site. |
 
-### Initialisation manuelle
-
-Utile en React, Astro ou Next quand le token vient d'un état applicatif. À
-appeler côté client, après le chargement du script :
+For React, Astro or Next when the token comes from app state:
 
 ```html
-<script src="https://reviewdesk.example/widget.js"></script>
+<script src="https://reviews.example.com/widget.js"></script>
 <script>
-  ReviewDesk.init({
-    api: 'https://reviewdesk.example',
-    projectId: 'UUID_DU_PROJET',
-    token: 'SECRET_DU_LIEN_REVIEWER',
-    label: 'Faire un retour',
-    position: 'bottom-right',
-  })
+  ReviewDesk.init({ api: 'https://reviews.example.com', projectId: 'PROJECT_ID', token: 'REVIEW_LINK_SECRET' })
 </script>
 ```
 
-Le widget refuse de s'initialiser deux fois sur la même page.
+</details>
 
 > [!IMPORTANT]
-> N'incluez ce script **que sur une préproduction protégée**. Le token présent
-> dans la page vaut droit de déposer un retour sur le projet : il est révocable
-> à tout moment depuis l'administration, mais il n'est pas secret pour qui
-> accède à la page.
+> Only add the script to a **protected staging site**. The token in the page lets
+> anyone who can see the page leave feedback on that project. It can be revoked
+> at any time from the admin.
 
-## Le parcours du reviewer
+## Plug in an AI agent (MCP)
 
-1. **Montrer l'endroit.** Un clic sur « Cliquez ici, puis l'endroit sur la page »
-   passe la page en mode pointage : l'élément survolé est encadré et nommé. Un
-   clic le fige et pose l'épingle. `Échap` ou *Annuler* sort du mode à tout
-   moment — lire les réponses ne doit jamais coûter un ticket bidon.
-2. **Dire ce qui ne va pas.** Un texte libre (4 000 caractères), une capture
-   facultative, et les diagnostics si le reviewer les accepte.
-3. **Envoyer.** Confirmation immédiate, puis suivi dans « Mes retours » :
-   statut et réponse de l'équipe, avec un compteur sur le bouton flottant dès
-   qu'une réponse arrive.
+A coding agent — Claude Code, Codex, Cursor, Claude Desktop, VS Code or any MCP
+client — can read the feedback, fix it and report back to the client.
 
-Ce que le widget capte est exactement ce que le reviewer a désigné et écrit :
-il n'y a ni capture automatique, ni lecture du DOM, ni session replay.
+1. Admin › **AI agents** › create a token (one project or all, read-only or read/write).
+   The `rda_…` secret is shown once, with the MCP configuration already written.
+2. Register the server (built by `npm run build` into `dist/mcp.js`):
 
-## L'administration
+   ```sh
+   claude mcp add reviewdesk \
+     --env REVIEWDESK_URL=https://reviews.example.com \
+     --env REVIEWDESK_TOKEN=rda_… \
+     -- node /path/to/reviewdesk/dist/mcp.js
+   ```
 
-Un seul secret (`ADMIN_PASSWORD`) ouvre l'administration. Le parcours :
+3. Ask: *"Go through the ReviewDesk tickets to do on project X, fix them, and move
+   each one to To validate with a note on what you changed."*
 
-1. **Connexion**, puis, sur une instance vide, le **guide** en trois étapes :
-   créer le projet (nom, client, adresse du site), installer le widget
-   (WordPress, Webflow, Framer, Wix, Squarespace, Tag Manager, HTML, Next.js ou
-   lien de relecture sans installation, avec vérification en direct de la
-   première connexion), brancher un agent IA (facultatif). Le même guide sert à chaque
-   nouveau projet. La marque blanche se règle quand on le souhaite, depuis le
-   menu du compte.
-2. **Tableau de bord** (d'après « App Dashboard » de shadcnstore sur
-   21st.dev) : une barre latérale (tableau de bord, tous les retours, agents
-   IA, personnalisation, projets avec leurs retours à traiter, compte), quatre
-   chiffres, les retours reçus et traités sur 30 jours, l'avancement de chaque
-   projet et l'activité récente.
-3. **Un projet** : ses retours en **tableau** (une colonne par statut,
-   glisser-déposer pour changer de statut) ou en **liste** (sections
-   repliables), au choix, mémorisé par le navigateur ; ou sa **vue d'ensemble**.
-4. **Un retour** s'ouvre en grand par-dessus : capture, échanges, réponse au
-   client ou message interne, « Lancer la correction », précédent / suivant
-   (`J` / `K`).
-
-Chaque écran a son adresse (`#/projets`, `#/p/<id>`, `#/p/<id>/stats`,
-`#/p/<id>/t/<ticket>`) : le bouton Retour du navigateur et les liens partagés
-mènent au bon endroit.
-
-### La vue d'ensemble
-
-L'onglet **« Vue d'ensemble »**, dans la barre de navigation, répond à trois
-questions dans cet ordre : ce qui attend, comment la file bouge, et où se trouve
-le travail.
-
-- cinq indicateurs : retours **à traiter** (avec l'âge du plus ancien), retours
-  **ouverts** (dont ceux qui traînent depuis plus de 7 jours), **reçus** et
-  **traités** sur la période, chacun comparé à la période précédente de même
-  longueur, et le **délai moyen** entre le dépôt et le passage à « traité » ;
-- un graphe d'activité jour par jour, reçus contre traités (Recharts, compilé
-  dans l'admin : aucun script n'est chargé depuis un CDN, la CSP le refuserait) ;
-- la répartition par statut, le classement des projets (cliquer une ligne ouvre
-  ce projet), les pages les plus signalées, et le journal des derniers
-  mouvements, agents compris (cliquer un mouvement ouvre le retour).
-
-La période se choisit entre 7, 30 et 90 jours ; ouverte depuis un projet, la vue
-d'ensemble ne compte que ce projet, depuis « Tous les retours » elle les compte
-tous.
-
-### Exporter le reste à faire en un prompt
-
-Le bouton **« Exporter pour Claude Code »**, dans la barre de filtres, rassemble
-**tous les retours au statut `À traiter`** du périmètre courant — projet, client,
-page et format filtrés sont respectés, le filtre de statut est ignoré — et en
-fait un seul bloc Markdown : pour chaque retour, le projet, la page, le sélecteur
-CSS de l'élément visé et le point cliqué en pourcentage, la taille d'écran, les
-diagnostics consentis, le lien de rejeu de l'épingle, la capture le cas échéant
-et la note interne s'il y en a une. L'ordre est chronologique, du plus ancien au
-plus récent, et l'export s'arrête à 400 retours.
-
-Un clic sur **Copier le prompt** le met dans le presse-papier : il se colle tel
-quel dans Claude Code ou tout autre agent, sans réécriture. Le prompt ne contient
-aucun secret — ni mot de passe admin, ni token reviewer. Les liens de capture,
-eux, restent protégés : ils ne s'ouvrent qu'avec une session admin.
-
-Le rejeu d'épingle suppose que le widget est déjà installé sur la page ouverte,
-ce qui est le cas d'une préproduction équipée du snippet ci-dessus. Le lien de
-rejeu ne contient **aucun secret** : c'est le snippet de la page qui porte le
-token, et l'ancre voyage dans le fragment d'URL, que le navigateur n'envoie
-jamais au serveur du client.
-
-## Brancher un agent IA (MCP)
-
-Un agent de code (Claude Code, Codex, Cursor, Claude Desktop, VS Code, ou tout
-client MCP) peut lire les retours, les traiter et rendre compte — sans qu'on lui
-recopie quoi que ce soit.
-
-### 1. Créer un jeton
-
-Administration → **Accès agents** → libellé, portée (un projet ou tous), droits
-(lecture seule ou lecture/écriture) → **Générer un jeton**. Le secret `rda_…`
-n'est affiché **qu'une fois**, avec la configuration MCP déjà remplie. Il est
-révocable à tout moment, et ne donne accès ni à l'administration, ni aux
-projets, ni aux liens reviewer.
-
-### Déclarer le serveur MCP à la main
-
-Le serveur MCP tourne depuis une copie de ce dépôt (`npm run build`, qui produit
-`dist/mcp.js`). Pour Claude Code :
-
-```bash
-claude mcp add reviewdesk \
-  --env REVIEWDESK_URL=https://reviewdesk.example \
-  --env REVIEWDESK_TOKEN=rda_… \
-  -- node /chemin/vers/reviewdesk/dist/mcp.js
-```
-
-Ou, dans un `.mcp.json` / `claude_desktop_config.json` :
-
-```json
-{
-  "mcpServers": {
-    "reviewdesk": {
-      "command": "node",
-      "args": ["/chemin/vers/reviewdesk/dist/mcp.js"],
-      "env": {
-        "REVIEWDESK_URL": "https://reviewdesk.example",
-        "REVIEWDESK_TOKEN": "rda_…"
-      }
-    }
-  }
-}
-```
-
-### 3. Ce que l'agent peut faire
-
-| Outil | Effet |
+| Tool | What it does |
 | --- | --- |
-| `list_projects` | Les projets visibles par le jeton, et le reste à faire par statut. |
-| `list_tickets` | Les retours, filtrés par statut, projet, page ou format, ou seulement ceux dont la correction est demandée (`requested`). |
-| `next_fix_request` | Le plus ancien retour pour lequel l'équipe a cliqué « Lancer la correction », avec son détail complet. |
-| `get_ticket` | Le détail : élément visé, page, écran, diagnostics, journal. |
-| `get_screenshot` | La capture jointe par le client, comme image. |
-| `comment_ticket` | Un commentaire, interne ou **publié au client**. |
-| `update_ticket` | Le statut **et** le compte rendu, en un seul appel. |
+| `list_projects` | Projects visible to the token, with counts per status. |
+| `list_tickets` | Tickets filtered by status, project, page or format. |
+| `next_fix_request` | The oldest ticket the team sent to an agent with **Lancer la correction**. |
+| `get_ticket` | Element, page, screen, diagnostics and history. |
+| `get_screenshot` | The client's screenshot, as an image. |
+| `comment_ticket` | An internal comment, or a reply published to the client. |
+| `update_ticket` | Status and report in one call. |
 
-Une boucle typique : « regarde les retours à traiter du projet X, corrige-les,
-et passe chaque ticket à `À valider` en expliquant ce que tu as changé ». Un
-commentaire en `visibility: "reviewer"` devient la réponse que le client lit
-dans son widget ; sinon il reste dans le journal, côté équipe.
+No MCP? The agent API is plain HTTP with a bearer token — see the
+[API reference](#reference) below.
 
-Le journal de chaque retour est visible dans l'administration, sous la réponse :
-les entrées d'un agent y sont distinguées de celles de l'équipe.
+## Updating
 
-### « Lancer la correction »
+**Releases are the update channel.** Work lands on `main` continuously; a version
+is only shipped when it is tagged `vX.Y.Z`, which builds the kits and publishes a
+[GitHub release](https://github.com/hugoinformatique/reviewdesk/releases) with
+its changelog. A self-hosted instance only ever moves from one release to the next.
 
-Sur la fiche d'un retour, le bouton **Lancer la correction** confie ce retour à
-un agent. MCP est appelé par l'agent, jamais l'inverse : l'administration ne
-peut pas réveiller un Claude Code ouvert sur un poste. Le bouton fait donc ce
-qui est réellement possible :
+| You run | How to update |
+| --- | --- |
+| **Docker** | `sh update.sh` in the install folder: downloads the latest release, checks its SHA-256, backs up the database, keeps your configuration and volumes, restarts. The previous folder is kept for rollback. [Details](docs/GUIDE-DOCKER-EN.md#8-operations) |
+| **Vercel** | **Sync fork** on GitHub; Vercel redeploys and migrations run on boot. |
+| **Local kit** | Download the new zip; see the [local kit guide](docs/KIT-LOCAL.md). |
 
-1. il met le retour en file (« Correction demandée », statut `En cours`, trace
-   au journal) ;
-2. il donne la commande ou le prompt exact pour l'agent choisi — `claude "…"`,
-   `codex "…"`, ou la consigne à coller dans Cursor, VS Code ou Claude Desktop —
-   copié en un clic (la copie automatique exige HTTPS ou `localhost`).
+**How you know:** the admin shows the installed version and a discreet
+*new version available* line when a newer release exists. To get notified
+anyway, click **Watch › Custom › Releases** on this repository.
 
-L'agent peut aussi vider la file seul : « traite les corrections demandées
-ReviewDesk une par une avec `next_fix_request` ». La demande se clôt d'elle-même
-quand le retour passe à `À valider` ou `Traité` ; l'équipe peut l'annuler.
+## Security and privacy
 
-### Sans MCP
+- **The widget never reads** form fields, cookies, `localStorage`, network
+  traffic or the console, and does no session replay. It sends what the client
+  points at and writes.
+- **Screenshots are shown before sending.** The one taken when the client points
+  is rendered in their browser, previewed in the form, and can be blurred,
+  annotated or removed; nothing leaves the page until they click *Send*.
+- **Diagnostics are opt-in**, with an exact preview of what is sent (viewport,
+  locale, coarse browser/OS, URL without query or hash).
+- **Review links and agent tokens** are stored as SHA-256 hashes only, scoped,
+  revocable, rate-limited. The reviewer API requires the bearer **and** the exact
+  origin; CORS is never used as authentication.
+- **Admin**: `HttpOnly` / `SameSite=Strict` session cookie and CSRF token;
+  strict CSP (`script-src 'self'; style-src 'self'`), no CDN.
+- **Uploads**: size-limited, checked by file signature, SVG refused, served only
+  to an authenticated admin.
+- **Update check**: while the admin is in use, the server asks GitHub's public API
+  for the latest release, at most twice a day. Nothing else is sent. Turn it off
+  with `UPDATE_CHECK=false`.
 
-L'API agent est une API HTTP ordinaire, utilisable depuis n'importe quel script :
+Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).
 
-```bash
-curl -H "Authorization: Bearer rda_…" \
-  "https://reviewdesk.example/api/agent/tickets?status=TODO"
+## Reference
 
-curl -X PATCH -H "Authorization: Bearer rda_…" -H "Content-Type: application/json" \
-  -d '{"status":"DONE","comment":"Contraste corrigé.","visibility":"reviewer"}' \
-  "https://reviewdesk.example/api/agent/tickets/UUID"
+<details>
+<summary><b>Configuration</b></summary>
+
+<br>
+
+Every variable is documented in [`.env.example`](.env.example). The main ones:
+
+| Variable | Default | Role |
+| --- | --- | --- |
+| `ADMIN_PASSWORD` | — | **Required.** ≥ 16 characters. The only human credential. |
+| `DATABASE_URL` | — | **Required.** `postgresql://…` (production, pooled) or `pglite://…` (development). |
+| `STORAGE_DRIVER` | — | `s3`, `supabase` or `filesystem` (development only). |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_REGION` | — | A dedicated **private** bucket. |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | — | Credentials limited to that bucket. |
+| `DATABASE_POOL_MAX` | `1` | Connections per instance. Raise only behind a pooler. |
+| `RUN_MIGRATIONS_ON_BOOT` | `true` | Set to `false` and run `npm run migrate` at build time to avoid cold-start migrations. |
+| `UPLOAD_MAX_BYTES` | `4000000` | Below Vercel's 4.5 MB request body limit. |
+| `SUBMISSIONS_PER_MINUTE` | `20` | Per review link. |
+| `AGENT_REQUESTS_PER_MINUTE` | `120` | Per agent token. |
+| `SESSION_TTL_SECONDS` | `28800` | Admin session lifetime. |
+| `UPDATE_CHECK` | `true` | `false` disables the new-release check. |
+| `LOG_LEVEL` | `warn` | Logs, with secrets redacted. |
+
+PGlite and filesystem storage are refused when `NODE_ENV=production` or `VERCEL=1`.
+
+</details>
+
+<details>
+<summary><b>HTTP API</b></summary>
+
+<br>
+
+**Reviewer** — review link bearer + allowed origin
+
+| Method | Route | Effect |
+| --- | --- | --- |
+| `POST` | `/api/feedback?projectId=…` | File anchored feedback. |
+| `GET` | `/api/feedback?projectId=…` | This link's feedback and the team's replies. |
+| `POST` | `/api/uploads?projectId=…` | Upload a screenshot (`multipart/form-data`). |
+
+**Agent** — `Authorization: Bearer rda_…`, no cookie, no CORS
+
+| Method | Route | Effect |
+| --- | --- | --- |
+| `GET` | `/api/agent/context` | Token scope and visible projects, with counts per status. |
+| `GET` | `/api/agent/tickets` | Tickets (`status`, `projectId`, `page`, `format`, `requested`, `limit`, `cursor`). |
+| `GET` | `/api/agent/tickets/:id` | One ticket and its history. |
+| `POST` | `/api/agent/tickets/:id/comments` | Internal comment or reply to the client. |
+| `PATCH` | `/api/agent/tickets/:id` | Status and comment in one call. |
+| `GET` | `/api/agent/uploads/:id` | A ticket's screenshot. |
+
+```sh
+curl -H "Authorization: Bearer rda_…" "https://reviews.example.com/api/agent/tickets?status=TODO"
 ```
 
-Elle s'authentifie par en-tête uniquement : pas de cookie, donc pas de surface
-CSRF, et aucune origine n'est autorisée en CORS — un navigateur tiers ne peut pas
-l'appeler à la place de l'agent.
+**Admin** — session cookie, CSRF token on writes: `/api/auth/*`, `/api/projects`,
+`/api/projects/:id/review-links`, `/api/tickets`, `/api/tickets/:id/comments`,
+`/api/tickets/:id/fix-request`, `/api/stats`, `/api/agent-tokens`, `/api/version`.
+`GET /health` is the liveness probe.
 
-## Identité
+</details>
 
-**La marque.** Une bulle de dialogue dont le seul contenu visible est le point
-dont on parle : le retour, et l'endroit exact auquel il appartient. Un seul
-tracé, une seule silhouette, lisible de 16 px à une tuile d'application. Elle
-vit dans `public/favicon.svg`, dans `admin/src/features/shell/brand-mark.tsx` et
-dans le lanceur du widget — trois fichiers, un même chemin.
+<details>
+<summary><b>Architecture</b></summary>
 
-**Le logotype.** `Review` en graisse normale, `Desk` en demi-gras : le contraste
-de graisse porte l'accent, ce qui laisse le symbole rester une forme pleine sans
-que les deux se disputent l'attention.
-
-**La typographie.** Geist et Geist Mono, auto-hébergées (SIL OFL 1.1). Chiffres
-tabulaires partout, interlettrage qui se resserre à mesure que le corps grandit.
-
-**La couleur.** Presque pas. Une rampe de gris, du blanc au noir, et le
-noir comme couleur d'action — un bouton principal est de l'encre, et s'inverse
-en thème sombre. La teinte n'apparaît que là où elle fait gagner du temps :
-les quatre statuts (bleu à traiter, ambre en cours, cyan à valider, vert
-traité), chacun à 4,5:1 au moins sur son fond, toujours accompagné de son
-libellé ; l'initiale de chaque projet sur une teinte stable ; le rouge des
-erreurs et des actions destructrices ; et les logos des outils dans le
-parcours de connexion — un logo redessiné en gris cesse d'être le logo de
-cette marque.
-
-**Le widget fait exception, exprès.** Côté client, il prend les couleurs de la
-page qui l'accueille : ce n'est pas notre outil qui se montre, c'est le site du
-client qui reçoit un commentaire. Seule la marque reste la nôtre.
-
-**Tout ce qui précède est un défaut, pas une contrainte.** Une instance est
-auto-hébergée et destinée à être revendue : l'assistant de personnalisation
-(entrée « Personnalisation » de la barre latérale) remplace le nom, le
-logo, le favicon et la couleur par ceux de l'agence qui la déploie. La rampe de
-gris reste ce que voit une instance non configurée ; dès qu'une teinte est
-choisie, elle devient la couleur d'action, et le texte qui s'y pose est calculé
-pour rester lisible (`src/brand-tokens.ts`).
-
-Les logos des outils tiers proviennent de [svgl.app](https://svgl.app) et
-appartiennent à leurs propriétaires respectifs ; ils sont employés ici pour
-désigner l'outil que la configuration vise, rien d'autre.
-
-## Architecture
+<br>
 
 ```text
-admin/             interface d'administration : Vite + React 19 + TypeScript,
-                   Tailwind CSS 4, shadcn/ui (Radix), TanStack Router et Query
-  src/lib/         client API (CSRF), types, requêtes, formatage, thème
-  src/components/  primitives UI (shadcn/ui) partagées
-  src/features/    un dossier par écran : shell, auth, dashboard, board,
-                   ticket, overview, guide, projects, install, agents,
-                   branding, fix, export, palette
-  src/styles.css   jetons de thème clair/sombre (contraste testé)
-public/index.html  admin compilée (+ public/assets/), générée par npm run build:admin
-public/widget.js   widget Shadow DOM sans framework (build de src/widget/index.ts)
-public/relecture.* page de relecture sans installation (favori « Faire un retour »)
-public/demo.html   page de test fictive (styles dans public/demo.css)
-public/fonts/      Geist et Geist Mono (SIL OFL 1.1), auto-hébergés
-public/favicon.svg marque du produit
-src/app.ts         routes Fastify, validation Zod, garde d'origine et CSRF
-src/mcp/server.ts  serveur MCP stdio (build de dist/mcp.js), adaptateur de l'API agent
-src/db/            PostgreSQL (prod) ou PGlite (dev), migrations idempotentes
-src/storage/       S3-compatible, Supabase Storage ou fichiers locaux (dev)
-api/index.ts       handler serverless (Vercel)
+src/app.ts          Fastify routes, Zod validation, origin guard and CSRF
+src/db/             PostgreSQL (production) or PGlite (development), idempotent migrations
+src/storage/        S3-compatible, Supabase Storage or local files (development)
+src/widget/         the widget: Shadow DOM, no framework → public/widget.js
+src/mcp/server.ts   stdio MCP server → dist/mcp.js
+admin/              admin UI: React 19, Vite, Tailwind CSS 4, shadcn/ui, TanStack Router + Query
+api/index.ts        Vercel serverless entry
+integrations/       WordPress plugin
+scripts/packaging/  Docker and local kits
 ```
 
-Deux modes existent et ne se mélangent pas :
+</details>
 
-- **production** : PostgreSQL externe via `DATABASE_URL`, stockage objet
-  S3-compatible **privé** via `STORAGE_DRIVER=s3` ;
-- **développement local uniquement** : PGlite sur disque et fichiers locaux. Ces
-  pilotes sont refusés si `NODE_ENV=production` ou `VERCEL=1`.
+## Development
 
-Chaque instance chaude réutilise un pool PostgreSQL borné
-(`DATABASE_POOL_MAX=1` par défaut). Les migrations sont idempotentes,
-sérialisées par advisory lock, et lançables au démarrage ou via `npm run migrate`.
-
-## Configuration
-
-Toutes les variables et leurs valeurs locales sont commentées dans
-[`.env.example`](.env.example). Les principales :
-
-| Variable | Défaut | Rôle |
-| --- | --- | --- |
-| `ADMIN_PASSWORD` | — | **Requis.** ≥ 16 caractères. Seule identité humaine. |
-| `DATABASE_URL` | — | **Requis.** `postgresql://…` (prod, chaîne poolée) ou `pglite://…` (dev). |
-| `DATABASE_POOL_MAX` | `1` | Connexions par instance. À ne monter que derrière un pooler. |
-| `RUN_MIGRATIONS_ON_BOOT` | `true` | Mettre à `false` et migrer au build pour éviter le cold start. |
-| `STORAGE_DRIVER` | — | `s3`, `supabase` ou `filesystem` (dev seulement). |
-| `S3_ENDPOINT` / `S3_BUCKET` / `S3_REGION` | — | Bucket **privé** dédié. |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | — | Identifiants limités à ce bucket. |
-| `UPLOAD_MAX_BYTES` | `4000000` | Sous la limite de 4,5 Mo d'un corps de requête Vercel. |
-| `SUBMISSIONS_PER_MINUTE` | `20` | Limite persistante par lien reviewer. |
-| `AGENT_REQUESTS_PER_MINUTE` | `120` | Limite persistante par jeton agent. |
-| `SESSION_TTL_SECONDS` | `28800` | Durée de la session admin. |
-| `WEBHOOK_TIMEOUT_MS` | `3000` | Budget de la notification sortante, attendue avant la réponse. |
-| `LOG_LEVEL` | `warn` | Journalisation, secrets expurgés. |
-
-## Déploiement sur Vercel
-
-**1. PostgreSQL externe.** Une base **dédiée** (Neon, Supabase ou compatible),
-avec sa chaîne **poolée** et TLS. Ne jamais réutiliser une base métier.
-
-```text
-DATABASE_URL=postgresql://...pooler.../reviewdesk?sslmode=require
-DATABASE_POOL_MAX=1
-```
-
-**2. Stockage objet privé.** Un bucket dédié Cloudflare R2, AWS S3, Scaleway,
-Backblaze B2 ou compatible. Pour R2 : bucket privé, ni `r2.dev` ni domaine
-public, identifiants limités à ce bucket.
-
-```text
-STORAGE_DRIVER=s3
-S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-S3_BUCKET=reviewdesk-uploads
-S3_REGION=auto
-S3_ACCESS_KEY_ID=...
-S3_SECRET_ACCESS_KEY=...
-S3_FORCE_PATH_STYLE=true
-```
-
-**3. Variables et build.**
-
-```text
-ADMIN_PASSWORD=<phrase aléatoire longue>
-NODE_ENV=production
-RUN_MIGRATIONS_ON_BOOT=true
-```
-
-Importer le dépôt dans Vercel : `vercel.json` construit les assets statiques et
-route `/api/*` et `/health` vers la fonction. Après déploiement : vérifier
-`/health`, se connecter à l'administration, créer un projet et son origine,
-tester un upload puis sa lecture admin.
-
-Pour éviter les migrations au cold start : `RUN_MIGRATIONS_ON_BOOT=false` et
-`npm run migrate` depuis un environnement disposant de `DATABASE_URL` avant le
-déploiement.
-
-Les coûts de base, de stockage, d'opérations et de sortie réseau sont ceux des
-fournisseurs choisis ; ce dépôt ne provisionne aucune ressource.
-
-## Sécurité et confidentialité
-
-**Ce que le widget ne collecte jamais** : champs de formulaire, cookies,
-`localStorage`, corps de requête réseau, texte du DOM, console arbitraire, IP
-applicative, session replay.
-
-**Diagnostics.** Désactivés par défaut. Après consentement, le reviewer voit
-exactement les champs envoyés : viewport, DPR borné, orientation, locale,
-fuseau, navigateur/OS grossiers, URL sans query ni hash ni credentials, et
-erreurs structurées allowlistées.
-
-**Libellé d'élément.** Le nom lisible affiché pendant le pointage (« Bouton
-« … » ») est construit et affiché **localement**. Seuls le sélecteur et le point
-relatif partent au serveur : aucun texte de la page ne se retrouve dans le
-ticket au-delà de ce que le reviewer écrit lui-même.
-
-**Authentification.** Les API reviewer exigent un bearer lié au projet **et**
-une origine exacte ; CORS ne sert jamais d'authentification. Le secret du lien
-n'est stocké que sous forme de SHA-256. Les mutations admin exigent un cookie
-`HttpOnly`/`SameSite=Strict` et un jeton CSRF.
-
-**Jetons agents.** Un secret machine `rda_…`, stocké en SHA-256 uniquement,
-révocable, limité à un projet ou à tous, et en lecture seule si on le souhaite —
-une tentative d'écriture renvoie alors `403 READ_ONLY_TOKEN`. Il n'ouvre ni
-l'administration, ni la création de projets, ni les liens reviewer. L'API agent
-s'authentifie par en-tête seul : aucun cookie, donc pas de CSRF, et aucune
-origine n'est renvoyée en CORS. La limite est de 120 requêtes par minute et par
-jeton, persistée comme les autres.
-
-**Uploads.** Limités à 4 000 000 octets par défaut, vérifiés par signature de
-fichier, SVG refusé, objets non publics. Les réponses privées portent
-`no-store` et la journalisation expurge les secrets.
-
-**Captures.** Exclusivement manuelles. ReviewDesk ne prétend pas masquer
-automatiquement des données sensibles visibles dans une capture : le reviewer
-contrôle le fichier avant l'envoi.
-
-## Référence API
-
-Reviewer — bearer du lien + origine autorisée :
-
-| Méthode | Route | Effet |
-| --- | --- | --- |
-| `POST` | `/api/feedback?projectId=…` | Dépose un retour ancré. |
-| `GET` | `/api/feedback?projectId=…` | Liste les retours de ce lien et leurs réponses. |
-| `POST` | `/api/uploads?projectId=…` | Envoie une capture (`multipart/form-data`). |
-
-Administration — cookie de session + jeton CSRF sur les mutations :
-
-| Méthode | Route | Effet |
-| --- | --- | --- |
-| `POST` | `/api/auth/login` · `/api/auth/logout` | Session admin. |
-| `GET` | `/api/auth/session` | État de session et jeton CSRF. |
-| `GET` `POST` | `/api/projects` | Liste et création de projets. |
-| `PATCH` | `/api/projects/:id` | Nom, client, origines, webhook. |
-| `GET` `POST` | `/api/projects/:id/review-links` | Liens reviewer (le secret n'est montré qu'une fois). |
-| `POST` | `/api/projects/:projectId/review-links/:linkId/revoke` | Révocation. |
-| `GET` | `/api/tickets` | Triage filtré, pagination par curseur. |
-| `GET` | `/api/stats` | Vue d'ensemble : `days` (7, 30, 90) et `projectId` optionnel. |
-| `GET` | `/api/onboarding` | État d'installation, déduit des données. |
-| `PATCH` | `/api/tickets/:id` | Statut, note interne, réponse au reviewer. |
-| `POST` `DELETE` | `/api/tickets/:id/fix-request` | Demander (ou annuler) la correction d'un retour par un agent. |
-| `GET` `POST` | `/api/tickets/:id/comments` | Journal d'un retour. |
-| `GET` | `/api/uploads/:id` | Téléchargement privé d'une capture. |
-| `GET` `POST` | `/api/agent-tokens` | Jetons agents (le secret n'est montré qu'une fois). |
-| `POST` | `/api/agent-tokens/:id/revoke` | Révocation d'un jeton agent. |
-| `GET` | `/health` | Sonde de disponibilité, sans métadonnée d'infrastructure. |
-
-Agent — `Authorization: Bearer rda_…`, sans cookie ni CSRF :
-
-| Méthode | Route | Effet |
-| --- | --- | --- |
-| `GET` | `/api/agent/context` | Portée du jeton et projets visibles, avec le compte par statut. |
-| `GET` | `/api/agent/tickets` | Retours filtrés (`status`, `projectId`, `page`, `format`, `requested`, `limit`, `cursor`). |
-| `GET` | `/api/agent/tickets/:id` | Détail d'un retour et son journal. |
-| `POST` | `/api/agent/tickets/:id/comments` | Commentaire interne ou publié au client. |
-| `PATCH` | `/api/agent/tickets/:id` | Statut et commentaire, en un appel. |
-| `GET` | `/api/agent/uploads/:id` | Capture d'un retour du projet du jeton. |
-
-## Développer et vérifier
-
-```bash
-npm run dev          # serveur en rechargement à chaud (sert public/)
-npm run dev:admin    # admin React en rechargement à chaud (Vite, :5173,
-                     # API proxifiée vers REVIEWDESK_API, défaut http://127.0.0.1:4390)
-npm run build:admin  # admin React → public/index.html + public/assets/
-npm run build        # widget + admin + serveur
+```sh
+npm run dev          # server with hot reload (serves public/)
+npm run dev:admin    # admin with hot reload (Vite, :5173)
 npm run lint         # ESLint
-npm run typecheck    # tsc --noEmit
-npm test             # tests unitaires et d'intégration
-npm run test:docker  # idem, contre PostgreSQL + MinIO jetables
-npm run test:e2e     # E2E Playwright, admin :4310 et preview :4311
-npm run check        # tout l'enchaînement ci-dessus + npm audit --omit=dev
+npm run typecheck    # server + admin
+npm test             # unit and integration tests
+npm run test:docker  # same, against throwaway PostgreSQL + MinIO containers
+npm run test:e2e     # Playwright, on two real origins
+npm run check        # all of the above + build + npm audit
 ```
 
-`npm run check` est la porte d'entrée : lint, typecheck, **75 tests Node**
-(unitaires et intégration adversariale contre PostgreSQL + MinIO Docker
-jetables — 3 d'entre eux sont sautés sans Docker), build, **3 E2E Playwright**
-sur une origine réellement distincte, puis `npm audit --omit=dev`.
+`public/widget.js`, `public/index.html` and `public/assets/` are build outputs:
+edit `src/widget/` and `admin/src/`, then `npm run build:assets`.
 
-Le serveur MCP est testé comme un agent l'utilise : un vrai processus fils, du
-vrai JSON-RPC sur stdio, contre une instance ReviewDesk qui écoute (voir
-`tests/integration/mcp.test.ts`).
+## Contributing
 
-Le widget et l'admin sont des artefacts de build : modifier
-`src/widget/index.ts` et `admin/src/`, jamais `public/widget.js`,
-`public/index.html` ni `public/assets/`, puis `npm run build:assets`.
+Issues and pull requests are welcome.
 
-L'admin tourne sous la même CSP stricte que le reste
-(`script-src 'self'; style-src 'self'`) : aucune balise `<style>` ni script
-inline. Deux dépendances (Sonner, le verrouillage de défilement de Radix)
-injectent normalement une balise `<style>` ; `vite.config.ts` coupe cette
-injection au build et leurs règles vivent dans `admin/src/styles.css`.
+1. For anything bigger than a fix, open an issue first to discuss it.
+2. Branch from `main` (`feat/…`, `fix/…`, `docs/…`).
+3. `npm run check` must pass; changes touching privacy (what the widget sends,
+   logging) come with the test that locks them.
+4. Add a line under `## [Non publié]` in [CHANGELOG.md](CHANGELOG.md).
 
-## Versions
+Code comments explain *why*, not *what*.
 
-Les évolutions sont consignées dans [CHANGELOG.md](CHANGELOG.md), au format
-Keep a Changelog. Version courante : **10.0.0**.
+## License
 
-Le numéro se décide à la taille du changement : **majeur** pour une grosse
-fonctionnalité ou une refonte, **mineur** pour une petite amélioration,
-**correctif** pour un bug. Les ruptures sont signalées explicitement dans le
-changelog.
+[MIT](LICENSE) © Hugo Informatique.
 
-## Limites connues
-
-- une seule identité admin par secret d'environnement ; ni SSO ni comptes multiples ;
-- aucune capture automatique, aucune annotation flèche/rectangle : upload manuel seulement ;
-- rate limiting persistant par lien, mais pas de protection réseau/WAF distribuée ;
-- le rejeu d'épingle échoue proprement (épingle rouge) si l'élément d'origine a
-  disparu de la page ;
-- aucune ressource PostgreSQL, bucket, projet Vercel ou domaine n'est provisionné ici ;
-- une mise en ligne publique suppose au préalable la base dédiée, le bucket
-  privé, les secrets, et une protection d'accès forte sur la préproduction.
-
-## Contribuer
-
-Les contributions sont bienvenues.
-
-1. Ouvrir une issue décrivant le problème ou l'intention avant un gros changement.
-2. Travailler sur une branche (`feat/…`, `fix/…`, `docs/…`).
-3. `npm run check` doit passer en entier.
-4. Ajouter une entrée sous `## [Non publié]` dans [CHANGELOG.md](CHANGELOG.md).
-5. Les commentaires du code expliquent **pourquoi**, pas quoi : c'est la
-   convention du dépôt, merci de la suivre.
-
-Toute modification touchant la confidentialité (diagnostics, contenu envoyé,
-journalisation) doit être accompagnée du test qui la verrouille.
-
-## Licence
-
-Ce dépôt n'est pas encore placé sous une licence open source : tous droits
-réservés pour l'instant. Une licence permissive est envisagée ; d'ici là,
-demandez avant toute réutilisation.
+Geist and Geist Mono are self-hosted under the SIL Open Font License 1.1.
+Third-party tool logos come from [svgl.app](https://svgl.app) and belong to their owners.

@@ -26,6 +26,8 @@ export default defineConfig({
         UPLOAD_DIR: '.data/e2e-uploads',
         ADMIN_PASSWORD: 'grenat-fougere-litanie-8412',
         PORT: '4310',
+        // Hermetic run: no lookup of the latest GitHub release.
+        UPDATE_CHECK: 'false',
       },
     },
     {

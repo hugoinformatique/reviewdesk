@@ -171,6 +171,8 @@ services:
       S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:?S3_FORCE_PATH_STYLE manquant dans .env}"
       S3_KEY_PREFIX: "${S3_KEY_PREFIX:-uploads}"
       NODE_EXTRA_CA_CERTS: "${NODE_EXTRA_CA_CERTS:-}"
+      # Server-side check for a newer GitHub release; UPDATE_CHECK=false in .env disables it.
+      UPDATE_CHECK: "${UPDATE_CHECK:-true}"
     secrets:
       - admin_password
       - postgres_password

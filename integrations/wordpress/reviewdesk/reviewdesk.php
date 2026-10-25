@@ -6,7 +6,8 @@
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            ReviewDesk
- * License:           Propriétaire
+ * License:           MIT
+ * License URI:       https://opensource.org/licenses/MIT
  * Text Domain:       reviewdesk
  */
 

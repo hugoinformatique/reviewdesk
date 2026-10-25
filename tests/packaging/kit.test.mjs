@@ -108,7 +108,7 @@ test('standalone manifest pins runtime dependencies including PGlite and lockfil
   const lock = JSON.parse(await readFile(new URL('../../scripts/packaging/runtime/package-lock.json', import.meta.url)));
   validateRuntimeManifest(manifest, lock);
   assert.equal(manifest.version, JSON.parse(await readFile(new URL('../../package.json', import.meta.url))).version);
-  assert.equal(manifest.license, 'UNLICENSED');
+  assert.equal(manifest.license, 'MIT');
   assert.ok(manifest.dependencies['@electric-sql/pglite']);
   assert.equal(manifest.devDependencies, undefined);
   assert.equal(lock.packages['node_modules/@electric-sql/pglite'].dev, undefined);

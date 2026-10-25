@@ -5,7 +5,7 @@
   "framework": null,
   "functions": {
     "api/index.ts": {
-      "excludeFiles": "{tests/**,artifacts/**,public/**,dist/**,scripts/**,.data/**,.deps/**}"
+      "excludeFiles": "{tests/**,docs/**,public/**,dist/**,scripts/**,.data/**,.deps/**}"
     }
   },
   "rewrites": [

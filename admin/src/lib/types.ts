@@ -111,3 +111,12 @@ export type Stats = {
 };
 
 export type Onboarding = { projects: number; reviewLinks: number; tickets: number; agentTokens: number; connectedAgents: number };
+
+/** `GET /api/version`: what is installed and, when the server could tell, what is newer. */
+export type VersionInfo = {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  releaseUrl: string | null;
+  checkEnabled: boolean;
+};

@@ -10,6 +10,8 @@ import { createDb, type Db } from './db/index.js';
 import { ensureMigrated } from './db/migrate.js';
 import { createObjectStore, StorageError, type ObjectStore } from './storage/index.js';
 import { cleanUrl, normalizeDiagnostics } from './privacy.js';
+import { createUpdateChecker, type FetchLike } from './update-check.js';
+import { VERSION } from './version.js';
 import { accentTokens, normaliseHex } from './brand-tokens.js';
 import { EMAIL_DELIVERY_NOTE, brandingInput, readBranding, writeBranding } from './branding.js';
 import {
@@ -134,7 +136,11 @@ export const CREDENTIAL_REDACT_PATHS = ['authorization', 'cookie', 'set-cookie',
 export type App = FastifyInstance & { reviewdesk: { db: Db; store: ObjectStore; config: AppConfig } };
 
 /** `logStream` exists so tests can assert what does and does not reach the logs. */
-export type BuildOptions = { logStream?: NodeJS.WritableStream };
+export type BuildOptions = {
+  logStream?: NodeJS.WritableStream;
+  /** Replaces the global `fetch` for the update check; tests never touch the network. */
+  updateFetch?: FetchLike;
+};
 
 export async function buildApp(config: AppConfig, options: BuildOptions = {}): Promise<App> {
   const db = await createDb(config.database);
@@ -371,6 +377,14 @@ export async function buildApp(config: AppConfig, options: BuildOptions = {}): P
     });
     return reply.code(200).send({ csrfToken });
   });
+
+  const updates = createUpdateChecker({
+    enabled: config.updateCheck,
+    repository: config.updateCheckRepository,
+    currentVersion: VERSION,
+    ...(options.updateFetch ? { fetch: options.updateFetch } : {}),
+  });
+  app.get('/api/version', { preHandler: requireAdmin }, async () => updates.get());
 
   app.get('/api/auth/session', { preHandler: requireAdmin }, async (req) => ({
     csrfToken: req.adminSession!.csrfToken,

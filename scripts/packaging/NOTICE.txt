@@ -1,8 +1,31 @@
-ReviewDesk 10.0.0 — kit local
+ReviewDesk — kit local
 
-Tous droits réservés. Ce projet n'est pas placé sous une licence open source.
-Demandez une autorisation avant toute réutilisation. La fourniture de ce kit
-ne modifie pas ce statut et n'accorde aucune licence permissive.
+ReviewDesk est un logiciel libre distribué sous licence MIT ; le texte
+intégral suit. Code source : https://github.com/hugoinformatique/reviewdesk
 
 Les dépendances tierces restent soumises à leurs propres licences : consultez
 les notices installées dans node_modules et public/fonts/LICENSE-geist.txt.
+
+--------------------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Hugo Informatique
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

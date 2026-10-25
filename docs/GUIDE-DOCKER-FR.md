@@ -1,14 +1,15 @@
 # ReviewDesk — guide d'auto-hébergement Docker Compose
 
+[English](GUIDE-DOCKER-EN.md) · **Français**
+
 Cette archive installe ReviewDesk sur un serveur avec Docker Compose, **sans
 compte cloud** : l'application compilée, une base PostgreSQL dédiée et un
 stockage S3 intégré (SeaweedFS) pour les captures d'écran, tous sur le même
 hôte. Aucun Node.js n'est requis sur l'hôte. Un S3 externe reste possible en
 option (section 7).
 
-> **Statut juridique.** Tous droits réservés. Cette archive n'accorde aucune
-> licence ; sa redistribution n'est autorisée que par le titulaire des droits,
-> qui décide seul des conditions d'utilisation. Voir `NOTICE.txt`.
+> **Licence.** ReviewDesk est un logiciel libre, distribué sous
+> [licence MIT](../LICENSE) (texte inclus dans l'archive, `NOTICE.txt`).
 >
 > **Frais d'hébergement.** Aucun service payant n'est requis par l'archive,
 > mais le serveur, son disque, ses sauvegardes, le nom de domaine et le
@@ -72,10 +73,15 @@ L'application fait confiance à l'autorité interne via `NODE_EXTRA_CA_CERTS`
 
 ## 3. Vérifier et extraire l'archive
 
+Téléchargez `reviewdesk-vX.Y.Z-docker.zip` et son `.sha256` depuis la
+[dernière release GitHub](https://github.com/hugoinformatique/reviewdesk/releases/latest),
+ou construisez-les depuis les sources avec `npm ci && npm run package:docker`
+(Node 22 ; résultat dans `dist/kits/`).
+
 ```sh
-sha256sum -c reviewdesk-v8.0.0-docker.zip.sha256
-unzip reviewdesk-v8.0.0-docker.zip
-cd reviewdesk-v8.0.0-docker
+sha256sum -c reviewdesk-v*-docker.zip.sha256
+unzip reviewdesk-v*-docker.zip
+cd reviewdesk-v*-docker
 ```
 
 ## 4. Configurer
@@ -346,7 +352,24 @@ options d'identifiants sont refusées sans `--s3-endpoint`.
   (`docker compose stop app s3 s3-storage`), en archivant le volume avec vos outils
   habituels, puis `docker compose up -d`. Cette procédure n'est ni outillée ni
   testée par l'archive.
-- **Mise à jour** : extrayez la nouvelle archive dans un nouveau dossier,
+- **Mise à jour** : depuis le dossier d'installation courant,
+  `sh update.sh` installe la dernière release GitHub (`--version X.Y.Z` pour
+  une version précise, `--archive reviewdesk-vX.Y.Z-docker.zip` pour une mise
+  à jour hors ligne, avec son `.sha256` à côté ; `--yes` saute la confirmation,
+  `--skip-backup` ignore la sauvegarde, `--timeout SECONDES` borne l'attente ;
+  `sh update.sh --help` détaille tout). Le script vérifie le SHA-256, extrait
+  la version dans le dossier frère `reviewdesk-vX.Y.Z-docker` (refusé s'il
+  existe), y copie `.env`, `secrets/` et `certs/` avec leurs droits, vérifie
+  la configuration (`sh install.sh`), demande confirmation, sauvegarde la base
+  (`backup-AAAAMMJJ-HHMMSS.sql`, dans l'**ancien** dossier, arrêt si elle
+  échoue), relance `docker compose up -d --build --force-recreate` depuis le
+  nouveau dossier et attend que `app` soit `healthy`. Il ne propose jamais de
+  version plus ancienne, ne supprime ni l'ancien dossier ni les volumes
+  (jamais de `down -v`). **Retour arrière** : relancez
+  `docker compose up -d --build --force-recreate` depuis l'ancien dossier et,
+  si les migrations ont modifié la base, restaurez d'abord la sauvegarde.
+  À la main, les mêmes étapes :
+  extrayez la nouvelle archive dans un nouveau dossier,
   copiez-y `.env`, `secrets/` et `certs/` en conservant les droits
   (`cp -a`), vérifiez avec `sh install.sh`, puis, depuis ce dossier :
   `docker compose up -d --build --force-recreate`. `--force-recreate` est

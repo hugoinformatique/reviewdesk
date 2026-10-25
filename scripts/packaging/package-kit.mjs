@@ -45,7 +45,7 @@ export async function collectSourceAssets(directory) {
 }
 
 export function validateRuntimeManifest(manifest, lock) {
-  if (manifest.name !== 'reviewdesk-local' || !/^\d+\.\d+\.\d+$/.test(manifest.version ?? '') || manifest.license !== 'UNLICENSED' || !manifest.private || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || !manifest.dependencies?.['@electric-sql/pglite']) {
+  if (manifest.name !== 'reviewdesk-local' || !/^\d+\.\d+\.\d+$/.test(manifest.version ?? '') || manifest.license !== 'MIT' || !manifest.private || manifest.type !== 'module' || manifest.engines?.node !== '22.x' || manifest.devDependencies || !manifest.dependencies?.['@electric-sql/pglite']) {
     throw new Error('Manifeste runtime invalide.');
   }
   if (lock.lockfileVersion !== 3 || lock.name !== manifest.name || lock.version !== manifest.version || JSON.stringify(lock.packages[''].dependencies) !== JSON.stringify(manifest.dependencies)) throw new Error('Lock runtime incohérent.');
